@@ -1,0 +1,248 @@
+---
+title: "Starter System"
+author: "mhv"
+date: "6/29/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load packages
+```{r}
+library(timeDate)
+```
+
+
+# Starter system
+
+
+## Get data: Single instrument, single product
+### Price data
+30 years of simulated price data
+```{r}
+holidays <- holidayNYSE()
+days <- as.timeDate(seq(from = as.Date("2000-01-01"), to = as.Date("2021-12-31"), by = "day"))
+bizdays <- days[isBizday(days, holidays = holidays, wday = 1:5)]
+
+data <- data.frame(date = bizdays)
+names(data)[1] <- "date"
+
+set.seed(3630)
+data$returns <- c(NA, rnorm(nrow(data) - 1, 0, 0.05/sqrt(252)))
+#data$price <- cumprod(c(100, data$returns[2:length(data$returns)] + 1)) ## Initial price is 100
+data$price <- prices_from_returns(data$returns, 100)
+```
+
+```{r}
+plot(data$date, data$price, pch = 16, cex = 0.2, xlab = "date", ylab = "price")
+```
+
+## Configuration
+```{r}
+data$capital[1] <- 1000000
+mac <- c(16, 64) ## moving average crossover
+sr <- 0.24 ## Sharpe Ratio
+num_trades <- 5.4 ## Expected number of trades per year
+risk_target <- 0.12
+
+stop_loss_fraction <- 0.5
+risky_capital_pct_ <- risky_capital_pct(risk_target, stop_loss_fraction)
+#stop_loss_gap_ <- 
+
+cat("Capital:", capital,"\n")
+cat("Moving average crossover:", mac[1], ",", mac[2],"\n")
+cat("Sharpe Ratio:", sr,"\n")
+cat("Expected number of trades per year:", num_trades,"\n")
+cat("Risk target:", risk_target,"\n")
+cat("Instrument risk in %:", instrument_risk_,"\n")
+cat("Notional exposure:", notional_exposure_,"\n")
+cat("\n")
+cat("Stop loss fraction:", 0.5)
+```
+
+## Moving Average
+
+MA16
+```{r}
+data$ma16 <- moving_average(data$price, 16)
+```
+
+MA64
+```{r}
+data$ma64 <- moving_average(data$price, 64)
+```
+
+MA256
+```{r}
+data$ma256 <- moving_average(data$price, 256)
+```
+
+```{r}
+plot(data$date, data$price, pch = 16, cex = 0.2, xlab = "date", ylab = "price")
+points(data$date, data$ma16, pch = 16, cex = 0.2, col = "green")
+points(data$date, data$ma64, pch = 16, cex = 0.2, col = "red")
+points(data$date, data$ma256, pch = 16, cex = 0.2, col = "blue")
+```
+
+
+## Moving Average Crossover
+
+```{r}
+data$mac <- moving_average_crossover(data$ma64, data$ma256)
+```
+
+
+Gray dot = 1 indicates uptrend.  
+Gray dot = 0 indicates downtrend.
+```{r}
+plot(data$date, data$price, pch = 16, cex = 0.2, xlab = "date", ylab = "price", ylim = c(min(data$price), max(data$price)))
+points(data$date, data$ma64, pch = 16, cex = 0.2, col = "red")
+points(data$date, data$ma256, pch = 16, cex = 0.2, col = "blue")
+points(data$date, data$mac * (max(data$price) - min(data$price)) + min(data$price), pch = 16, cex = 0.2, col = "gray")
+```
+# Returns
+```{r}
+plot(data$date[2:length(data$date)], data$returns[2:length(data$date)], type = "l", lwd = 0.2, xlab = "date", ylab = "return")
+```
+
+# Trade simulation 1
+```{r}
+data$instr_risk <- rep(NA, nrow(data))
+data$notional_exposure <- rep(NA, nrow(data))
+data$position_size <- rep(NA, nrow(data))
+for(t in 26:(nrow(data))) {
+  data$instr_risk[t] <- instr_risk(data$price[(t-25):t]) ## Annualised standard deviation of last 25 returns
+  data$notional_exposure[t] <- notional_exposure(risk_target, prices$capital[t], data$instr_risk[t])
+  data$position_size[t] <- data$notional_exposure[t] / data$price[t]
+}
+```
+
+
+```{r}
+plot(data$date[26:length(data$date)], data$instr_risk[26:length(data$date)], type = "l", lwd = 0.2, xlab = "date", ylab = "instrument risk")
+```
+
+```{r}
+plot(data$date[26:length(data$date)], data$notional_exposure[26:length(data$date)], type = "l", lwd = 0.2, xlab = "date", ylab = "notional exposure")
+```
+
+```{r}
+plot(data$date[26:length(data$date)], data$position_size[26:length(data$date)], type = "l", lwd = 0.2, xlab = "date", ylab = "position size")
+```
+
+# Trade simulation 2
+
+Generate time series `prices` of simulated prices.  
+Trades simulation iteratively builds a data frame `trades_data` with `prices` and previous `trades_data` as input.
+
+```{r}
+volatility = 0.12 ## I chose same vol as target_risk
+
+holidays <- holidayNYSE()
+days <- as.timeDate(seq(from = as.Date("2000-01-01"), to = as.Date("2021-12-31"), by = "day"))
+bizdays <- days[isBizday(days, holidays = holidays, wday = 1:5)]
+
+prices <- data.frame(date = bizdays)
+names(prices)[1] <- "date"
+
+#set.seed(3630)
+set.seed(1729)
+prices$returns <- c(NA, rnorm(nrow(prices) - 1, 0, volatility/sqrt(252)))
+
+prices$price <- prices_from_returns(prices$returns, 100)
+```
+
+Replace prices with neat integer series
+```{r}
+gen_num <- function(max_num) {
+  num = NA
+  flag_up = 1
+  for(t in 1:max_num){
+    flag_down = 1
+    
+    if(flag_up == 1) {
+      num[t] <- ((t-1)%%200) + 1
+      flag_down = 0
+      if(num[t] == 200) {
+        flag_up = 0
+      }
+    }
+    
+    if(flag_down == 1) {
+      num[t] <- 200 - (t-1)%%200 + 1
+      flag_up = 0
+      if(num[t] == 2) {
+        flag_up = 1
+      }
+    }
+  }
+  num
+}
+prices$price <- gen_num(nrow(prices))
+```
+
+
+Run the simulation...
+```{r}
+output <- trade_sim(prices, init_capital = 1000, n_fast = 32, n_slow = 128, risk_target = 0.12, stop_loss_fraction = 0.5)
+
+trades <- output[[1]]
+accounts <- output[[2]]
+```
+
+
+```{r}
+trades
+```
+
+```{r}
+accounts
+```
+
+
+```{r}
+plot(trades$date, trades$price, pch = 16, cex = 0.3, xlab = "date", ylab = "dollars")
+points(trades$date, trades$ma_fast, pch = 16, cex = 0.25, col = "red")
+points(trades$date, trades$ma_slow, pch = 16, cex = 0.2, col = "green")
+points(trades$date, (trades$mac + 1) * 0.5 * (max(trades$price) - min(trades$price)) + min(trades$price), pch = 16, cex = 0.2, col = "gray")
+title('MA(32, 128)')
+legend(
+  x = as.numeric(trades$date[round(length(trades$date) * 0.8)]), y = max(trades$price) * 0.9,  
+  legend=c('price', 'ma_short', 'ma_long'), 
+  col=c('black','red','green'), 
+  lty=c(1,1,1), cex=0.6
+)
+```
+
+```{r}
+plot(trades$date, accounts$pnl, pch = 16, cex = 0.4, xlab = "date", ylab = "dollars", ylim = c(min(c(accounts$pnl, accounts$capital, accounts$cash)), max(c(accounts$pnl, accounts$capital, accounts$cash))))
+points(trades$date, accounts$capital, pch = 16, cex = 0.4, col = "red")
+points(trades$date, accounts$cash, pch = 16, cex = 0.15, col = "green")
+legend(
+  x = as.numeric(trades$date[round(length(trades$date) * 0.8)]), y = max(c(accounts$pnl, accounts$capital, accounts$cash)) * 0.9, 
+  legend=c('pnl', 'capital', 'cash'), 
+  col=c('black','red','green'), 
+  lty=c(1,1,1), cex=0.6
+)
+```
+
+(Lines here are not dashed. The gaps are weekends.)
+```{r}
+plot(trades$date[1:500], accounts$pnl[1:500], pch = 16, cex = 0.2, xlab = "date", ylab = "dollars", ylim = c(min(accounts$pnl[1:500], accounts$capital[1:500], accounts$cash[1:500]), max(accounts$pnl[1:500], accounts$capital[1:500], accounts$cash[1:500])))
+points(trades$date[1:500], accounts$capital[1:500], pch = 16, cex = 0.3, col = "red")
+points(trades$date[1:500], accounts$cash[1:500], pch = 16, cex = 0.15, col = "green")
+title('pnl, capital, cash (first 500 days)')
+legend(
+  x = as.numeric(trades$date[400]), y = max(accounts$pnl[1:500], accounts$capital[1:500], accounts$cash[1:500]) * 0.9,  
+  legend=c('pnl', 'capital', 'cash'), 
+  col=c('black','red','green'), 
+  lty=c(1,1,1), cex=0.6
+)
+```
+```{r}
+plot(trades$date, trades$notional_exposure, pch = 16, cex = 0.2, xlab = "date", ylab = "dollars")
+title('notional exposure')
+```
+
