@@ -7,7 +7,7 @@
 price_unit_vol(instr_risk, price)
 }
 \arguments{
-\item{price}{F22}
+\item{price}{LT F22}
 }
 \description{
 Price unit volatility (instrument risk in price units)

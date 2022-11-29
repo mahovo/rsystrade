@@ -3,11 +3,11 @@
 \name{minimum_capital}
 \alias{minimum_capital}
 \title{Minimum capital
-F21}
+LT F21}
 \usage{
 minimum_capital(min_exposure, instr_risk, target_risk)
 }
 \description{
 Minimum capital
-F21
+LT F21
 }

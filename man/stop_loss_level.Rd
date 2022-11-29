@@ -3,7 +3,7 @@
 \name{stop_loss_level}
 \alias{stop_loss_level}
 \title{Stop loss level
-F24}
+LT F24}
 \usage{
 stop_loss_level(hwm, lwm, stop_loss_gap, direction = 0, rnd = TRUE)
 }
@@ -20,5 +20,5 @@ stop_loss_level(hwm, lwm, stop_loss_gap, direction = 0, rnd = TRUE)
 }
 \description{
 Stop loss level
-F24
+LT F24
 }
