@@ -7,7 +7,7 @@
 stop_loss_gap(price_unit_vol, stop_loss_fraction)
 }
 \arguments{
-\item{stop_loss_fraction}{F23}
+\item{stop_loss_fraction}{LT F23}
 }
 \description{
 Stop loss gap

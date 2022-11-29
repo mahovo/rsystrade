@@ -3,7 +3,7 @@
 \name{notional_exposure}
 \alias{notional_exposure}
 \title{Notional exposure
-F14}
+LT F14}
 \usage{
 notional_exposure(risk_target, capital, instrument_risk)
 }
@@ -16,5 +16,5 @@ notional_exposure(risk_target, capital, instrument_risk)
 }
 \description{
 Notional exposure
-F14
+LT F14
 }

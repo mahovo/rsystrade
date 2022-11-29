@@ -1,12 +1,14 @@
-########################################################################
-## rsystrade
-## v0.0.0.9000
-## 2022-09-22
-########################################################################
 
-## Note
+## Notes
+## 1)
 ## Decimal fractions are used instead of percentages throughout.
 ## Example: 87 percent is expressed as 0.87.
+##
+## 2)
+## "LT" refers to Robert Carver: Leveraged Trading
+## "ST" refers to Robert Carver: Systematic Trading
+## "F" for "formula".
+
 
 ## Basic calculations ====
 
@@ -16,7 +18,7 @@
 ## b, borrowing rate
 ## V, value (V_t, value at time t)
 
-## FORMULA 4.1a
+##LT F4.1a
 
 #' Title
 #'
@@ -31,7 +33,7 @@
 growth_rate_lvrg <- function(L, r, b) {L * r - (L - 1) * b}
 
 
-## FORMULA 4.1b
+## LT F4.1b
 #' Title
 #'
 #' @param V
@@ -46,7 +48,7 @@ growth_rate_lvrg <- function(L, r, b) {L * r - (L - 1) * b}
 growth_lvrg <- function(V, L, r, b) {(1 + (L * r - (L - 1) * b)) * V}
 
 
-## FORMULA 4.1c
+## LT F4.1c
 #' Title
 #'
 #' @param V
@@ -95,7 +97,7 @@ prices_from_returns <- function(returns, initial_price) {
 #' Calculates average of n items prior to time t in price vector.
 #'
 #' Moving average
-#' F12
+#' LT F12
 #'
 #' @param prices Vector.
 #' @param n Window length.
@@ -127,7 +129,7 @@ moving_average <- function(prices, n, t = NA) {
 #' Calculates moving average for each row in a price series data frame.
 #'
 #' Moving average
-#' F12
+#' LT F12
 #'
 #' @param prices Vector.
 #' @param n Window length.
@@ -152,7 +154,7 @@ moving_average_vector <- function(prices, n) {
 
 
 #' Moving Average Crossover
-#' F13
+#' LT F13
 #'
 #' @param ma_fast Fast moving average
 #' @param ma_slow Slow moving average
@@ -176,7 +178,7 @@ moving_average_crossover <- function(ma_fast, ma_slow, gap = 0) {
 ## Risk ====
 
 #' Notional exposure
-#' F14
+#' LT F14
 #'
 #' @param risk_target Risk target as decimal fraction
 #' @param capital Trading capital in currency
@@ -226,7 +228,7 @@ min_exposure <- function(min_exposure, instr_risk, target_risk) {
 }
 
 #' Minimum capital
-#' F21
+#' LT F21
 #'
 #' @param min_exposure
 #' @param instr_risk
@@ -240,7 +242,7 @@ minimum_capital <- function(min_exposure, instr_risk, target_risk) {
 #' @param instr_risk
 #' @param price
 #'
-#' F22
+#' LT F22
 price_unit_vol <- function(instr_risk, price) {
   instr_risk * price
 }
@@ -250,7 +252,7 @@ price_unit_vol <- function(instr_risk, price) {
 #' @param price_unit_vol
 #' @param stop_loss_fraction
 #'
-#' F23
+#' LT F23
 stop_loss_gap <- function(price_unit_vol, stop_loss_fraction) {
   price_unit_vol * stop_loss_fraction
 }
@@ -261,7 +263,7 @@ stop_loss_gap <- function(price_unit_vol, stop_loss_fraction) {
 #' @param t
 #' @param t_trade_open
 #'
-#' F24
+#' LT F24
 hwm <- function (prices, t, t_trade_open) {
   max(prices[t_trade_open:t])
 }
@@ -272,13 +274,13 @@ hwm <- function (prices, t, t_trade_open) {
 #' @param t
 #' @param t_trade_open
 #'
-#' F24
+#' LT F24
 lwm <- function (prices, t, t_trade_open) {
   min(prices[t_trade_open:t])
 }
 
 #' Stop loss level
-#' F24
+#' LT F24
 #'
 #' @param hwm High Water Mark
 #' @param lwm Low  Water Mark

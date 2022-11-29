@@ -7,7 +7,7 @@
 hwm(prices, t, t_trade_open)
 }
 \arguments{
-\item{t_trade_open}{F24}
+\item{t_trade_open}{LT F24}
 }
 \description{
 High water mark

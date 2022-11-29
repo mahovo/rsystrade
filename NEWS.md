@@ -1,4 +1,4 @@
-# rsystrade v0.0.0.9000
+# rsystrade v0.0.0.9001
 
 + Implements the *Starter System* from Robert Carver's book *Leveraged Trading*. This is intended as a kind of Minimal Viable Product.
 

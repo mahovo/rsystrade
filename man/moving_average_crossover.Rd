@@ -3,7 +3,7 @@
 \name{moving_average_crossover}
 \alias{moving_average_crossover}
 \title{Moving Average Crossover
-F13}
+LT F13}
 \usage{
 moving_average_crossover(ma_fast, ma_slow, gap = 0)
 }
@@ -19,5 +19,5 @@ Returns TRUE when ma_fast > ma_slow.
 }
 \description{
 Moving Average Crossover
-F13
+LT F13
 }
