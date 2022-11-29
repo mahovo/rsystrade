@@ -1,6 +1,6 @@
 ########################################################################
 ## rsystrade
-## v00-00
+## v0.0.0.9000
 ## 2022-09-22
 ########################################################################
 
@@ -17,10 +17,47 @@
 ## V, value (V_t, value at time t)
 
 ## FORMULA 4.1a
+
+#' Title
+#'
+#' @param L
+#' @param r
+#' @param b
+#'
+#' @return
+#' @export
+#'
+#' @examples
 growth_rate_lvrg <- function(L, r, b) {L * r - (L - 1) * b}
+
+
 ## FORMULA 4.1b
+#' Title
+#'
+#' @param V
+#' @param L
+#' @param r
+#' @param b
+#'
+#' @return
+#' @export
+#'
+#' @examples
 growth_lvrg <- function(V, L, r, b) {(1 + (L * r - (L - 1) * b)) * V}
+
+
 ## FORMULA 4.1c
+#' Title
+#'
+#' @param V
+#' @param L
+#' @param r
+#' @param b
+#'
+#' @return
+#' @export
+#'
+#' @examples
 profit_lvrg <- function(V, L, r, b) {(L * r - (L - 1) * b) * V}
 
 #'Generate net returns vector from price vector
@@ -32,15 +69,18 @@ returns_from_prices <- function(prices) {
 }
 
 #' Generate price vector from returns vector
+#'
+#' @param returns
+#' @param initial_price
 prices_from_returns <- function(returns, initial_price) {
   n <- length(returns) + 1 ## Length of price vector
   cumprod(c(initial_price, returns[2:(n - 1)] + 1))
 }
 
 #' Simulate returns
-sim_returns <- function(n) {
-
-}
+# sim_returns <- function(n) {
+#
+# }
 
 
 
@@ -59,6 +99,7 @@ sim_returns <- function(n) {
 #'
 #' @param prices Vector.
 #' @param n Window length.
+#' @param t
 #'
 #' N (length of price vector) smaller than or equal to n is accepted.
 #' This will not be the desired moving average, but will also not fail.
@@ -115,6 +156,7 @@ moving_average_vector <- function(prices, n) {
 #'
 #' @param ma_fast Fast moving average
 #' @param ma_slow Slow moving average
+#' #' @param gap
 #'
 #' Returns TRUE when ma_fast > ma_slow.
 #' 1 indicates uptrend ie. go long.
@@ -157,6 +199,7 @@ risky_capital_pct <- function(risk_target, stop_loss_fraction) {
 #' @param prices A time series of prices in currency. Newest first.
 #' Top to bottom: Newer to older.
 #' @param window_length
+#' @param t
 #'
 #' Standard deviations of returns.
 instr_risk <- function(prices, t, window_length = NA) {
@@ -184,29 +227,51 @@ min_exposure <- function(min_exposure, instr_risk, target_risk) {
 
 #' Minimum capital
 #' F21
+#'
+#' @param min_exposure
+#' @param instr_risk
+#' @param target_risk
 minimum_capital <- function(min_exposure, instr_risk, target_risk) {
   (min_exposure * instr_risk) / target_risk
 }
 
 #' Price unit volatility (instrument risk in price units)
+#'
+#' @param instr_risk
+#' @param price
+#'
 #' F22
 price_unit_vol <- function(instr_risk, price) {
   instr_risk * price
 }
 
 #' Stop loss gap
+#'
+#' @param price_unit_vol
+#' @param stop_loss_fraction
+#'
 #' F23
 stop_loss_gap <- function(price_unit_vol, stop_loss_fraction) {
   price_unit_vol * stop_loss_fraction
 }
 
 #' High water mark
+#'
+#' @param prices
+#' @param t
+#' @param t_trade_open
+#'
 #' F24
 hwm <- function (prices, t, t_trade_open) {
   max(prices[t_trade_open:t])
 }
 
 #' Low water mark
+#'
+#' @param prices
+#' @param t
+#' @param t_trade_open
+#'
 #' F24
 lwm <- function (prices, t, t_trade_open) {
   min(prices[t_trade_open:t])
@@ -242,7 +307,7 @@ stop_loss_level <- function(hwm, lwm, stop_loss_gap, direction = 0, rnd = TRUE) 
 
 
 
-## Portefolio ====
+## Portefolio ==== '
 
 
 
@@ -252,6 +317,11 @@ stop_loss_level <- function(hwm, lwm, stop_loss_gap, direction = 0, rnd = TRUE) 
 #'
 #' @param n_fast n for fast moving average
 #' @param n_slow n for slow moving average
+#' @param prices
+#' @param init_capital
+#' @param risk_target
+#' @param risk_window_length
+#' @param stop_loss_fraction
 #' Generates a dataframe of simulated trades from time series of prices.
 trade_sim <- function(prices, init_capital = 100000, n_fast = 16, n_slow = 64, risk_target = 0.12, risk_window_length = 25, stop_loss_fraction = 0.5) {
 
@@ -617,6 +687,11 @@ trade_sim <- function(prices, init_capital = 100000, n_fast = 16, n_slow = 64, r
 
 #' Close trade
 #'
+#' @param prices
+#' @param t
+#' @param t_trade_open
+#' @param stop_loss_gap
+#' @param rnd
 #' @param direction Is current trade long or short? 1 for long, -1 for short.
 close_trade_stop_loss <- function(prices, t, t_trade_open, stop_loss_gap, direction = 0, rnd = FALSE) {
   stop_loss_level(hwm(prices, t, t_trade_open), lwm(prices, t, t_trade_open), stop_loss_gap, direction, rnd)
@@ -624,6 +699,11 @@ close_trade_stop_loss <- function(prices, t, t_trade_open, stop_loss_gap, direct
 
 
 #' Position size in units
+#'
+#' @param price
+#' @param risk_target
+#' @param capital
+#' @param instrument_risk
 position_size_units <- function(price, risk_target, capital, instrument_risk) {
   floor(notional_exposure(risk_target, capital, instrument_risk) / price)
 }
@@ -671,9 +751,9 @@ position_size_units <- function(price, risk_target, capital, instrument_risk) {
 # }
 
 #' Accumulated profit and loss
-cum_pnl <- function() {
-  # <------ TODO
-}
+# cum_pnl <- function() {
+#   # <------ TODO
+# }
 
 
 

@@ -1,13 +1,8 @@
+# rsystrade v0.0.0.9000
 
-# rsystrade
-v0.0.0.9000
++ Implements the *Starter System* from Robert Carver's book *Leveraged Trading*. This is intended as a kind of Minimal Viable Product.
 
-*rsystrade* is a framwork for researching, testing and executing systematic trading strategies.
-
-About this version:
-
-+ Implements the *Starter System* from Robert Carver's book *Leveraged Trading*. This is intended as a kind of Minimal Viable Product
-+ Only takes data from file. No interaction with broker API.  
++ Only takes data from file. No interaction with broker API.
 + Assume:
 	+ Use simulated data
 	+ Single product (shares)
@@ -32,20 +27,3 @@ About this version:
 		+ Some alternatives:
 			+ Half compounding
 			+ "Three quarter" compounding
-
-## Installation
-
-You can install the development version from [GitHub](https://github.com/) with:
-
-```r
-if (!require(devtools)) install.packages('devtools') 
-devtools::install_github("mahovo/rsystrade")
-```
-## Example
-
-
-```r
-library(rsystrade)
-## basic example code
-```
-

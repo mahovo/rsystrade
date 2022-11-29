@@ -1,13 +1,23 @@
 Package: rsystrade
-Title: What the Package Does (One Line, Title Case)
+Title: Framework For Testing Systematic Strategies And Automated Trading
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
+    person("Martin Hoshi", "Vognsen", email = "martinvognsen@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-4460-7763"))
+Description: Algo trading framework inspired by Robert Carver's pysystemtrade. Get live data
+             from broker API or use simulated or other data. Apply provided or bespoke rules. Perform 
+             statistical analyses. Let the system trade automatically. Get plots and reports.
+License: `use_gpl3_license()`
     license
+URL: https://github.com/mahovo/rsystrade
+BugReports: https://github.com/mahovo/rsystrade/issues
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.0.9000
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr

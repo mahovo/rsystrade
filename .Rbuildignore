@@ -1,2 +1,4 @@
 ^rsystrade\.Rproj$
 ^\.Rproj\.user$
+^misc$
+^README\.Rmd$

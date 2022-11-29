@@ -1,0 +1,31 @@
+---
+title: "rsystrade"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsystrade}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rsystrade)
+```
+
+# About
+*rsystrade* is a framwork for researching, testing and executing systematic trading strategies.
+
+
+# Philosophy
+The intention is to provide as much transparency as possible about how things are calculated. So all functions that implement a formula live in the file `formulas.R`.
+
+The intention is *not* to veil calculations in an endless maze of OOP abstractions.
+
+
+
