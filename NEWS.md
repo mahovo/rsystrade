@@ -1,5 +1,5 @@
-# rsystrade v0.0.0.9001
-
+# rsystrade v0.0.0
+## Overview
 + Implements the *Starter System* from Robert Carver's book *Leveraged Trading*. This is intended as a kind of Minimal Viable Product.
 
 + Only takes data from file. No interaction with broker API.
@@ -27,3 +27,9 @@
 		+ Some alternatives:
 			+ Half compounding
 			+ "Three quarter" compounding
+
+## Fixes
++ Change `README.md` to `README.Rmd`.
++ Fix nested repo in `misc` folder.
++ Fix typo in `README.md`
+
