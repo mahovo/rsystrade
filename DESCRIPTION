@@ -1,12 +1,13 @@
 Package: rsystrade
 Title: Framework For Testing Systematic Strategies And Automated Trading
-Version: 0.0.0.9001
+Version: 0.0.0.9002
 Authors@R: 
     person("Martin Hoshi", "Vognsen", email = "martinvognsen@gmail.com", role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0003-4460-7763"))
-Description: Algo trading framework inspired by Robert Carver's pysystemtrade. Get live data
-             from broker API or use simulated or other data. Apply provided or bespoke rules. Perform 
-             statistical analyses. Let the system trade automatically. Get plots and reports.
+    comment = c(ORCID = "0000-0003-4460-7763"))
+Description: Framework for researching, testing and executing systematic trading
+    strategies. Get live data from broker API or use simulated or other data. 
+    Apply provided or bespoke rules. Perform statistical analyses. Let the 
+    system trade automatically. Get plots and reports.
 License: `use_gpl3_license()`
     license
 URL: https://github.com/mahovo/rsystrade
@@ -14,7 +15,7 @@ BugReports: https://github.com/mahovo/rsystrade/issues
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.0.9000
+RoxygenNote: 7.2.3
 Suggests: 
     knitr,
     rmarkdown,
