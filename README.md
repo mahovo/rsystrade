@@ -31,9 +31,6 @@ The advice above is the only advice I will offer on rsystrade.
 
 ## About this version
 
-- Implements a variation of the *Starter System* from Robert Carver’s
-  book *Leveraged Trading*. This is intended as a kind of Minimal Viable
-  Product
 - Only takes data from CSV file. No interaction with broker API. No
   database.
 - Assume:
