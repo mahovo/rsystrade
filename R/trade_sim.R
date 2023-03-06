@@ -32,7 +32,7 @@ trade_sim <- function(
 
 
   ## We need to skip AT LEAST two days because:
-  ## sd needs to data points as input.
+  ## sd needs two data points as input.
   ## To get two returns, we need three prices.
   ##
   ## However, we should definitely make sure we have enough data for a full
@@ -75,7 +75,7 @@ trade_sim <- function(
   direction <- 0
   capital = init_capital
 
-  cat("Calculating...\n")
+  cat("Updating system...\n")
 
   ## We are starting at day three to be able to calculate sd for returns...
   for(t in (n_slow + 1):nrow(prices)) {
@@ -402,5 +402,10 @@ trade_sim <- function(
 
   list(trades_data, accounts_data) ## Return list of data frames
 }
+
+
+
+
+
 
 

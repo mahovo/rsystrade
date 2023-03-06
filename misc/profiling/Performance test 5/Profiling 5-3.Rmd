@@ -1,0 +1,270 @@
+---
+title: "Profiling 5"
+author: "mhv"
+date: "12/20/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(scales)
+library(tidyverse)
+
+source("/Users/mhvpbp13/git/rsystrade/R/benchmark.R")
+```
+
+############################################
+## See `Profiling-5-3.html`
+############################################
+
+
+
+# Test 2
+## Define functions to be tested
+
+```{r}
+version1a <- function(df) {
+  var1 <- 0
+  var2 <- 0
+  var3 <- 0
+
+  v1af1 <- function(n) {var1 <<- df[n-1, 1]}
+  v1af2 <- function(n) {var2 <<- df[n-1, 2] + log(var1)}
+  v1af3 <- function(n) {var3 <<- df[n-1, 3] + log(var2)}
+
+  for(n in 2:nrow(df)) {
+    var1 <- v1af1(n)
+    var2 <- v1af2(n)
+    var3 <- v1af3(n)
+    
+    df[n, ] <- c(
+      var1,
+      var2,
+      var3
+    )
+  }
+
+  df
+}
+
+v6af1 <- function(row_n, prev_row) {
+  prev_row[1]
+}
+v6af2 <- function(row_n, prev_row) {
+  prev_row[2] + log(row_n[1])
+}
+v6af3 <- function(row_n, prev_row) {
+  prev_row[3] + log(row_n[2])
+}
+
+
+version6a <- function(df) {
+  force(df)
+  row <- df[1, ]
+  for(i in 2:nrow(df)) {
+    prev_row <- df[i-1, ]
+    row[1] <- v6af1(row, prev_row)
+    row[2] <- v6af2(row, prev_row)
+    row[3] <- v6af3(row, prev_row)
+
+    df[i, ] <- row
+  }
+  df
+}
+```
+
+## Run tests
+```{r}
+f_list2 <- list(
+  version1 = "version1a(df)",
+  version6 = "version6a(df)"
+)
+df_2 <- map_df(
+  10^(2:3), run_benchmark, ncol = 3, functions = f_list2) %>% 
+  order_graphs()
+```
+
+## Print test data
+```{r}
+plot_bm(df_2, "nrow")
+```
+
+
+
+## Test 3
+## Define functions to be tested
+This dynamically creates the function in version 1.
+Of course this introduces various loops, so the two can not be compared directly.
+```{r}
+version1b <- function(df) {
+  ncols <- ncol(df)
+  for(m in 1:ncols) {
+    assign(paste0("var", m), 0)
+  }
+
+  for(c in 2:ncols) {
+    assign(paste0("v1bf", m), function(n) {
+        assign(
+          paste0("var", m),
+          parse(
+            text = paste0(
+              "df[n-1, ", m, "] + log(var", c-1, ")"
+            )
+          ),
+          envir = parent.frame()
+        )
+      }
+    )
+  }
+
+  for(n in 2:nrow(df)) {
+      for(m in 1:ncols) {
+        assign(
+          paste0("var", m), 
+          parse(
+            text = paste0("v1bf", m, "(", n, ")")
+          )
+        )
+      }
+
+    assign(
+      paste0("df[", n, "]"),
+      parse(
+        text = paste0("var", m)
+      )
+    )
+
+  }
+
+  df
+}
+
+v6af1 <- function(row_n, prev_row) {
+  prev_row[1]
+}
+v6af2 <- function(row_n, prev_row) {
+  prev_row[2] + log(row_n[1])
+}
+v6af3 <- function(row_n, prev_row) {
+  prev_row[3] + log(row_n[2])
+}
+
+v6bf <- function(row_n, prev_row, column) {
+  prev_row[column]
+}
+version6b <- function(df) {
+  force(df)
+  ncols <- ncol(df)
+  row <- df[1, ]
+  for(n in 2:nrow(df)) {
+    prev_row <- df[n-1, ]
+    for(m in 1:ncols) {
+      assign(
+        paste0("row[", m, "]"),
+        v6bf(row, prev_row, m)
+      )
+    }
+    df[n, ] <- row
+  }
+  df
+}
+```
+
+## Run tests: Compare dynamic and fixed number of columns
+```{r}
+#source("/Users/mhvpbp13/git/rsystrade/R/benchmark.R")
+f_list3 <- list(
+  version1a = "version1a(df)",
+  version1b = "version1b(df)",
+  version6a = "version6a(df)",
+  version6b = "version6b(df)"
+)
+df_3_rows <- map_df(
+    2^(7:11),
+    ~ run_benchmark(
+      nrow = .x,
+      ncol = 3,
+      functions = f_list3,
+      times = 5,
+      df = NA,
+      elements = "same",
+      element = 2
+    )
+  ) %>%
+  order_graphs()
+```
+
+## Print test data
+```{r}
+plot_bm(df_3_rows, "nrow", mean_or_median = mean)
+```
+## Test 4
+
+## Functions
+Same as Test 3
+
+## Run tests: 
+### A) How does performance depend on number of rows?
+### B) How does performance depend on number of columns?
+```{r}
+source("/Users/mhvpbp13/git/rsystrade/R/benchmark.R")
+f_list3 <- list(
+  version1b = "version1b(df)",
+  version6b = "version6b(df)"
+)
+
+## A)
+df_3_rows <- map_df(
+    10^(2:4),
+    ~ run_benchmark(
+      nrow = .x,
+      ncol = 3,
+      functions = f_list3,
+      times = 5,
+      df = NA,
+      elements = "same",
+      element = 2
+    )
+  ) %>%
+  order_graphs()
+
+## B)
+df_3_col <- map_df(
+    2^(2:4),
+    ~ run_benchmark(
+      nrow = 100,
+      ncol = .x,
+      functions = f_list3,
+      times = 5,
+      df = NA,
+      elements = "same",
+      element = 2
+    )
+  ) %>%
+  order_graphs()
+```
+
+## Print test data
+### A) How does performance depend on number of rows?
+```{r}
+plot_bm(df_3_rows, "nrow", mean_or_median = mean)
+```
+
+### B) How does performance depend on number of columns?
+```{r}
+plot_bm(df_3_col, "ncol", mean_or_median = mean)
+```
+
+
+```{r}
+#detach("package:microbenchmark", unload=TRUE)
+#detach("package:ggplot2", unload=TRUE)
+detach("package:tidyverse", unload=TRUE)
+#detach("package:purrr", unload=TRUE)
+#detach("package:tibble", unload=TRUE)
+#detach("package:dplyr", unload=TRUE)
+#detach("package:magrittr", unload=TRUE)
+```

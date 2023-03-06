@@ -1,0 +1,243 @@
+---
+title: "Profiling 2"
+author: "mhv"
+date: "12/19/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Conclusion
+
++ Version 1:
+  + Store all function outputs directly in a big data frame.
++ Version 2:
+  + Store all function outputs in variables, then place them in the dataframe as
+  a vector for each row.
++ Version 3:
+  + Like version 1, but without the inner loop. Instead the assignments of the
+  elements in each row are hard coded.
+  + This checks that the difference between version 1 and version 2 is not just
+  caused by the extra loop in version 1.
+
+Version 2 is very much faster than both version 1 and version 3: It is better to
+assign outputs to separate variables and then update each row in the data frame
+in one step, rather than place the outs of functions directly into the df.
+
+See also [/Users/mhvpbp13/Documents/Notes/Investering/rsystrade/Notes/rsystrade/Development/Coding paradigms - rsystrade.md](/Users/mhvpbp13/Documents/Notes/Investering/rsystrade/Notes/rsystrade/Development/Coding paradigms - rsystrade.md)
+
+# Instructions:
+
+Run everything at once.
+
+# Performance test 2
+
+```{r}
+library("microbenchmark")
+library("ggplot2")
+library("magrittr")
+```
+
+## Setup
+
+```{r}
+#nrows <- 252 * 25 ## 6300 (25 years of trade data for single table)
+nrows <- 252 ## One year of trade data
+ncols <- 20
+```
+
+
+## Version 1
+Store all function outputs directly in a big data frame.
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version1 <- function(df) {
+  for(i in 1:nrow(df)) {
+    for(j in 1:ncol(df)) {
+      df[i, j] <- j
+    }
+  }
+  df
+}
+
+version1_out <- version1(df)
+version1_out[1:2, ]
+
+rm(df)
+```
+
+## Version 2
+Store all function outputs in variables, then place them in the dataframe as a
+vector for each row.
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version2 <- function(df) {
+  var1 <- 0
+  var2 <- 0
+  var3 <- 0
+  var4 <- 0
+  var5 <- 0
+  var6 <- 0
+  var7 <- 0
+  var8 <- 0
+  var9 <- 0
+  var10 <- 0
+  var11 <- 0
+  var12 <- 0
+  var13 <- 0
+  var14 <- 0
+  var15 <- 0
+  var16 <- 0
+  var17 <- 0
+  var18 <- 0
+  var19 <- 0
+  var20 <- 0
+  for(i in 1:nrow(df)) {
+    var1 <- 1
+    var2 <- 2
+    var3 <- 3
+    var4 <- 4
+    var5 <- 5
+    var6 <- 6
+    var7 <- 7
+    var8 <- 8
+    var9 <- 9
+    var10 <- 10
+    var11 <- 11
+    var12 <- 12
+    var13 <- 13
+    var14 <- 14
+    var15 <- 15
+    var16 <- 16
+    var17 <- 17
+    var18 <- 18
+    var19 <- 19
+    var20 <- 20
+    df[i, ] <- c(
+      var1,
+      var2,
+      var3,
+      var4,
+      var5,
+      var6,
+      var7,
+      var8,
+      var9,
+      var10,
+      var11,
+      var12,
+      var13,
+      var14,
+      var15,
+      var16,
+      var17,
+      var18,
+      var19,
+      var20
+    )
+  }
+  df
+}
+
+version2_out <- version2(df)
+version2_out[1:2, ]
+
+rm(df)
+```
+
+## Version 3
+Store all function outputs directly in a big data frame.
+Like version 1, but eliminate inner loop.
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version3 <- function(df) {
+  for(i in 1:nrow(df)) {
+      df[i, 1] <- 1
+      df[i, 2] <- 2
+      df[i, 3] <- 3 
+      df[i, 4] <- 4 
+      df[i, 5] <- 5
+      df[i, 6] <- 6
+      df[i, 7] <- 7
+      df[i, 8] <- 8
+      df[i, 9] <- 9
+      df[i, 10] <- 10
+      df[i, 11] <- 11
+      df[i, 12] <- 12
+      df[i, 13] <- 13
+      df[i, 14] <- 14
+      df[i, 15] <- 15
+      df[i, 16] <- 16
+      df[i, 17] <- 17
+      df[i, 18] <- 18
+      df[i, 19] <- 19
+      df[i, 20] <- 20
+  }
+  df
+}
+
+version3_out <- version3(df)
+version3_out[1:2, ]
+
+rm(df)
+```
+
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+mb_out <- microbenchmark(
+  version1(df),
+  version2(df),
+  version3(df),
+  times = 20L
+)
+
+mb_plot <- autoplot(mb_out) +
+  geom_jitter(position = position_jitter(0.2, 0), 
+              aes(color = expr), alpha = 0.4) + 
+  aes(fill = I("gray")) + 
+  theme(legend.position = "none") 
+mb_plot
+#labs(title = "", subtitle = "")
+
+rm(df)
+```
+
+```{r}
+summary(mb_out)
+```
+
+Run benchmark test again
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+mb_out <- microbenchmark(
+  version1(df),
+  version2(df),
+  version3(df),
+  times = 20L
+)
+summary(mb_out)
+
+rm(df)
+```
+
+
+
+```{r eval=FALSE, include=FALSE}
+detach("package:microbenchmark", unload=TRUE)
+detach("package:ggplot2", unload=TRUE)
+detach("package:purrr", unload=TRUE)
+detach("package:tibble", unload=TRUE)
+detach("package:dplyr", unload=TRUE)
+detach("package:magrittr", unload=TRUE)
+```

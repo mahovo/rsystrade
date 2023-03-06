@@ -9,6 +9,7 @@
 ## "F" for "formula".
 
 
+
 ## Basic calculations ====
 
 ##LT F4.1a
@@ -23,7 +24,7 @@
 #'
 #' @examples
 #'
-growth_rate_lvrg <- function(L, r, b) {L * r - (L - 1) * b}
+f_growth_rate_lvrg <- function(L, r, b) {L * r - (L - 1) * b}
 
 
 ## LT F4.1b
@@ -39,7 +40,7 @@ growth_rate_lvrg <- function(L, r, b) {L * r - (L - 1) * b}
 #'
 #' @examples
 #'
-growth_lvrg <- function(V, L, r, b) {(1 + (L * r - (L - 1) * b)) * V}
+f_growth_lvrg <- function(V, L, r, b) {(1 + (L * r - (L - 1) * b)) * V}
 
 
 ## LT F4.1c
@@ -55,28 +56,31 @@ growth_lvrg <- function(V, L, r, b) {(1 + (L * r - (L - 1) * b)) * V}
 #'
 #' @examples
 #'
-profit_lvrg <- function(V, L, r, b) {(L * r - (L - 1) * b) * V}
+f_profit_lvrg <- function(V, L, r, b) {(L * r - (L - 1) * b) * V}
 
-#'Generate net returns vector from price vector
+#' Calculate net returns vector from price vector
 #'
 #' @param prices A vector of prices in currency. Newest first. Top to bottom:
 #'   Newer to older.
-returns_from_prices <- function(prices) {
+#'
+#' @return Percentage returns
+#' @export
+f_returns_from_prices <- function(prices) {
   N <- length(prices)
   (head(prices, N - 1) / tail(prices, N - 1)) - 1
 }
 
-#' Generate price vector from returns vector
+#' Calculate price vector from returns vector
 #'
-#' @param returns Returns.
-#' @param initial_price Initial price.
+#' @param returns Percentage returns
+#' @param initial_price Initial price
 #'
 #' @returns Vector of prices in currency of initial price.
 #' @export
 #'
 #' @examples
 #'
-prices_from_returns <- function(returns, initial_price) {
+f_prices_from_returns <- function(returns, initial_price) {
   n <- length(returns) + 1 ## Length of price vector
   cumprod(c(initial_price, returns[2:(n - 1)] + 1))
 }

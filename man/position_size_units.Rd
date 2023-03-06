@@ -2,7 +2,7 @@
 % Please edit documentation in R/execution.R
 \name{position_size_units}
 \alias{position_size_units}
-\title{Position size in units}
+\title{Open trade for Moving Average Crossover}
 \usage{
 position_size_units(price, risk_target, capital, instrument_risk)
 }
@@ -15,10 +15,30 @@ Newer to older.}
 \item{capital}{Capital.}
 
 \item{instrument_risk}{Instrument risk.}
+
+\item{moving_average_crossover}{1 for long, 0 for short.}
+
+\item{latest_trade_direction}{1 for long, 0 for short.}
 }
 \value{
 Position size in units.
 }
 \description{
-Position size in units
+Returns 1 for going long and -1 for going short.
+Returns 0 for no change.
+}
+\details{
+1 if latest_trade_direction = -1 and moving_average_crossover = TRUE.
+1 if latest_trade_direction = 0 and moving_average_crossover = TRUE.
+-1 if latest_trade_direction = 1 and moving_average_crossover = FALSE.
+-1 if latest_trade_direction = 0 and moving_average_crossover = FALSE.
+0 if latest_trade_direction = 1 and moving_average_crossover = TRUE.
+0 if latest_trade_direction = -1 and moving_average_crossover = FALSE.
+
+No trade will ever open when direction = 0, so latest_trade_direction can only
+ever be 0 before the first trade.
+
+moving_average_crossover:
+TRUE indicates uptrend ie. go long.
+FALSE indicates downtrend ie. go short.
 }

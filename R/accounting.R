@@ -1,5 +1,10 @@
 ## Accounting ====
 
+
+update_account_table <- function() {
+  stop("\"Live mode is not implemented yet.\"")
+}
+
 #' Account value
 # account_value <- function() {
 #   # <------ TODO

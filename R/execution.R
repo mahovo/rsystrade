@@ -34,26 +34,6 @@
 # }
 
 
-#' Close trade
-#'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
-#' @param t Time index.
-#' @param t_trade_open Time index of the time when trade is opened.
-#' @param stop_loss_gap Stop loss gap.
-#' @param rnd If TRUE, add small random amount to stop loss level. Negative if
-#'   short.
-#' @param direction Is current trade long or short? 1 for long, -1 for short.
-#'
-#' @returns -1, 0 or 1.
-#' @export
-#'
-#' @example
-#'
-close_trade_stop_loss <- function(prices, t, t_trade_open, stop_loss_gap, direction = 0, rnd = FALSE) {
-  stop_loss_level(hwm(prices, t, t_trade_open), lwm(prices, t, t_trade_open), stop_loss_gap, direction, rnd)
-}
-
 
 #' Position size in units
 #'

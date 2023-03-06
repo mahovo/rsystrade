@@ -1,0 +1,327 @@
+---
+title: "Profiling 1"
+author: "mhv"
+date: "12/18/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library("microbenchmark")
+library("ggplot2")
+library("magrittr")
+```
+
+
+# Conclusion
+
++ Version 1:
+  + Outer function `version1()` takes `df` as input.
+  + Inner functions take no input.
+    + Modify single elements in `df` in env of outer function based on other 
+    single elements of `df` .
+    + Each inner function is called in turn inside `version1()`.
++ Version 2: quasi-S3 OOP
+  + Function `version2()` takes `df` as input.
+  + Function `version2()` calls external functions which take `df` from env of
+  `version2()`
+  + External functions modify `df` in their own env and output modified `df`.
+  + Each external function is called in turn inside `version2()` such that one 
+  modifies the output of the previous one.
++ Version 3:
+  + Same as version 2, except that the functions that modify `df` now are 
+  defined inside the outer function `version3()`.
++ Version 4:
+  + Like version 2, except that external functions are chained inside 
+  `version4()` in a pipe with `%>%`.
++ Version 5: 
+  + Functions output single values.
+  + Change all modified elements in `df` in one step at the end.
+
+There is no significant difference in performance between the different
+approaches. In particular, there is no significant difference in performance
+between the OOP (vserion 2) and FP (version 1+3+4) approaches.
+
+Version 5 seems to show, that it's fine to store all variables in a large data frame. However, this turns not to be true, as seen in `Profiling 2.Rm` and `Profiling 3.Rmd`.
+
+Question: Can we trust, that there is no difference between the approaches in
+version 1 - 4? Test this...
+
+Note: There is a big different between the first and second time we run the 
+benchmark. What are the implications of this? Which situation applies most to
+real world usage?
+
+Looking at median to avoid leverage of outliers.
+
+See also [/Users/mhvpbp13/Documents/Notes/Investering/rsystrade/Notes/rsystrade/Development/Coding paradigms - rsystrade.md](/Users/mhvpbp13/Documents/Notes/Investering/rsystrade/Notes/rsystrade/Development/Coding paradigms - rsystrade.md)
+
+# Instructions:
+
+Run everything at once.
+
+# Performance test 1
+
+```{r}
+nrows <- 252 * 25 ## 6300 (25 years of trade data for single table)
+#nrows <- 1000000
+ncols <- 20
+```
+
+
+## Version 1
++ Outer function takes df as input
+  + Inner functions take no input.
+    + Modify single elements in df based on other single elements of df in
+    env of outer function.
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version1 <- function(df) {
+  v1f1 <- function() {
+    df[1, 1] <<- "a"
+  }
+  v1f2 <- function() {
+    df[1, 2] <<- paste0(df[1, 1], "b")
+  }
+  v1f3 <- function() {
+    df[1, 3] <<- paste0(df[1, 2], "c")
+  }
+  v1f4 <- function() {
+    df[1, 4] <<- paste0(df[1, 3], "d")
+  }
+  
+  v1f1()
+  v1f2()
+  v1f3()
+  v1f4()
+ 
+  df
+}
+
+version1_out <- version1(df)
+version1_out[1, 1:4]
+
+rm(df)
+```
+
+## Version 2: Quasi-S3 OOP
+The functions `v5f*()` can be thought of as methods that operate on the data frame df, and the function `version5()` can be thought of as a constructor that creates a new object (the modified data frame) by applying these methods in a specific order.
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+v2f1 <- function(df) {
+  df[1, 1] <- "a"
+  df
+}
+v2f2 <- function(df) {
+  df[1, 2] <- paste0(df[1, 1], "b")
+  df
+}
+v2f3 <- function(df) {
+  df[1, 3] <- paste0(df[1, 2], "c")
+  df
+}
+v2f4 <- function(df) {
+  df[1, 4] <- paste0(df[1, 3], "d")
+  df
+}
+
+version2 <- function(df) {
+  df <- v2f1(df)
+  df <- v2f2(df)
+  df <- v2f3(df)
+  df <- v2f4(df)
+  
+  df
+}
+
+version2_out <- version2(df)
+version2_out[1, 1:4]
+
+rm(df)
+```
+
+## Version 3
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version3 <- function(df) {
+  v3f1 <- function(df) {
+    df[1, 1] <- "a"
+    df
+  }
+  v3f2 <- function(df) {
+    df[1, 2] <- paste0(df[1, 1], "b")
+    df
+  }
+  v3f3 <- function(df) {
+    df[1, 3] <- paste0(df[1, 2], "c")
+    df
+  }
+  v3f4 <- function(df) {
+    df[1, 4] <- paste0(df[1, 3], "d")
+    df
+  }
+  
+  df <- v3f1(df)
+  df <- v3f2(df)
+  df <- v3f3(df)
+  df <- v3f4(df)
+  
+  df
+}
+
+version3_out <- version3(df)
+version3_out[1, 1:4]
+
+rm(df)
+```
+
+
+## Version 4
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+v4f1 <- function(df) {
+  df[1, 1] <- "a"
+  df
+}
+
+v4f2 <- function(df) {
+  df[1, 2] <- paste0(df[1, 1], "b")
+  df
+}
+
+v4f3 <- function(df) {
+  df[1, 3] <- paste0(df[1, 2], "c")
+  df
+}
+
+v4f4 <- function(df) {
+  df[1, 4] <- paste0(df[1, 3], "d")
+  df
+}
+
+version4 <- function(df) {
+  df %>%
+    v4f1 %>%
+    v4f2 %>%
+    v4f3 %>%
+    v4f4
+}
+
+version4_out <- version4(df)
+version4_out[1, 1:4]
+
+rm(df)
+```
+
+
+
+## Version 5
+Functions output single values.  
+Change all modified elements in df in one step at the end.
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version5 <- function(df) {
+  v5f1 <- function() {
+    "a"
+  }
+  v5f2 <- function(prev) {
+    paste0(prev, "b")
+  }
+  v5f3 <- function(prev) {
+    paste0(prev, "c")
+  }
+  v5f4 <- function(prev) {
+    paste0(prev, "d")
+  }
+  
+  out1 <- v5f1()
+  out2 <- v5f2(out1)
+  out3 <- v5f3(out2)
+  out4 <- v5f4(out3)
+  
+  df[1, 1:4] <- c(out1, out2, out3, out4)
+  
+  df
+}
+
+version5_out <- version5(df)
+version5_out[1, 1:4]
+
+rm(df)
+```
+
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+mb_out <- microbenchmark(
+  version1(df),
+  version2(df),
+  version3(df),
+  version4(df),
+  version5(df),
+  times = 20L
+)
+
+mb_plot <- autoplot(mb_out) +
+  geom_jitter(position = position_jitter(0.2, 0), 
+              aes(color = expr), alpha = 0.4) + 
+  aes(fill = I("gray")) + 
+  theme(legend.position = "none") 
+mb_plot
+#labs(title = "Kernel smoother", subtitle = "")
+
+rm(df)
+```
+
+```{r}
+summary(mb_out)
+```
+
+Run benchmark test again
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+mb_out <- microbenchmark(
+  version1(df),
+  version2(df),
+  version3(df),
+  version4(df),
+  version5(df),
+  times = 20L
+)
+summary(mb_out)
+
+rm(df)
+```
+
+
+
+
+
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+detach("package:microbenchmark", unload=TRUE)
+detach("package:ggplot2", unload=TRUE)
+detach("package:purrr", unload=TRUE)
+detach("package:tibble", unload=TRUE)
+detach("package:dplyr", unload=TRUE)
+detach("package:magrittr", unload=TRUE)
+```
+
+

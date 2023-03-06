@@ -1,0 +1,134 @@
+---
+title: "Profiling 3"
+author: "mhv"
+date: "12/19/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Conclusion
+
++ Version 1:
+  + Update the same element (here the last) in a large data frame many times.
++ Version 2:
+  + Update a variable many times, then place it in an element in a large data 
+  frame.
+  
+This tests the situation where a variable is assigned to different intermediate values before the final result is reached.
+  
+Version 2 is very much faster.
+
+See also [/Users/mhvpbp13/Documents/Notes/Investering/rsystrade/Notes/rsystrade/Development/Coding paradigms - rsystrade.md](/Users/mhvpbp13/Documents/Notes/Investering/rsystrade/Notes/rsystrade/Development/Coding paradigms - rsystrade.md)
+
+# Instructions:
+
+Run everything at once.
+
+# Performance test 3
+
+```{r}
+library("microbenchmark")
+library("ggplot2")
+library("magrittr")
+```
+
+## Setup
+
+```{r}
+nrows <- 252 * 25 ## 6300 (25 years of trade data for single table)
+ncols <- 20
+```
+
+
+## Version 1
+Update the same element (here the last) in a large data frame many times.
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version1 <- function(df) {
+  for(i in 1:nrow(df)) {
+    df[nrows, ncols] <- i
+  }
+  df
+}
+
+version1_out <- version1(df)
+version1_out[1:2, ]
+
+rm(df)
+```
+
+## Version 2
+Update a variable many times, then place it in an element in a large data frame.
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+version2 <- function(df) {
+  var <- 0
+  for(i in 1:nrow(df)) {
+   var <- i
+  }
+  df[nrows, ncols] <- var
+  df
+}
+
+version2_out <- version2(df)
+version2_out[1:2, ]
+
+rm(df)
+```
+
+
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+mb_out <- microbenchmark(
+  version1(df),
+  version2(df),
+  times = 20L
+)
+
+mb_plot <- autoplot(mb_out) +
+  geom_jitter(position = position_jitter(0.2, 0), 
+              aes(color = expr), alpha = 0.4) + 
+  aes(fill = I("gray")) + 
+  theme(legend.position = "none") 
+mb_plot
+#labs(title = "Kernel smoother", subtitle = "")
+
+rm(df)
+```
+
+```{r}
+summary(mb_out)
+```
+
+Run benchmark test again
+```{r}
+df <- data.frame(matrix(rep(0, nrows * ncols ), ncol = ncols))
+
+mb_out <- microbenchmark(
+  version1(df),
+  version2(df),
+  times = 20L
+)
+summary(mb_out)
+
+rm(df)
+```
+
+
+
+```{r eval=FALSE, include=FALSE}
+detach("package:microbenchmark", unload=TRUE)
+detach("package:ggplot2", unload=TRUE)
+detach("package:purrr", unload=TRUE)
+detach("package:tibble", unload=TRUE)
+detach("package:dplyr", unload=TRUE)
+detach("package:magrittr", unload=TRUE)
+```
