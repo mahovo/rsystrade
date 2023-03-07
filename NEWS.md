@@ -2,7 +2,6 @@
 
 ## Overview
 
--   Implements a variation of the *Starter System* from Robert Carver's book *Leveraged Trading*. This is intended as a kind of Minimal Viable Product.
 -   Only takes data from file. No interaction with broker API. No database.
 -   Assume:
     -   Use simulated data.
