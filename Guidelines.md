@@ -2,11 +2,24 @@
 
 Follow [tidyverse style guide](https://style.tidyverse.org/index.html) with the 
   following exceptions.
+  
+## GitHub
+-   All work is collected in the dev branch and tagged with a major.minor.patch.dev number.
+-   When dev branch reaches a stage suitable for a stable release, the dev branch is merged into the stable branch and tagged with a major.minor.patch number.
+-   To work on a new feature or bug, create a temporary branch from the dev branch.
+  -   When the feature has been implemented or the bug has been fixed:
+    -   Merge the branch with the dev branch
+    -   Delete the branch.
+-   To hotfix a bug in the stable release, create a temporary hotfix branch.
+  -   When the bug has been fixed:
+    -   Merge the branch with the stable and dev branches.
+    -   Delete the hotfix branch.
+-   Possibly work in a release-* branch to touch up just before release.
 
 ## Comments
-+ Use `## ` (double hash plus a single space) for comments.  
-+ Use `#` (single hash) for commenting out code.
-+ `#'` At the beginning of a line indicates that the line is part of a comment
+-   Use `## ` (double hash plus a single space) for comments.  
+-   Use `#` (single hash) for commenting out code.
+-   `#'` At the beginning of a line indicates that the line is part of a comment
   that will be turned into a help file by `roxygen2::roxygenise()`.
 
 ## Function names
@@ -29,26 +42,26 @@ Follow [tidyverse style guide](https://style.tidyverse.org/index.html) with the
     when I skim the code, since it's an *R function* that
 
 General thoughts:  
-+ Best
-  + Strive for verbs as function names - but: This is hard to do in practice.
-  + Example: ...um... can't find any in **rsystrade** at the time of writing...
-+ Good
-  + Verb first, then other words in lower case, connected by underscores.
-  + Example: 
+-   Best
+  -   Strive for verbs as function names - but: This is hard to do in practice.
+  -   Example: ...um... can't find any in **rsystrade** at the time of writing...
+-   Good
+  -   Verb first, then other words in lower case, connected by underscores.
+  -   Example: 
   ```R
   apply_entering_rule
   ```
-+ Less ideal (but often any alternatives come out contrived):
-  + The function name actually describes the output. The problem here is, that
+-   Less ideal (but often any alternatives come out contrived):
+  -   The function name actually describes the output. The problem here is, that
     this is typically the name of the variable we want to assign the output to.
     A typical example is `mean()`. `calculate_mean()` would just be silly.
-  + So when assigning output from such a function to a variable, I recommend to
+  -   So when assigning output from such a function to a variable, I recommend to
     end the name of the variable with an underscore.
-  + Example: 
+  -   Example: 
   ```R
   mean_ <- mean()
   ```
-  + I try to avoid abbreviations in variable/function names, but sometimes I 
+  -   I try to avoid abbreviations in variable/function names, but sometimes I 
     make exceptions to avoid very long variable names. There is not clear rule
     here. For instance I use `f_inst_div_mult` instead of 
     `calculate_instrument_diversification_multiplier`. I also use
