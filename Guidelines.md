@@ -4,6 +4,13 @@ Follow [tidyverse style guide](https://style.tidyverse.org/index.html) with the
   following exceptions.
   
 ## GitHub
+
+NEVER commit to stable branch.
+Only ever change stable by merging from other branches.
+
+NEVER commit to dev branch.
+Only ever change dev by merging from other branches.
+
 -   All work is collected in the dev branch and tagged with a major.minor.patch.dev number.
 -   When dev branch reaches a stage suitable for a stable release, the dev branch is merged into the stable branch and tagged with a major.minor.patch number.
 -   To work on a new feature or bug, create a temporary branch from the dev branch.
