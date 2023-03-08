@@ -23,6 +23,29 @@ Only ever change dev by merging from other branches.
     -   Delete the hotfix branch.
 -   Possibly work in a release-* branch to touch up just before release.
 
+### Branching with Git Flow
+
+| subversion | on branch | branch to | as subversion |
+| -- | -- | -- | -- |
+| `major.minor.patch` |  `stable` | `dev` | `major.minor.patch.dev` |
+|  `major.minor.patch` |  `stable` | `hotfix-<*>` | `major.minor.patch-<*>` |
+| `major.minor.patch.dev` | `dev` | `feature-<topic-*>` | `major.minor.patch.feature-<topic-*>` |
+| `major.minor.patch.dev` | `dev` | `bug-<topic-*>` | `major.minor.patch.bug-<topic-*>` |
+|  |  |  |  |
+
+
+### Merging with Git Flow
+
+| subversion | on branch | merge to | as subversion |
+| -- | -- | -- | -- |
+| `major.minor.patch.dev` | `dev` | `stable` | `major.minor.patch` |
+| `major.minor.patch.dev` | `dev` | `feature-<topic-*>` | `major.minor.patch.feature-<topic-*>` |
+| `major.minor.patch.dev` | `dev` | `bug-<topic-*>` | `major.minor.patch.feature-<topic-*>` |
+| `major.minor.patch.feature-<topic-*>` | `feature-topic-*` | `dev` | `major.minor.patch.dev` |
+| `major.minor.patch.bug-<topic-*>` | `bug-<topic-*>` | `dev` | `major.minor.patch.dev` |
+| `major.minor.patch-<*>` | `hotfix-<*>` | `stable` | `major.minor.(patch+1)` |
+| `major.minor.patch-<*>` | `hotfix-<*>` | `dev` | `major.minor.(patch+1).dev` |
+
 ## Comments
 -   Use `## ` (double hash plus a single space) for comments.  
 -   Use `#` (single hash) for commenting out code.
