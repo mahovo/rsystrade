@@ -1,61 +1,85 @@
----
-title: "Volatility targeting"
-author: "mhv"
-date: "2023-02-16"
-output: 
-  rmarkdown::github_document:
-      toc: true
-#output: 
-#  html_document:
-#    toc: true
----
+Volatility targeting
+================
+mhv
+2023-02-16
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+- <a href="#volatility-targeting" id="toc-volatility-targeting">Volatility
+  targeting</a>
+- <a href="#scaling-signal-by-mean-of-absolute-signal"
+  id="toc-scaling-signal-by-mean-of-absolute-signal">Scaling signal by
+  mean of <em>absolute</em> signal</a>
+  - <a href="#mean--0" id="toc-mean--0">mean = 0</a>
+  - <a href="#diagnosis" id="toc-diagnosis">Diagnosis</a>
+  - <a href="#mean--1" id="toc-mean--1">mean = 1</a>
+- <a href="#diversification-multipliers"
+  id="toc-diversification-multipliers">Diversification Multipliers</a>
+  - <a href="#functions" id="toc-functions">Functions</a>
+  - <a href="#calculations" id="toc-calculations">Calculations</a>
+  - <a href="#conclusion" id="toc-conclusion">Conclusion</a>
+  - <a href="#test-function" id="toc-test-function">Test function</a>
+  - <a href="#half-normal-distribution-and-mean-absolute-value"
+    id="toc-half-normal-distribution-and-mean-absolute-value">Half-normal
+    distribution and Mean Absolute Value</a>
+- <a href="#sdm" id="toc-sdm">SDM</a>
 
-(See Obsidian note "Volatility Targeting")
+(See Obsidian note “Volatility Targeting”)
 
-The more interesting stuff is way down below...
+The more interesting stuff is way down below…
 
 ## Volatility targeting
-Example: We generate a signal with approx mean 2 and approx volatility 4.  
+
+Example: We generate a signal with approx mean 2 and approx volatility
+4.  
 We want to rescale the volatility to 1 and we want a mean of 10
 
 Create vector of returns
-```{r}
+
+``` r
 set.seed(3746)
 ret <- rnorm(1000, 2, 4)
 ```
 
 Get mean - should be close to 2
-```{r}
+
+``` r
 mean(ret)
 ```
 
+    ## [1] 1.976082
 
 Get volatility - should be close to 4
-```{r}
+
+``` r
 sd(ret)
 ```
 
+    ## [1] 4.073677
+
 Standardise returns
-```{r}
+
+``` r
 std_ret <- ret / sd(ret)
 ```
 
 Get mean of standardised returns
-```{r}
+
+``` r
 mean(std_ret)
 ```
+
+    ## [1] 0.4850855
+
 - The mean was of course reduced when the volatility was reduced
 
-Get volatility of standardised returns -  should be 1
-```{r}
+Get volatility of standardised returns - should be 1
+
+``` r
 sd(std_ret)
 ```
 
-```{r}
+    ## [1] 1
+
+``` r
 ret1 <- sort(c(ret, mean(ret)))
 std_ret1 <- sort(c(std_ret, mean(std_ret)))
 
@@ -65,54 +89,78 @@ abline(v=which(ret1 == mean(ret1)), lty = "solid", lwd = 5, col="black")
 abline(v=which(std_ret1 == mean(std_ret1)), lty = "solid", lwd = 2, col="red")
 ```
 
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
-So what if we want the same mean but standardised volatility?
-First we shift the data to get a mean of 0:
-```{r}
+So what if we want the same mean but standardised volatility? First we
+shift the data to get a mean of 0:
+
+``` r
 demeaned_ret <- ret - mean(ret)
 ```
 
-Check the mean of the "demeaned" returns - should be 0:
-```{r}
+Check the mean of the “demeaned” returns - should be 0:
+
+``` r
 mean(demeaned_ret)
 ```
 
-Check the volatility of the "demeaned" returns -  should be unchanged (i.e. 4.073677)
-```{r}
+    ## [1] -5.997091e-17
+
+Check the volatility of the “demeaned” returns - should be unchanged
+(i.e. 4.073677)
+
+``` r
 sd(demeaned_ret)
 ```
 
+    ## [1] 4.073677
+
 Now standardise the demeaned returns
-```{r}
+
+``` r
 std_demeaned_ret <- demeaned_ret / sd(demeaned_ret)
 ```
 
 Check mean of standardised demeaned returns - should be 0
-```{r}
+
+``` r
 mean(std_demeaned_ret)
 ```
 
+    ## [1] -1.438181e-17
+
 Check volatility of std_demeaned_ret - should be 1
-```{r}
+
+``` r
 sd(std_demeaned_ret)
 ```
 
-Now shift the mean of the standardised demeaned returns to our target volatility of 10.
-```{r}
+    ## [1] 1
+
+Now shift the mean of the standardised demeaned returns to our target
+volatility of 10.
+
+``` r
 normalized_ret <- std_demeaned_ret + 10
 ```
 
 Check mean of normalized returns - should be 10
-```{r}
+
+``` r
 mean(normalized_ret)
 ```
 
+    ## [1] 10
+
 Check volatility of normalized returns - should be 1
-```{r}
+
+``` r
 sd(normalized_ret)
 ```
 
-```{r}
+    ## [1] 1
+
+``` r
 ret1 <- sort(c(ret, mean(ret)))
 demeaned_ret1 <- sort(c(demeaned_ret, mean(demeaned_ret)))
 std_demeaned_ret1 <- sort(c(std_demeaned_ret, mean(std_demeaned_ret)))
@@ -129,90 +177,127 @@ abline(v=which(std_demeaned_ret1 == mean(std_demeaned_ret1)), lty = "dashed", lw
 abline(v=which(normalized_ret1 == mean(normalized_ret1)), lty = "dotted", lwd = 2, col="orange")
 ```
 
-The orange line shows that we end up with only positive signals.  
-We don't want the mean of the scaled signal to be 10. We want the mean of the *absolute* signal to be 10.
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
+The orange line shows that we end up with only positive signals.  
+We don’t want the mean of the scaled signal to be 10. We want the mean
+of the *absolute* signal to be 10.
 
 ## Scaling signal by mean of *absolute* signal
+
 See pysystemtrade implementation:  
-https://github.com/robcarver17/pysystemtrade/blob/master/sysquant/estimators/forecast_scalar.py#L31
-```{r}
+<https://github.com/robcarver17/pysystemtrade/blob/master/sysquant/estimators/forecast_scalar.py#L31>
+
+``` r
 set.seed(3746)
 sig <- rnorm(1000, 2, 8)
 ```
 
 This is how pysystemtrade does it:  
 Find mean of abs signal
-```{r}
+
+``` r
 mean_abs_sig <- mean(abs(sig))
 mean_abs_sig
 ```
 
+    ## [1] 6.623671
+
 Standardise signal: Divide signal by mean of absolute signal
-```{r}
+
+``` r
 std_sig <- sig/mean_abs_sig
 ```
 
-
 Get mean of scaled signal
-```{r}
+
+``` r
 mean(std_sig)
 ```
 
+    ## [1] 0.2947253
+
 Get sd of scaled signal
-```{r}
+
+``` r
 sd(std_sig)
 ```
 
+    ## [1] 1.230036
+
 Get mean of positive scaled values
-```{r}
+
+``` r
 mean(std_sig[std_sig >= 0])
 ```
 
+    ## [1] 1.071792
+
 Get mean of negative scaled values
-```{r}
+
+``` r
 mean(std_sig[std_sig < 0])
 ```
 
+    ## [1] -0.8904984
+
 Get sd of positive scaled values
-```{r}
+
+``` r
 sd(std_sig[std_sig >= 0])
 ```
 
+    ## [1] 0.789594
+
 Get sd of negative scaled values
-```{r}
+
+``` r
 sd(std_sig[std_sig < 0])
 ```
 
+    ## [1] 0.7369654
+
 Scale signal to expected absolute value of 10
-```{r}
+
+``` r
 scaled_sig <- std_sig * 10
 ```
 
 Mean of the scaled signal
-```{r}
+
+``` r
 mean(scaled_sig)
 ```
 
+    ## [1] 2.947253
+
 Mean of the absolute scaled signal
-```{r}
+
+``` r
 mean(abs(scaled_sig))
 ```
 
+    ## [1] 10
+
 sd of the scaled signal
-```{r}
+
+``` r
 sd(scaled_sig)
 ```
 
+    ## [1] 12.30036
+
 sd of the absolute scaled signal
-```{r}
+
+``` r
 sd(abs(scaled_sig))
 ```
 
-
+    ## [1] 7.739106
 
 Make plot (include mean in each signal to be able to make vlines)
-```{r}
+
+``` r
 sig1 <- sort(c(sig, mean(sig)))
 std_sig1 <- sort(c(std_sig, mean(std_sig)))
 scaled_sig1 <- sort(c(scaled_sig, mean(scaled_sig)))
@@ -225,16 +310,21 @@ abline(v=which(std_sig1 == mean(std_sig1)), lty = "dashed", lwd = 2, col="red")
 abline(v=which(scaled_sig1 == mean(scaled_sig1)), lty = "dotted", lwd = 1, col="green")
 ```
 
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
+
 ### mean = 0
-Compute the scaling factor for 20 simulated signals with the same input parameters.  
-Do this for different values of sd.  
-```{r}
+
+Compute the scaling factor for 20 simulated signals with the same input
+parameters.  
+Do this for different values of sd.
+
+``` r
 f_normalization_factor <- function(raw_signal, target = 1) {
   target/mean(abs(raw_signal))
 }
 ```
 
-```{r}
+``` r
 sd_vals <- c(1, 0.1, 0.01, 0.001, 0.0001)
 factor_vectors <- list()
 for(i in seq_along(sd_vals)) {
@@ -244,8 +334,7 @@ for(i in seq_along(sd_vals)) {
 range_ <- range(factor_vectors)
 ```
 
-
-```{r}
+``` r
 plot(factor_vectors[[1]], pch = 16, cex = 0.8, ylim = range_, log = "y", ylab = "scaling_factor", main = "Rescaled signal (lin-log)")
 points(factor_vectors[[2]], pch = 16, cex = 0.8, col = "red")
 points(factor_vectors[[3]], pch = 16, cex = 0.8, col = "green")
@@ -253,20 +342,46 @@ points(factor_vectors[[4]], pch = 16, cex = 0.8, col = "blue")
 points(factor_vectors[[5]], pch = 16, cex = 0.8, col = "orange")
 ```
 
-```{r}
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+
+``` r
 mean(factor_vectors[[1]])
+```
+
+    ## [1] 12.50737
+
+``` r
 mean(factor_vectors[[2]])
+```
+
+    ## [1] 125.2921
+
+``` r
 mean(factor_vectors[[3]])
+```
+
+    ## [1] 1255.659
+
+``` r
 mean(factor_vectors[[4]])
+```
+
+    ## [1] 12540.4
+
+``` r
 mean(factor_vectors[[5]])
 ```
-Note: When the mean of the raw signal is close to 0, the scaling factor is inverse proportional to the volatility of the raw signal.
 
-```{r}
+    ## [1] 125284
+
+Note: When the mean of the raw signal is close to 0, the scaling factor
+is inverse proportional to the volatility of the raw signal.
+
+``` r
 library(ggplot2)
 ```
 
-```{r}
+``` r
 means <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
 sds <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
 grid <- expand.grid(means = means, sds = sds)
@@ -275,7 +390,7 @@ for(i in 1:nrow(grid)) {
 }
 ```
 
-```{r}
+``` r
 ggplot(grid, aes(x = sds, y = scalars, color = as.factor(means))) +
   geom_point() +
   geom_line() +
@@ -284,55 +399,82 @@ ggplot(grid, aes(x = sds, y = scalars, color = as.factor(means))) +
   labs(x = "sds", y = "scalars", color = "means")
 ```
 
-### Diagnosis
-What's going on? Let's look at how `mean(abs(x))` depends on `mean(x)`.
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-39-1.png)<!-- -->
 
-```{r}
+### Diagnosis
+
+What’s going on? Let’s look at how `mean(abs(x))` depends on `mean(x)`.
+
+``` r
 means <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
 signals <- lapply(means, function(m) rnorm(10000, m, 1))
 mean_abs_vals <- lapply(signals, function(x) mean(abs(x)))
 df <- data.frame(means = means, mean_abs_vals = unlist(mean_abs_vals))
 ```
 
-
-```{r}
+``` r
 ggplot(df, aes(x = means, y = mean_abs_vals)) +
   geom_point() +
   geom_line() +
   labs(x = "means", y = "mean abs vals")
 ```
 
-We observe that the mean of the absolute values is equal to the absolute value of the mean:
-```{r}
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-41-1.png)<!-- -->
+
+We observe that the mean of the absolute values is equal to the absolute
+value of the mean:
+
+``` r
 set.seed(3654)
 sgnl1 <- rnorm(10000, -100, 1)
 mean(abs(sgnl1)) == abs(mean(sgnl1))
 ```
 
+    ## [1] TRUE
+
 But not for all raw signals with a mean close to 0:
-```{r}
+
+``` r
 set.seed(3654)
 sgnl2 <- rnorm(10000, 0, 1)
 mean(sgnl2)
+```
+
+    ## [1] -0.006818511
+
+``` r
 mean(abs(sgnl2)) == abs(mean(sgnl2))
 ```
 
-```{r}
+    ## [1] FALSE
+
+``` r
 set.seed(3654)
 sgnl3 <- rnorm(10000, 0.4, 0.1)
 set.seed(3654)
 sgnl4 <- rnorm(10000, 0.5, 0.1)
 mean(abs(sgnl3)) == abs(mean(sgnl3))
+```
+
+    ## [1] FALSE
+
+``` r
 mean(abs(sgnl4)) == abs(mean(sgnl4))
 ```
 
-```{r}
+    ## [1] TRUE
+
+``` r
 format(
   mean(abs(sgnl3)) - abs(mean(sgnl3)), 
   scientific=F,
   nsmall = 20
 )
+```
 
+    ## [1] "0.00000080417612741135"
+
+``` r
 format( 
  mean(abs(sgnl4)) - abs(mean(sgnl4)),
  scientific=F,
@@ -340,8 +482,12 @@ format(
 )
 ```
 
-Absolute value is also *not* equal to the absolute value of the mean for all values of sd:
-```{r}
+    ## [1] "0.00000000000000000000"
+
+Absolute value is also *not* equal to the absolute value of the mean for
+all values of sd:
+
+``` r
 set.seed(3654)
 sgnl5 <- rnorm(10000, 1, 0.1)
 set.seed(3654)
@@ -351,14 +497,29 @@ sgnl7 <- rnorm(10000, 1, 0.3)
 set.seed(3654)
 sgnl8 <- rnorm(10000, 1, 1)
 mean(abs(sgnl5)) == abs(mean(sgnl5))
+```
+
+    ## [1] TRUE
+
+``` r
 mean(abs(sgnl6)) == abs(mean(sgnl6))
+```
+
+    ## [1] TRUE
+
+``` r
 mean(abs(sgnl7)) == abs(mean(sgnl7))
+```
+
+    ## [1] FALSE
+
+``` r
 mean(abs(sgnl8)) == abs(mean(sgnl8))
 ```
 
+    ## [1] FALSE
 
-
-```{r}
+``` r
 means <- c(-10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10)
 sds <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
 grid <- expand.grid(means = means, sds = sds)
@@ -368,57 +529,72 @@ for(i in 1:nrow(grid)) {
 }
 ```
 
-```{r}
+``` r
 ggplot(grid, aes(x = means, y = mean_abs_vals, color = as.factor(sds))) +
   geom_point() +
   geom_line() +
   labs(x = "means", y = "mean_abs_vals", color = "sds")
 ```
 
-```{r}
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-48-1.png)<!-- -->
+
+``` r
 ggplot(grid, aes(x = means, y = mean_abs_vals, color = as.factor(sds))) +
   geom_point() +
   geom_line() +
   scale_y_log10() +
   labs(x = "means", y = "mean_abs_vals", color = "sds")
 ```
-#### Analysis
 
-The bigger the sd,  
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-49-1.png)<!-- -->
+\#### Analysis
 
-* the bigger `mean(abs(signal)) - mean(signal)`.   
-* $\Longrightarrow$ the smaller the *scaling factor*.  
-* the less sensitive the scaling factor is to the mean of the raw signal.
+The bigger the sd,
 
-The smaller the sd,  
+- the bigger `mean(abs(signal)) - mean(signal)`.  
+- $\Longrightarrow$ the smaller the *scaling factor*.  
+- the less sensitive the scaling factor is to the mean of the raw
+  signal.
 
-* the the smaller `mean(abs(signal)) - mean(signal)`.   
-* $\Longrightarrow$ the bigger the *scaling factor*.   
-* $\Longrightarrow$ the bigger the scaled signal.  
-* the more sensitive the scaling factor is to the mean of the raw signal.
+The smaller the sd,
 
-When sd is small *and* the mean of the raw signal is *not* close to zero:  
+- the the smaller `mean(abs(signal)) - mean(signal)`.  
+- $\Longrightarrow$ the bigger the *scaling factor*.  
+- $\Longrightarrow$ the bigger the scaled signal.  
+- the more sensitive the scaling factor is to the mean of the raw
+  signal.
 
-* `mean(abs(signal))` and `mean(signal)` are effectively equal for small sd.
+When sd is small *and* the mean of the raw signal is *not* close to
+zero:
 
-When the mean of the raw signal is 0,  
+- `mean(abs(signal))` and `mean(signal)` are effectively equal for small
+  sd.
 
-* the *scaling factor* is inverse proportional to sd.
+When the mean of the raw signal is 0,
 
-The bigger the absolute mean of the signal,  
+- the *scaling factor* is inverse proportional to sd.
 
-* the less sensitive the *scaling factor* is to sd.
+The bigger the absolute mean of the signal,
+
+- the less sensitive the *scaling factor* is to sd.
 
 Notice:
 
-* Doubling the <u>standard deviation</u> of a mean zero Gaussian will also double it's <u>average absolute value</u>.  
-* The *expected absolute value* of a Gaussian is equal to `sd * sqrt(2/pi)`.  
-* If the mean isn't zero (which for slow trend following and carry is very likely) then the standard deviation will be biased downwards compared to abs() although that would be easy to fix by using MAD rather than STDEV.  
-* These points are from the discussion in this Obsidian note:  
-    * CarverRobert_SystematicTrading#F6: Price Volatility as Exponentially Weighted Moving Average (EWMA)
+- Doubling the <u>standard deviation</u> of a mean zero Gaussian will
+  also double it’s <u>average absolute value</u>.  
+- The *expected absolute value* of a Gaussian is equal to
+  `sd * sqrt(2/pi)`.  
+- If the mean isn’t zero (which for slow trend following and carry is
+  very likely) then the standard deviation will be biased downwards
+  compared to abs() although that would be easy to fix by using MAD
+  rather than STDEV.  
+- These points are from the discussion in this Obsidian note:
+  - CarverRobert_SystematicTrading#F6: Price Volatility as Exponentially
+    Weighted Moving Average (EWMA)
 
 ### mean = 1
-```{r}
+
+``` r
 sd_vals <- c(1, 0.1, 0.01, 0.001, 0.0001)
 factor_vectors <- list()
 for(i in seq_along(sd_vals)) {
@@ -428,9 +604,9 @@ for(i in seq_along(sd_vals)) {
 range_ <- range(factor_vectors)
 ```
 
-
 lin-lin
-```{r}
+
+``` r
 plot(factor_vectors[[1]], pch = 16, cex = 0.8, ylim = range_, ylab = "scaling_factor",
     main= "Rescaled signal (lin-lin)")
 points(factor_vectors[[2]], pch = 16, cex = 0.8, col = "red")
@@ -439,8 +615,11 @@ points(factor_vectors[[4]], pch = 16, cex = 0.8, col = "blue")
 points(factor_vectors[[5]], pch = 16, cex = 0.8, col = "orange")
 ```
 
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-51-1.png)<!-- -->
+
 Remove the signal with sd=1
-```{r}
+
+``` r
 range_ <- range(factor_vectors[2:5])
 plot(factor_vectors[[2]], pch = 16, cex = 0.8, ylim = range_, ylab = "scaling_factor",
     main= "Rescaled signal (lin-lin)", col = "red")
@@ -450,27 +629,52 @@ points(factor_vectors[[4]], pch = 16, cex = 0.8, col = "blue")
 points(factor_vectors[[5]], pch = 16, cex = 0.8, col = "orange")
 ```
 
-```{r}
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-52-1.png)<!-- -->
+
+``` r
 mean(factor_vectors[[1]])
+```
+
+    ## [1] 8.567769
+
+``` r
 mean(factor_vectors[[2]])
+```
+
+    ## [1] 10.00221
+
+``` r
 mean(factor_vectors[[3]])
+```
+
+    ## [1] 9.999942
+
+``` r
 mean(factor_vectors[[4]])
+```
+
+    ## [1] 10
+
+``` r
 mean(factor_vectors[[5]])
 ```
 
+    ## [1] 10
+
 This looks much more reasonable!
-
-
 
 ## Diversification Multipliers
 
-+ Noter: ST, Ch 10: Position sizing:
-	+ Note: When the expected absolute value of the individual forecasts is 10, the *diversification multiplier* will ensure that the combined forecast is also 10.
-		+ *** #todo Is this true?? ***
-			+ See Noter: ST, Ch 8: Combined forecasts
+- Noter: ST, Ch 10: Position sizing:
+  - Note: When the expected absolute value of the individual forecasts
+    is 10, the *diversification multiplier* will ensure that the
+    combined forecast is also 10.
+    - \*\*\* \#todo Is this true?? \*\*\*
+      - See Noter: ST, Ch 8: Combined forecasts
 
 ### Functions
-```{r}
+
+``` r
 f_sig_div_mult <- function(
     signal_correlations,
     signal_weights,
@@ -598,21 +802,40 @@ combine_signals <- function(
 ```
 
 ### Calculations
+
 Generate 5 signals
-```{r}
+
+``` r
 set.seed(876234)
 signals <- lapply(1:5, function(x) rnorm(200, 0, 1))
 ```
 
 Calculate normalization factors
-```{r}
+
+``` r
 norm_factors <- lapply(signals, function(x) {f_normalization_factor(x, target = 10)})
 norm_factors
 ```
 
+    ## [[1]]
+    ## [1] 12.03534
+    ## 
+    ## [[2]]
+    ## [1] 13.07903
+    ## 
+    ## [[3]]
+    ## [1] 12.46417
+    ## 
+    ## [[4]]
+    ## [1] 12.77098
+    ## 
+    ## [[5]]
+    ## [1] 12.65501
+
 Normalize signals  
 Show mean of absolute normalized signals (target = 10)
-```{r}
+
+``` r
 normalized_signals <- list()
 for(i in seq_along(signals)) {
   normalized_signals[[i]] <- f_normalize_signal(signals[[i]], norm_factors[[i]])
@@ -621,9 +844,25 @@ for(i in seq_along(signals)) {
 lapply(normalized_signals, function(x) mean(abs(x)))
 ```
 
+    ## [[1]]
+    ## [1] 10
+    ## 
+    ## [[2]]
+    ## [1] 10
+    ## 
+    ## [[3]]
+    ## [1] 10
+    ## 
+    ## [[4]]
+    ## [1] 10
+    ## 
+    ## [[5]]
+    ## [1] 10
+
 Clamped signals  
 Show mean of absolute clamped signals (target = 10)
-```{r}
+
+``` r
 clamped_signals <- lapply(
   normalized_signals,
   function(x) {clamp_signal(x, min_signal = -20, max_signal = 20)}
@@ -631,37 +870,55 @@ clamped_signals <- lapply(
 
 lapply(clamped_signals, function(x) mean(abs(x)))
 ```
+
+    ## [[1]]
+    ## [1] 9.48431
+    ## 
+    ## [[2]]
+    ## [1] 9.566417
+    ## 
+    ## [[3]]
+    ## [1] 9.448788
+    ## 
+    ## [[4]]
+    ## [1] 9.479629
+    ## 
+    ## [[5]]
+    ## [1] 9.421413
+
 Observe:  
 Because we clamped the signal, the mean abs no longer hits the target.  
-This is ok, but it means that the rescaled combined signal will also not meet
-the target.
-
-
+This is ok, but it means that the rescaled combined signal will also not
+meet the target.
 
 Combine signals.s  
 Show mean absolute value of combined signal.
-```{r}
+
+``` r
 signal_weights <- rep(1/5, 5)
 combined_signal <- combine_signals(
   clamped_signals,
   #normalized_signals,
   signal_weights
 )
+```
 
+    ## [1] "sdm:  2.15737878808594"
+
+``` r
 mean(abs(combined_signal))
 ```
 
-
+    ## [1] 8.425561
 
 ### Conclusion
 
-The mean absolute combined signal is a bit below the target, because of the clamping.
-
-
+The mean absolute combined signal is a bit below the target, because of
+the clamping.
 
 ### Test function
 
-```{r}
+``` r
 div_test_funk <- function(
     m, 
     s,
@@ -702,8 +959,7 @@ div_test_funk <- function(
 }
 ```
 
-
-```{r}
+``` r
 div_test <- div_test_funk(
   m = 0, 
   s = 1,
@@ -712,11 +968,17 @@ div_test <- div_test_funk(
   min_cor = 0,
   max_sdm = 2.5
 )
+```
 
+    ## [1] "sdm:  2.10490761371908"
+
+``` r
 mean(abs(div_test$combined_signal))
 ```
 
-```{r}
+    ## [1] 8.555264
+
+``` r
 div_test <- div_test_funk(
   m = 0, 
   s = 1,
@@ -725,15 +987,22 @@ div_test <- div_test_funk(
   min_cor = -Inf,
   max_sdm = Inf
 )
+```
 
+    ## [1] "sdm:  2.11752460057426"
+
+``` r
 mean(abs(div_test$combined_signal))
 ```
 
-Observation:  
-Removing the restrictions doesn't get us closer to the target.
+    ## [1] 8.899273
 
-Let's try different mean and sd of the raw signal:
-```{r}
+Observation:  
+Removing the restrictions doesn’t get us closer to the target.
+
+Let’s try different mean and sd of the raw signal:
+
+``` r
 div_test <- div_test_funk(
   m = -1, 
   s = 4,
@@ -742,17 +1011,23 @@ div_test <- div_test_funk(
   min_cor = -Inf,
   max_sdm = Inf
 )
+```
 
+    ## [1] "sdm:  2.14582085809046"
+
+``` r
 mean(abs(div_test$combined_signal))
 ```
 
+    ## [1] 9.527018
+
 Observation:  
-So this phenomenon has to do with the relation between the mean(signal) and mean(abs(signal)).
-
-
+So this phenomenon has to do with the relation between the mean(signal)
+and mean(abs(signal)).
 
 Compare with 1/sd() instead of 1/(w^THw)
-```{r}
+
+``` r
 div_test <- div_test_funk(
   m = -1, 
   s = 4,
@@ -762,13 +1037,29 @@ div_test <- div_test_funk(
   max_sdm = Inf,
   sdm_mode = "var"
 )
+```
 
+    ## [1] "sdm:  0.205588524468273"
+
+``` r
 mean(abs(div_test$combined_signal))
 ```
-```{r}
+
+    ## [1] 0.9514696
+
+``` r
 head(div_test$combined_signal)
 ```
-```{r}
+
+    ##            [,1]
+    ## [1,] -0.8574427
+    ## [2,] -1.3620430
+    ## [3,]  0.7177668
+    ## [4,] -1.7233731
+    ## [5,] -1.4774895
+    ## [6,] -0.7929606
+
+``` r
 div_test <- div_test_funk(
   m = -1, 
   s = 4,
@@ -779,11 +1070,17 @@ div_test <- div_test_funk(
   sdm_mode = "div_mult",
   cor_or_cov = "cor"
 )
+```
 
+    ## [1] "sdm:  2.12341734942083"
+
+``` r
 mean(abs(div_test$combined_signal))
 ```
 
-```{r}
+    ## [1] 9.161696
+
+``` r
 div_test <- div_test_funk(
   m = 0.1, 
   s = 0.1,
@@ -794,17 +1091,25 @@ div_test <- div_test_funk(
   sdm_mode = "div_mult", #"div_mult" or "var"
   cor_or_cov = "cor" #"cor" or "cov"
 )
+```
 
+    ## [1] "sdm:  2.1017176189473"
+
+``` r
 mean(abs(div_test$combined_signal))
 ```
 
-
+    ## [1] 17.42174
 
 ### Half-normal distribution and Mean Absolute Value
-The expected absolute value of a normal random variable with mean $\mu=0$ and standard deviation $\sigma$ is $\sigma \sqrt{\frac{2}{\pi}}$.  
+
+The expected absolute value of a normal random variable with mean
+$\mu=0$ and standard deviation $\sigma$ is
+$\sigma \sqrt{\frac{2}{\pi}}$.  
 See Half-normal distribution:  
-https://en.wikipedia.org/wiki/Half-normal_distribution 
-```{r}
+<https://en.wikipedia.org/wiki/Half-normal_distribution>
+
+``` r
 std_norm_signal <- rnorm(1000000, 0, 1)
 
 sd_pop <- function(x) {
@@ -814,12 +1119,20 @@ sd_pop <- function(x) {
 }
 
 sqrt(2/pi) * sd_pop(std_norm_signal)
+```
+
+    ## [1] 0.798431
+
+``` r
 mean(abs(std_norm_signal))
 ```
 
+    ## [1] 0.7988519
 
-How does the absolute difference between the two methods depend on the number of observations?
-```{r}
+How does the absolute difference between the two methods depend on the
+number of observations?
+
+``` r
 nnn <- 2^(4:23)
 signals <- lapply(nnn, function(n) {
   set.seed(76523)
@@ -831,7 +1144,7 @@ diffs <- abs(aaa - bbb)
 df <- data.frame(nnn = nnn, diffs = diffs)
 ```
 
-```{r}
+``` r
 ggplot(df, aes(x = nnn, y = diffs)) +
   geom_point() +
   geom_line() +
@@ -841,48 +1154,71 @@ ggplot(df, aes(x = nnn, y = diffs)) +
   labs(title = "log-log")
 ```
 
-
-
-
-
-
-
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-70-1.png)<!-- -->
 
 ## SDM
 
-```{r}
+``` r
 signal_1 <- round(rnorm(1000), 2)
 signal_2 <- round(rnorm(1000), 2)
 ```
 
-```{r}
+``` r
 signals <- data.frame(
   x1 = signal_1,
   x2 = signal_2
 )
 ```
 
-```{r}
+``` r
 cov(signal_1, signal_2)
+```
+
+    ## [1] 0.02911757
+
+``` r
 cov(signals)
+```
+
+    ##            x1         x2
+    ## x1 0.93970826 0.02911757
+    ## x2 0.02911757 0.98144864
+
+``` r
 cov(signal_1, signal_1)
 ```
 
+    ## [1] 0.9397083
+
 Convert from correlation matrix to covariance matrix:  
-Multiply cor matrix on both sides by diagonal matrix with sd's in diagonal.
-```{r}
+Multiply cor matrix on both sides by diagonal matrix with sd’s in
+diagonal.
+
+``` r
 D <- diag(c(sd(signal_1), sd(signal_2)))
 D %*% cor(signals) %*% D
+```
 
+    ##            [,1]       [,2]
+    ## [1,] 0.93970826 0.02911757
+    ## [2,] 0.02911757 0.98144864
+
+``` r
 ## compare:
 cov(signals)
 ```
 
+    ##            x1         x2
+    ## x1 0.93970826 0.02911757
+    ## x2 0.02911757 0.98144864
+
 Convert from covariance matrix to correlation matrix:  
-Multiply cov matrix on both sides by diagonal matrix with inverse sd's in diagonal.
-Get sd's from diagonals in cov matrix.
-Note: `diag(<vector>)` produces a diagonal matrix. `diag(<matrix>)` produces a vector of the diagnal.
-```{r}
+Multiply cov matrix on both sides by diagonal matrix with inverse sd’s
+in diagonal. Get sd’s from diagonals in cov matrix. Note:
+`diag(<vector>)` produces a diagonal matrix. `diag(<matrix>)` produces a
+vector of the diagnal.
+
+``` r
 D <- solve(
   sqrt(
     diag(
@@ -893,17 +1229,33 @@ D <- solve(
   )
 ) ## Inverse
 D %*% cov(signals) %*% D
+```
 
+    ##            [,1]       [,2]
+    ## [1,] 1.00000000 0.03031969
+    ## [2,] 0.03031969 1.00000000
+
+``` r
 ## compare:
 V <- diag(cov(signals)) ## Get variances from cov matrix
 
 cov(signals)/V
+```
 
+    ##            x1         x2
+    ## x1 1.00000000 0.03098575
+    ## x2 0.02966795 1.00000000
+
+``` r
 ## compare:
 cor(signals)
 ```
 
-```{r}
+    ##            x1         x2
+    ## x1 1.00000000 0.03031969
+    ## x2 0.03031969 1.00000000
+
+``` r
 H <- cor(signals)
 V <- cov(signals)
 signals_mat <- as.matrix(signals)
@@ -911,8 +1263,7 @@ W <- c(0.3, 0.7)
 comb_signals <- signals_mat %*% W
 ```
 
-
-```{r}
+``` r
 ## 1)
 Ws <- W * (diag(sqrt(V))) ## weighted st. devs
 sqrt(
@@ -921,7 +1272,11 @@ sqrt(
     Ws
   )
 )[1,1]
+```
 
+    ## [1] 0.7600743
+
+``` r
 ## 2)
 sqrt(
   crossprod(
@@ -929,62 +1284,89 @@ sqrt(
     W
   )
 )[1,1]
+```
 
+    ## [1] 0.7600743
+
+``` r
 ## 3)
 sqrt(var(comb_signals))[1,1]
+```
 
+    ## [1] 0.7600743
+
+``` r
 ## 4)
 sd(comb_signals)
 ```
-Observations:
-* As expected, we have a conversion from W^THW to W^TVW in 1).
-* As expected, WCW is equal to V[X], where X is a vector of the two stochastic variables generating the two signals.
 
+    ## [1] 0.7600743
 
+Observations: \* As expected, we have a conversion from W^THW to W^TVW
+in 1). \* As expected, WCW is equal to V\[X\], where X is a vector of
+the two stochastic variables generating the two signals.
 
-
-
-
-
-
-
-```{r}
+``` r
 H <- cov(signals)
 W <- c(0.5, 0.5)
 ```
 
-```{r}
+``` r
 f_sig_div_mult(H, W)
 ```
 
-```{r}
+    ## [1] 1.421556
+
+``` r
 1/(sd(as.matrix(signals) %*% W))
 ```
 
-```{r}
+    ## [1] 1.421556
+
+``` r
 signals_mat <- as.matrix(signals)
 W <- c(0.3, 0.7)
 comb_signals <- signals_mat %*% W
 ```
 
-Calculate combination of first elements in each signal manually and compare with `comb_signals`.
-```{r}
+Calculate combination of first elements in each signal manually and
+compare with `comb_signals`.
+
+``` r
 0.3 * signals[1, 1] + 0.7 * signals[1, 2]
+```
+
+    ## [1] -0.256
+
+``` r
 comb_signals[1]
 ```
 
+    ## [1] -0.256
+
 Compare manual calculation based on correlations with sd(comb_signals)
-```{r}
+
+``` r
 sqrt(crossprod(t(W %*% cov(signals)),  W))
+```
+
+    ##           [,1]
+    ## [1,] 0.7600743
+
+``` r
 sqrt(var(comb_signals))
+```
+
+    ##           [,1]
+    ## [1,] 0.7600743
+
+``` r
 sd(comb_signals)
 ```
 
+    ## [1] 0.7600743
 
-
-
-
-```{r}
+``` r
 clamp_matrix_lower <- function(input_matrix, min_signal) {
   apply(input_matrix,
         c(1,2),
@@ -994,17 +1376,26 @@ clamp_matrix_lower <- function(input_matrix, min_signal) {
 }
 ```
 
-
-```{r}
+``` r
 clamp_matrix_lower(H, 0.5)
 ```
 
-```{r}
+    ##           x1        x2
+    ## x1 0.9397083 0.5000000
+    ## x2 0.5000000 0.9814486
+
+``` r
 clamp_matrix_lower(H, min_signal = 0)
+```
+
+    ##            x1         x2
+    ## x1 0.93970826 0.02911757
+    ## x2 0.02911757 0.98144864
+
+``` r
 H
 ```
 
-
-
-
-
+    ##            x1         x2
+    ## x1 0.93970826 0.02911757
+    ## x2 0.02911757 0.98144864
