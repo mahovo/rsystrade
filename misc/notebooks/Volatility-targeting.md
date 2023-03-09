@@ -547,28 +547,28 @@ ggplot(grid, aes(x = means, y = mean_abs_vals, color = as.factor(sds))) +
 ```
 
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-49-1.png)<!-- -->
-\#### Analysis
+
+#### Analysis
 
 The bigger the sd,
 
-- the bigger `mean(abs(signal)) - mean(signal)`.  
+- the bigger `mean(abs(signal)) - abs(mean(signal))`.  
 - $\Longrightarrow$ the smaller the *scaling factor*.  
 - the less sensitive the scaling factor is to the mean of the raw
   signal.
 
 The smaller the sd,
 
-- the the smaller `mean(abs(signal)) - mean(signal)`.  
+- the the smaller `mean(abs(signal)) - abs(mean(signal))`.  
 - $\Longrightarrow$ the bigger the *scaling factor*.  
 - $\Longrightarrow$ the bigger the scaled signal.  
 - the more sensitive the scaling factor is to the mean of the raw
   signal.
 
-When sd is small *and* the mean of the raw signal is *not* close to
-zero:
+When the mean of the raw signal is *not* close to zero:
 
-- `mean(abs(signal))` and `mean(signal)` are effectively equal for small
-  sd.
+- `mean(abs(signal))` and `abs(mean(signal))` are effectively equal for
+  *small* sd.
 
 When the mean of the raw signal is 0,
 
@@ -665,7 +665,7 @@ This looks much more reasonable!
 
 ## Diversification Multipliers
 
-- Noter: ST, Ch 10: Position sizing:
+- Notes: ST, Ch 10: Position sizing:
   - Note: When the expected absolute value of the individual forecasts
     is 10, the *diversification multiplier* will ensure that the
     combined forecast is also 10.
@@ -891,7 +891,7 @@ Because we clamped the signal, the mean abs no longer hits the target.
 This is ok, but it means that the rescaled combined signal will also not
 meet the target.
 
-Combine signals.s  
+Combine signals.  
 Show mean absolute value of combined signal.
 
 ``` r
@@ -1214,9 +1214,9 @@ cov(signals)
 
 Convert from covariance matrix to correlation matrix:  
 Multiply cov matrix on both sides by diagonal matrix with inverse sd’s
-in diagonal. Get sd’s from diagonals in cov matrix. Note:
-`diag(<vector>)` produces a diagonal matrix. `diag(<matrix>)` produces a
-vector of the diagnal.
+in diagonal. Get sd’s from diagonals in cov matrix.  
+Note: `diag(<vector>)` produces a diagonal matrix. `diag(<matrix>)`
+produces a vector of the diagonal.
 
 ``` r
 D <- solve(
@@ -1302,9 +1302,10 @@ sd(comb_signals)
 
     ## [1] 0.7600743
 
-Observations: \* As expected, we have a conversion from W^THW to W^TVW
-in 1). \* As expected, WCW is equal to V\[X\], where X is a vector of
-the two stochastic variables generating the two signals.
+Observations:  
+\* As expected, we have a conversion from $W^THW$ to $W^TVW$ in 1).  
+\* As expected, $WCW$ is equal to $V[X]$, where $X$ is a vector of the
+two stochastic variables generating the two signals.
 
 ``` r
 H <- cov(signals)
