@@ -1263,21 +1263,42 @@ W <- c(0.3, 0.7)
 comb_signals <- signals_mat %*% W
 ```
 
+Check that $\sigma[\tilde{X}] \cdot K = \text{MAV} [\tilde{X}]$.  
+When $\text{mean}(\tilde{X})=0$, $K = 2/\pi$.  
+Here, the mean of $[\tilde{X}]$ is not zero, so we shift $[\tilde{X}]$
+to get a zero mean.  
+Now the expected difference is zero.  
+0.01167052 is close to zero. Close enough?
+
 ``` r
 ## 1)
-Ws <- W * (diag(sqrt(V))) ## weighted st. devs
-sqrt(
-  crossprod(
-    t(Ws %*% H),  
-    Ws
-  )
-)[1,1]
+K <- sqrt(2/pi)
+## Shift to zero mean
+comb_sig_demean <- comb_signals - mean(comb_signals)
+## The expected difference is zero
+(sd(comb_sig_demean) * K) - mean(abs(comb_sig_demean))
+```
+
+    ## [1] 0.01504096
+
+These should be identical
+
+``` r
+## 2a)
+sqrt(var(comb_signals))[1,1]
 ```
 
     ## [1] 0.7600743
 
 ``` r
-## 2)
+## 2b)
+sd(comb_signals)
+```
+
+    ## [1] 0.7600743
+
+``` r
+## 3)
 sqrt(
   crossprod(
     t(W %*% V),  
@@ -1289,15 +1310,14 @@ sqrt(
     ## [1] 0.7600743
 
 ``` r
-## 3)
-sqrt(var(comb_signals))[1,1]
-```
-
-    ## [1] 0.7600743
-
-``` r
 ## 4)
-sd(comb_signals)
+Ws <- W * (diag(sqrt(V))) ## weighted st. devs
+sqrt(
+  crossprod(
+    t(Ws %*% H),  
+    Ws
+  )
+)[1,1]
 ```
 
     ## [1] 0.7600743
