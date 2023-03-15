@@ -2,7 +2,7 @@
 
 
 
-#' Moving Average Crossover
+#' Binary Moving Average Crossover
 #'
 #' @description
 #' Returns
@@ -49,7 +49,7 @@
 #'
 #' @example
 #'
-apply_mac_rule <- function(
+apply_binary_mac_rule <- function(
     prices,
     ma_fast = NA,
     ma_slow = NA,

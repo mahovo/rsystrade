@@ -851,11 +851,6 @@ update_position_table_row <- function(
       required_leverage_factor
     )
 
-    required_leverage_factor <- f_required_leverage_factor(
-      instrument_risk_target,
-      instrument_risk
-    )
-
     ## Notional exposure in account currency
     notional_exposure <- f_notional_exposure(
       combined_signal,
@@ -978,6 +973,11 @@ update_position_table_row <- function(
     # to `system_account_table`.
     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
     account_value <- capital
+
+    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+    # fix§0037
+    # Fill unmodified columns for this row
+    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   }
 
   ## Return updated row for time t
@@ -1197,6 +1197,12 @@ combine_signals <- function(
 }
 
 
+
+# §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+# fix§0036
+# Input param in help is sdm, but required_leverage_factor in function.
+# So which one is it?
+# §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 
 #' Calculate Subsystem Position
 #'

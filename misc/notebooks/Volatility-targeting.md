@@ -1,4 +1,4 @@
-Volatility targeting
+Notes on volatility targeting in rsystrade
 ================
 mhv
 2023-02-16
@@ -21,6 +21,27 @@ mhv
     id="toc-half-normal-distribution-and-mean-absolute-value">Half-normal
     distribution and Mean Absolute Value</a>
 - <a href="#sdm" id="toc-sdm">SDM</a>
+- <a href="#comparison-1-compare-standard-deviation-and-mav"
+  id="toc-comparison-1-compare-standard-deviation-and-mav">Comparison 1:
+  Compare standard deviation and MAV</a>
+  - <a href="#signal-normal-distributed"
+    id="toc-signal-normal-distributed">Signal normal distributed</a>
+  - <a href="#signal-follows-a-skewed-t-distribution"
+    id="toc-signal-follows-a-skewed-t-distribution">Signal follows a skewed
+    t-distribution</a>
+- <a href="#comparison-2" id="toc-comparison-2">Comparison 2</a>
+  - <a href="#signal-normal-distributed-1"
+    id="toc-signal-normal-distributed-1">Signal normal distributed</a>
+  - <a href="#signal-follows-a-skewed-t-distribution-1"
+    id="toc-signal-follows-a-skewed-t-distribution-1">Signal follows a
+    skewed t-distribution</a>
+- <a href="#comparison-3-mav-wrt-m"
+  id="toc-comparison-3-mav-wrt-m">Comparison 3: MAV wrt. m</a>
+  - <a href="#signal-normal-distributed-2"
+    id="toc-signal-normal-distributed-2">Signal normal distributed</a>
+  - <a href="#signal-follows-a-skewed-t-distribution-2"
+    id="toc-signal-follows-a-skewed-t-distribution-2">Signal follows a
+    skewed t-distribution</a>
 
 (See Obsidian note “Volatility Targeting”)
 
@@ -79,20 +100,10 @@ sd(std_ret)
 
     ## [1] 1
 
-``` r
-ret1 <- sort(c(ret, mean(ret)))
-std_ret1 <- sort(c(std_ret, mean(std_ret)))
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
-plot(ret1, pch = 16, cex = 0.3, col = "black")
-points(std_ret1, pch = 16, cex = 0.3, col = "red")
-abline(v=which(ret1 == mean(ret1)), lty = "solid", lwd = 5, col="black")
-abline(v=which(std_ret1 == mean(std_ret1)), lty = "solid", lwd = 2, col="red")
-```
-
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
-
-So what if we want the same mean but standardised volatility? First we
-shift the data to get a mean of 0:
+So what if we want the same mean but standardised volatility?  
+First we shift the data to get a mean of 0:
 
 ``` r
 demeaned_ret <- ret - mean(ret)
@@ -160,24 +171,7 @@ sd(normalized_ret)
 
     ## [1] 1
 
-``` r
-ret1 <- sort(c(ret, mean(ret)))
-demeaned_ret1 <- sort(c(demeaned_ret, mean(demeaned_ret)))
-std_demeaned_ret1 <- sort(c(std_demeaned_ret, mean(std_demeaned_ret)))
-normalized_ret1 <- sort(c(normalized_ret, mean(normalized_ret)))
-
-
-plot(ret1, pch = 16, cex = 0.3, col = "black")
-points(demeaned_ret1, pch = 16, cex = 0.3, col = "green")
-points(std_demeaned_ret1, pch = 16, cex = 0.3, col = "blue")
-points(normalized_ret1, pch = 16, cex = 0.3, col = "orange")
-abline(v=which(ret1 == mean(ret1)), lty = "solid", lwd = 5, col="black")
-abline(v=which(demeaned_ret1 == mean(demeaned_ret1)), lty = "dashed", lwd = 4, col="green")
-abline(v=which(std_demeaned_ret1 == mean(std_demeaned_ret1)), lty = "dashed", lwd = 3, col="blue")
-abline(v=which(normalized_ret1 == mean(normalized_ret1)), lty = "dotted", lwd = 2, col="orange")
-```
-
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 The orange line shows that we end up with only positive signals.  
 We don’t want the mean of the scaled signal to be 10. We want the mean
@@ -295,22 +289,8 @@ sd(abs(scaled_sig))
 
     ## [1] 7.739106
 
-Make plot (include mean in each signal to be able to make vlines)
-
-``` r
-sig1 <- sort(c(sig, mean(sig)))
-std_sig1 <- sort(c(std_sig, mean(std_sig)))
-scaled_sig1 <- sort(c(scaled_sig, mean(scaled_sig)))
-
-plot(sig1, pch = 16, cex = 0.3, col = "black")
-points(std_sig1, pch = 16, cex = 0.3, col = "red")
-points(scaled_sig1, pch = 16, cex = 0.3, col = "green")
-abline(v=which(sig1 == mean(sig1)), lwd = 3, col="black")
-abline(v=which(std_sig1 == mean(std_sig1)), lty = "dashed", lwd = 2, col="red")
-abline(v=which(scaled_sig1 == mean(scaled_sig1)), lty = "dotted", lwd = 1, col="green")
-```
-
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
+Make plot (echo mean in each signal to be able to make vlines)  
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
 ### mean = 0
 
@@ -318,106 +298,28 @@ Compute the scaling factor for 20 simulated signals with the same input
 parameters.  
 Do this for different values of sd.
 
-``` r
-f_normalization_factor <- function(raw_signal, target = 1) {
-  target/mean(abs(raw_signal))
-}
-```
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
 
-``` r
-sd_vals <- c(1, 0.1, 0.01, 0.001, 0.0001)
-factor_vectors <- list()
-for(i in seq_along(sd_vals)) {
-  factor_vectors[[i]] <- 
-    replicate(20, f_normalization_factor(rnorm(10000, 0, sd_vals[i]), 10))
-}
-range_ <- range(factor_vectors)
-```
-
-``` r
-plot(factor_vectors[[1]], pch = 16, cex = 0.8, ylim = range_, log = "y", ylab = "scaling_factor", main = "Rescaled signal (lin-log)")
-points(factor_vectors[[2]], pch = 16, cex = 0.8, col = "red")
-points(factor_vectors[[3]], pch = 16, cex = 0.8, col = "green")
-points(factor_vectors[[4]], pch = 16, cex = 0.8, col = "blue")
-points(factor_vectors[[5]], pch = 16, cex = 0.8, col = "orange")
-```
-
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
-
-``` r
-mean(factor_vectors[[1]])
-```
+Means:
 
     ## [1] 12.50737
 
-``` r
-mean(factor_vectors[[2]])
-```
-
     ## [1] 125.2921
-
-``` r
-mean(factor_vectors[[3]])
-```
 
     ## [1] 1255.659
 
-``` r
-mean(factor_vectors[[4]])
-```
-
     ## [1] 12540.4
-
-``` r
-mean(factor_vectors[[5]])
-```
 
     ## [1] 125284
 
 Note: When the mean of the raw signal is close to 0, the scaling factor
 is inverse proportional to the volatility of the raw signal.
 
-``` r
-library(ggplot2)
-```
-
-``` r
-means <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
-sds <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
-grid <- expand.grid(means = means, sds = sds)
-for(i in 1:nrow(grid)) {
-  grid[i, "scalars"] <- f_normalization_factor(rnorm(10000, grid$means[i], grid$sds[i]), 10)
-}
-```
-
-``` r
-ggplot(grid, aes(x = sds, y = scalars, color = as.factor(means))) +
-  geom_point() +
-  geom_line() +
-  scale_x_log10() +
-  scale_y_log10() +
-  labs(x = "sds", y = "scalars", color = "means")
-```
-
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-39-1.png)<!-- -->
 
 ### Diagnosis
 
 What’s going on? Let’s look at how `mean(abs(x))` depends on `mean(x)`.
-
-``` r
-means <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
-signals <- lapply(means, function(m) rnorm(10000, m, 1))
-mean_abs_vals <- lapply(signals, function(x) mean(abs(x)))
-df <- data.frame(means = means, mean_abs_vals = unlist(mean_abs_vals))
-```
-
-``` r
-ggplot(df, aes(x = means, y = mean_abs_vals)) +
-  geom_point() +
-  geom_line() +
-  labs(x = "means", y = "mean abs vals")
-```
 
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-41-1.png)<!-- -->
 
@@ -464,6 +366,8 @@ mean(abs(sgnl4)) == abs(mean(sgnl4))
 
     ## [1] TRUE
 
+`mean(abs(sgnl3)) - abs(mean(sgnl3))`
+
 ``` r
 format(
   mean(abs(sgnl3)) - abs(mean(sgnl3)), 
@@ -473,6 +377,8 @@ format(
 ```
 
     ## [1] "0.00000080417612741135"
+
+`mean(abs(sgnl4)) - abs(mean(sgnl4))`
 
 ``` r
 format( 
@@ -519,34 +425,9 @@ mean(abs(sgnl8)) == abs(mean(sgnl8))
 
     ## [1] FALSE
 
-``` r
-means <- c(-10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10)
-sds <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
-grid <- expand.grid(means = means, sds = sds)
-for(i in 1:nrow(grid)) {
-  signal <- rnorm(10000, grid$means[i], grid$sds[i])
-  grid[i, "mean_abs_vals"] <- mean(abs(signal))
-}
-```
-
-``` r
-ggplot(grid, aes(x = means, y = mean_abs_vals, color = as.factor(sds))) +
-  geom_point() +
-  geom_line() +
-  labs(x = "means", y = "mean_abs_vals", color = "sds")
-```
-
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-48-1.png)<!-- -->
-
-``` r
-ggplot(grid, aes(x = means, y = mean_abs_vals, color = as.factor(sds))) +
-  geom_point() +
-  geom_line() +
-  scale_y_log10() +
-  labs(x = "means", y = "mean_abs_vals", color = "sds")
-```
-
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-49-1.png)<!-- -->
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-50-1.png)<!-- -->
 
 #### Analysis
 
@@ -588,76 +469,28 @@ Notice:
   very likely) then the standard deviation will be biased downwards
   compared to abs() although that would be easy to fix by using MAD
   rather than STDEV.  
-- These points are from the discussion in this Obsidian note:
-  - CarverRobert_SystematicTrading#F6: Price Volatility as Exponentially
-    Weighted Moving Average (EWMA)
+- These points are from this discussion:
+  - <https://qoppac.blogspot.com/2016/01/pysystemtrader-estimated-forecast.html>  
+  - (CarverRobert_SystematicTrading#F6: Price Volatility as
+    Exponentially Weighted Moving Average (EWMA))
 
 ### mean = 1
 
-``` r
-sd_vals <- c(1, 0.1, 0.01, 0.001, 0.0001)
-factor_vectors <- list()
-for(i in seq_along(sd_vals)) {
-  factor_vectors[[i]] <- 
-    replicate(20, f_normalization_factor(rnorm(10000, 1, sd_vals[i]), 10))
-}
-range_ <- range(factor_vectors)
-```
-
 lin-lin
-
-``` r
-plot(factor_vectors[[1]], pch = 16, cex = 0.8, ylim = range_, ylab = "scaling_factor",
-    main= "Rescaled signal (lin-lin)")
-points(factor_vectors[[2]], pch = 16, cex = 0.8, col = "red")
-points(factor_vectors[[3]], pch = 16, cex = 0.8, col = "green")
-points(factor_vectors[[4]], pch = 16, cex = 0.8, col = "blue")
-points(factor_vectors[[5]], pch = 16, cex = 0.8, col = "orange")
-```
-
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-51-1.png)<!-- -->
-
-Remove the signal with sd=1
-
-``` r
-range_ <- range(factor_vectors[2:5])
-plot(factor_vectors[[2]], pch = 16, cex = 0.8, ylim = range_, ylab = "scaling_factor",
-    main= "Rescaled signal (lin-lin)", col = "red")
-#points(factor_vectors[[2]], pch = 16, cex = 0.8, col = "red")
-points(factor_vectors[[3]], pch = 16, cex = 0.8, col = "green")
-points(factor_vectors[[4]], pch = 16, cex = 0.8, col = "blue")
-points(factor_vectors[[5]], pch = 16, cex = 0.8, col = "orange")
-```
-
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-52-1.png)<!-- -->
 
-``` r
-mean(factor_vectors[[1]])
-```
+Remove the signal with sd=1
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-53-1.png)<!-- -->
+
+Means
 
     ## [1] 8.567769
 
-``` r
-mean(factor_vectors[[2]])
-```
-
     ## [1] 10.00221
-
-``` r
-mean(factor_vectors[[3]])
-```
 
     ## [1] 9.999942
 
-``` r
-mean(factor_vectors[[4]])
-```
-
     ## [1] 10
-
-``` r
-mean(factor_vectors[[5]])
-```
 
     ## [1] 10
 
@@ -745,29 +578,6 @@ combine_signals <- function(
     max_sdm = 2.5,
     sdm_mode = "div_mult",
     cor_or_cov = "cor") {
-
-  # inst_names_by_algo <- get_inst_names_by_parsed_algo(system$algos)
-  # unique_inst_names <-
-  #   get_unique_inst_names_from_parsed_algos_list(system$algos)
-  # 
-  # n <- length(unique_inst_names)
-  #combined_signals <- numeric(n)
-  #signal_cor_mats <- list()
-
-  #for(i in 1:n) {
-    ## A subsystem is all the algos for an individual instrument
-    # subsystem_IDs <- which(
-    #   inst_names_by_algo[inst_names_by_algo == unique_inst_names[[i]]]
-    # )
-
-    ## Collect all clamped signals in subsystem i
-    # signals <- sapply(
-    #   signal_tables[subsystem_IDs], function(x) x$clamped_signal[t]
-    # )
-    ## Collect all signal weights in subsystem i
-    # signal_weights <- sapply(
-    #   signal_tables[subsystem_IDs], function(x) x$signal_weight[t]
-    # )
 
     ## Calculate signal correlations.
     ## No need to do this every time we run update_position_table_row.
@@ -1132,29 +942,7 @@ mean(abs(std_norm_signal))
 How does the absolute difference between the two methods depend on the
 number of observations?
 
-``` r
-nnn <- 2^(4:23)
-signals <- lapply(nnn, function(n) {
-  set.seed(76523)
-  rnorm(n, 0, 1)
-})
-aaa <- vapply(signals, function(x) {sqrt(2/pi) * sd_pop(x)}, numeric(1))
-bbb <- vapply(signals, function(x) {mean(abs(x))}, numeric(1))
-diffs <- abs(aaa - bbb)
-df <- data.frame(nnn = nnn, diffs = diffs)
-```
-
-``` r
-ggplot(df, aes(x = nnn, y = diffs)) +
-  geom_point() +
-  geom_line() +
-  scale_x_continuous(trans='log2')  +
-  scale_y_continuous(trans='log2')  +
-  labs(x = "n", y = "diff") + 
-  labs(title = "log-log")
-```
-
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-70-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-71-1.png)<!-- -->
 
 ## SDM
 
@@ -1214,12 +1002,13 @@ cov(signals)
 
 Convert from covariance matrix to correlation matrix:  
 Multiply cov matrix on both sides by diagonal matrix with inverse sd’s
-in diagonal. Get sd’s from diagonals in cov matrix.  
+in diagonal.  
+Get sd’s from diagonals in cov matrix.  
 Note: `diag(<vector>)` produces a diagonal matrix. `diag(<matrix>)`
 produces a vector of the diagonal.
 
 ``` r
-D <- solve(
+D_inv <- solve(
   sqrt(
     diag(
       diag(
@@ -1228,7 +1017,7 @@ D <- solve(
     )
   )
 ) ## Inverse
-D %*% cov(signals) %*% D
+D_inv %*% cov(signals) %*% D_inv
 ```
 
     ##            [,1]       [,2]
@@ -1420,3 +1209,216 @@ H
     ##            x1         x2
     ## x1 0.93970826 0.02911757
     ## x2 0.02911757 0.98144864
+
+## Comparison 1: Compare standard deviation and MAV
+
+For different distributions of $X_i \in \{{X_i}\}_{i=1}^p$, compute  
+$$K = \frac{\text{MAV}[\mathbf{\tilde{X}}]}{\sigma_{\tilde{X}}}$$  
+- wrt. $\mu$  
+- wrt $\sigma$
+
+where  
+- $X_i$: A stochastic variable. Produces a single signal vector.  
+- $\mathbf{\tilde{X}}$: A $(p \times 1)$ weighted stochastic vector:  
+$$\mathbf{\tilde{X}} := \mathbf{w} \circ \mathbf{X} \equiv [w_1 X_1, w_2 X_2, \ldots, w_p X_p]^T$$ -
+$\hat{X} := \sum_i^p \tilde{X}_i$: Combined, weighted signal. Stochastic
+variable.
+
+### Signal normal distributed
+
+p is number of rules. So p is realistically quite low. Here it’s 3.
+
+``` r
+p <- 3L
+n <- 10000
+m <- 0 
+sigma <- 1
+num_tests <- 100
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-90-1.png)<!-- -->
+
+The red line is $f(x) = x$.  
+MAV tends to lie below sd.
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-91-1.png)<!-- -->
+
+How does K depend on the population mean and standard deviation of the
+individual signals?  
+Assume that the distribution for all individual signals is the same.
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-93-1.png)<!-- -->
+
+For now it looks like:  
+- K is close to 1 if (e.g):  
+- $\sigma > 0.01$ and $0 < m < 0.001$.  
+- $\sigma > 1$ and $0 < \text{abs}(m) < 0.1$.  
+- K close to 1 means that MAV and sd are equivalent.
+
+How close is K to 1, when $\mu = 0$?
+
+``` r
+range(grid$K[grid$m == 0])
+```
+
+    ## [1] 0.7968198 0.8021653
+
+So:  
+- When $\mu = 0$, then $K$ is between $0.7172$ and $0.7418$.
+
+This raises the question:  
+- For which $\mu$ is $K = 1$?
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-96-1.png)<!-- -->
+
+Range of optimal values of $\mu$:
+
+``` r
+range(vals)
+```
+
+    ## [1] 1.031248e-06 3.980538e-02
+
+Inspect the mid range.
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-99-1.png)<!-- -->
+
+#### Conclusion
+
+- K is close to 1 if (e.g):
+  - $\sigma > 0.01$ and $0 < m < 0.001$.  
+  - $\sigma > 1$ and $0 < \text{abs}(m) < 0.1$.  
+- K close to 1 means that MAV and sd are equivalent.  
+- WARNING: K can be huge, if the mean of the individual signals is
+  different from 0, and the standard deviation is close to 0.  
+- The optimal $\mu$ is quite unstable wrt. $\sigma$ for different draws
+  of $X$.
+  - Especially in the range $\sigma \in [0.01, 4]$.
+    - This means that anywhere near a standard normal distribution, $K$
+      is unstable.  
+- If $\sigma$ is large ($\geq 10$), then optimal $\mu$ seems stable, and
+  therefore $K$ should also be stable wrt. $\sigma$.  
+- For $\sigma \geq 10$ the optimal $\mu$ seems to be around $0.04$.
+
+### Signal follows a skewed t-distribution
+
+Generate a skewed t-distributed series and inspect.
+
+``` r
+m = 0
+s = 1
+nu = 5
+xi = 0.4
+n = 1000
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-101-1.png)<!-- -->
+
+``` r
+hist(x, n = 50)
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-102-1.png)<!-- -->
+
+How does K depend on the population mean and standard deviation of the
+individual signals?  
+Assume that the distribution for all individual signals is the same.
+
+``` r
+p <- 3
+n <- 10000
+m = 0
+s = 1
+nu = 5
+xi = 0.4
+n = 10000
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-105-1.png)<!-- -->
+
+We see a similar pattern as with normal distributed signals, with the
+difference that K differs a bit for opposite signed values of $\mu$.
+
+By eye it looks like K actually tends to be bigger for normal
+distributed signals than for heavily skewed signals.
+
+## Comparison 2
+
+Study to which degree the contributions of $\mathbf{D}$ and $K$ cancel
+each other out.  
+-
+$$\frac{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}} \cdot K}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}} = 1 \text{?}$$ -
+Ifthe contributions from $\mathbf{D}$ and $K$ cancel each other out, we
+have:  
+$$= \left(\sum_i^p \tilde{X}_i \right) \frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{\Sigma} \mathbf{w}} \cdot K}$$
+$$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}} \cdot K}$$
+$$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$ -
+…which would mean, that the two methods are indeed identical.
+
+### Signal normal distributed
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-107-1.png)<!-- -->
+
+#### Conclusion
+
+- The conclusion for normal distributed signals is analogous to the one
+  in comparison 1 above.  
+- The contributions of $\mathbf{D}$ and $K$ cancel each other out, if
+  (e.g.):
+  - $\sigma > 0.01$ and $0 m < 0.001$.  
+  - $\sigma > 1$ and $\text{abs}(m) < 0.1$.  
+- WARNING: The difference can be huge, if the mean of the individual
+  signals is different from 0, and the standard deviation is close to
+  0.  
+- If we use $w^THw$ instead of $w^T\Sigma w$, the diversification
+  multiplier can be many (millions of) orders of magnitude bigger than
+  the theoretical MAV that we are targeting, of $\sigma$ is small and
+  $\mu$ is not $0$.
+- IMPORTANT: For these reasons, the target mean average signal should be
+  bigger than 1. 10 seems good, or even 100, which may also be more
+  intuitive (200 means double, as in 200 percent).
+
+### Signal follows a skewed t-distribution
+
+``` r
+p = 3
+n = 10000
+nu = 5
+xi = 0.4
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-110-1.png)<!-- -->
+
+#### Conclusion
+
+- For the heavily skewed signals, the picture is quite different than
+  for normal distributed data.  
+- For $\mu = 0$, the fraction is approximately equal to $\sigma$.  
+- The further $\mu$ is from $0$, the bigger the fraction.  
+- From visual inspection: The fraction is quite stable around $1$ when
+  $\mu$ is somewhere between $0.1$ and $1$, and $\sigma < 1$.
+
+## Comparison 3: MAV wrt. m
+
+How does MAV depend on $\mu$?
+
+Note: This question is examined in more detail above under “Diagnosis”.
+
+### Signal normal distributed
+
+``` r
+p = 3
+n = 10000
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-113-1.png)<!-- -->
+
+### Signal follows a skewed t-distribution
+
+``` r
+p <- 3L
+n <- 10000
+nu <- 5
+xi <- 0.4
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-116-1.png)<!-- -->
