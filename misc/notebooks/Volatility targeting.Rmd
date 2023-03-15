@@ -271,22 +271,45 @@ Note: When the mean of the raw signal is close to 0, the scaling factor is inver
 
 
 ```{r, echo=FALSE}
-means <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
-sds <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
-grid <- expand.grid(means = means, sds = sds)
+mean <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
+sd <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
+grid <- expand.grid(mean = mean, sd = sd)
 for(i in 1:nrow(grid)) {
-  grid[i, "scalars"] <- f_normalization_factor(rnorm(10000, grid$means[i], grid$sds[i]), 10)
+  grid[i, "scalar"] <- f_normalization_factor(rnorm(10000, grid$mean[i], grid$sd[i]), 10)
 }
 ```
 
 ```{r, echo=FALSE}
-ggplot(grid, aes(x = sds, y = scalars, color = as.factor(means))) +
+ggplot(grid, aes(x = sd, y = scalar, color = as.factor(mean))) +
   geom_point() +
   geom_line() +
   scale_x_log10() +
   scale_y_log10() +
-  labs(x = "sds", y = "scalars", color = "means")
+  labs(x = "sd", y = "scalar", color = "mean")
 ```
+
+
+
+```{r, echo=FALSE}
+mean <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
+sd <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
+grid <- expand.grid(mean = mean, sd = sd)
+for(i in 1:nrow(grid)) {
+  set.seed(6534)
+  grid[i, "mav"] <- mean(abs(rnorm(10000, grid$mean[i], grid$sd[i])))
+}
+```
+
+```{r, echo=FALSE}
+ggplot(grid, aes(x = sd, y = mav, color = as.factor(mean))) +
+  geom_point() +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "sd", y = "mav", color = "mean")
+```
+
+
 
 ### Diagnosis
 What's going on? Let's look at how `mean(abs(x))` depends on `mean(x)`.  
@@ -839,6 +862,7 @@ ggplot(df, aes(x = nnn, y = diffs)) +
 
 
 ## SDM
+Signal multiplication multiplier
 
 ```{r}
 signal_1 <- round(rnorm(1000), 2)
@@ -898,12 +922,12 @@ H <- cor(signals)
 V <- cov(signals)
 signals_mat <- as.matrix(signals)
 W <- c(0.3, 0.7)
-comb_signals <- signals_mat %*% W
+comb_signals <- signals_mat %*% W ## X_hat
 ```
 
-Check that $\sigma[\tilde{X}] \cdot K = \text{MAV} [\tilde{X}]$.  
-When $\text{mean}(\tilde{X})=0$, $K = 2/\pi$.  
-Here, the mean of $[\tilde{X}]$ is not zero, so we shift $[\tilde{X}]$ to get a zero mean.   
+Check that $\sigma[\hat{X}] \cdot K = \text{MAV} [\hat{X}]$.  
+When $\text{mean}(\hat{X})=0$, $K = \sqrt{2/\pi}$.  
+Here, the mean of $\hat{X}$ is not zero, so we shift $\hat{X}$ to get a zero mean.   
 Now the expected difference is zero.  
 0.01167052 is close to zero. Close enough?  
 ```{r}
@@ -1012,7 +1036,7 @@ H
 ## Comparison 1: Compare standard deviation and MAV
 
 For different distributions of $X_i \in \{{X_i}\}_{i=1}^p$, compute  
-		$$K = \frac{\text{MAV}[\mathbf{\tilde{X}}]}{\sigma_{\tilde{X}}}$$  
+		$$K = \frac{\text{MAV}[\mathbf{\hat{X}}]}{\sigma_{\hat{X}}}$$  
 - wrt. $\mu$  
 - wrt $\sigma$
 		
@@ -1057,18 +1081,18 @@ make_X_hat <- function(X) {
 
 mav <- function(x) {mean(abs(x))}
 
-## Generate X_tilde num_test times.
+## Generate X_hat num_test times.
 norm_test_data <- lapply(1:num_tests, function(.x) {
   make_X_hat(
     make_norm_X(n, p, m, sigma) 
   )
 })
 
-## For each test, get the standard deviation of the X_tilde signal, i.e. the combined signal.
+## For each test, get the standard deviation of the X_hat signal, i.e. the combined signal.
 norm_test <- data.frame(unlist(lapply(norm_test_data, sd)))
 names(norm_test) <- "sd"
 
-## For each test, get the MAV of the X_tilde signal, i.e. the combined signal.
+## For each test, get the MAV of the X_hat signal, i.e. the combined signal.
 norm_test$mav <- unlist(lapply(norm_test_data, mav))
 norm_test$K <- norm_test$mav / norm_test$sd
 
@@ -1137,7 +1161,7 @@ ggplot(grid, aes(x = sigma, y = K, color = as.factor(m))) +
 
 For now it looks like:  
 - K is close to 1 if (e.g):  
-    - $\sigma > 0.01$ and $0 < m < 0.001$.  
+    - $\sigma > 0.01$ and $0 < \text{abs}(m)  < 0.001$.  
     - $\sigma > 1$ and $0 < \text{abs}(m) < 0.1$.  
 - K close to 1 means that MAV and sd are equivalent. 
 
@@ -1356,7 +1380,7 @@ ggplot(plot_data, aes(x = sigma, y = vals)) +
 #### Conclusion
 
 - K is close to 1 if (e.g):  
-    - $\sigma > 0.01$ and $0 < m < 0.001$.  
+    - $\sigma > 0.01$ and $0 < \text{abs}(m)  < 0.001$.  
     - $\sigma > 1$ and $0 < \text{abs}(m) < 0.1$.  
 - K close to 1 means that MAV and sd are equivalent.  
 - WARNING: K can be huge, if the mean of the individual signals is different from 0, and the standard deviation is close to 0.  
@@ -1529,10 +1553,10 @@ ggplot(grid, aes(x = sigma, y = frac, color = as.factor(m))) +
 
 - The conclusion for normal distributed signals is analogous to the one in comparison 1 above.  
 - The contributions of $\mathbf{D}$ and $K$ cancel each other out, if (e.g.):  
-    - $\sigma > 0.01$ and $0 m < 0.001$.  
+    - $\sigma > 0.01$ and $0 < \text{abs}(m)  < 0.001$.  
     - $\sigma > 1$ and $\text{abs}(m) < 0.1$.  
 - WARNING: The difference can be huge, if the mean of the individual signals is different from 0, and the standard deviation is close to 0.  
-- If we use $w^THw$ instead of $w^T\Sigma w$, the diversification multiplier can be many (millions of) orders of magnitude bigger than the theoretical MAV that we are targeting, of $\sigma$ is small and $\mu$ is not $0$.
+- If we use $w^THw$ instead of $w^T\Sigma w$, the diversification multiplier can be many (millions of) orders of magnitude bigger than the theoretical MAV that we are targeting, oi $\sigma$ is small and $\mu$ is not $0$.
 - IMPORTANT: For these reasons, the target mean average signal should be bigger than 1. 10 seems good, or even 100, which may also be more intuitive (200 means double, as in 200 percent).
 
 
@@ -1608,7 +1632,7 @@ ggplot(grid, aes(x = sigma, y = frac, color = as.factor(m))) +
 
 #### Conclusion
 
-- For the heavily skewed signals, the picture is quite different than for normal distributed data.  
+- For the heavily skewed signals, the picture is quite similar to the normal distributed data.  
 - For $\mu = 0$, the fraction is approximately equal to $\sigma$.  
 - The further $\mu$ is from $0$, the bigger the fraction.  
 - From visual inspection: The fraction is quite stable around $1$ when $\mu$ is somewhere between $0.1$ and $1$, and $\sigma < 1$.  
@@ -1722,3 +1746,131 @@ ggplot(grid, aes(x = m, y = mav, color = as.factor(sigma))) +
   labs(x = "mu", y = "mav", color = "sigma") +
   labs(title = "lin-lin")
 ```
+
+
+## Comparison 4: Contribution of D
+
+Study the contributions of $\mathbf{D}$.  
+- $$\frac{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}}}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$
+- How bad is it to use $\text{cor}[X]$ instead of $\text{cov}[X]$?
+
+### Signal normal distributed
+
+```{r, echo=FALSE}
+p <- 3L
+n <- 10000L ## number of observations, length of signal
+
+m <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
+sigma <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
+grid <- expand.grid(m = m, sigma = sigma)
+
+w <- rep(1/p, p)
+
+mav <- function(x) {mean(abs(x))}
+
+make_norm_X <- function(n, p, m, sigma) {
+  matrix(rnorm(n * p, m, sigma), nrow = n)
+}
+
+make_X_hat <- function(X) {
+  n <- nrow(X)
+  X_hat <- numeric(n)
+  for(i in 1:n){X_hat[i] <-mean(X[i, ])}
+  X_hat
+}
+
+make_multipliers <- function(n, p, m, sigma, w) {
+  X <- make_norm_X(n, p, m, sigma)
+  X_hat <- make_X_hat(X)
+  Sigma <- cov(X)
+  H <- cor(X)
+  D <- sqrt(diag(diag(Sigma)))
+
+  A1 <- sqrt(crossprod(t(w %*% D %*% H %*% D),  w))
+  A2 <- sqrt(crossprod(t(w %*% H), w))
+  
+  list(A1, A2)
+}
+
+for(i in 1:nrow(grid)) {
+  X_hat <- make_X_hat(make_norm_X(n, p, grid$m[i], grid$sigma[i]))
+  mult <- make_multipliers(n, p, grid$m[i], grid$sigma[i], w)
+  grid[i, "A1"] <- mult[1]
+  grid[i, "A2"] <- mult[2]
+  grid[i, "sd"] <- sd(X_hat)
+  grid[i, "mav"] <- mav(X_hat)
+  grid[i, "frac"] <- grid$A1[i] / grid$A2[i]
+}
+```
+
+```{r, echo=FALSE}
+ggplot(grid, aes(x = sigma, y = frac, color = as.factor(m))) +
+  geom_point() +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "sigma", y = "frac", color = "m")
+```
+
+#### Conclusion
+
+- This shows precisely what we would expect: The contribution of $\mathbf{D}$ is exactly the standard deviation of the individual signal, when all signals are generated from the same distribution.  
+- So multiplying the combined signal by the signal multiplication multiplier,  
+$$\frac{1}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$
+is equivalent to multiplying the combined signal by   
+$$\frac{\sigma}{\sqrt{\mathbf{w}^T \mathbf{\Sigma} \mathbf{w}}}$$
+  - So only when $K = \sigma^{-1}$ does the SDM make strict sense.
+
+
+## Comparison 5: $K$ vs $\sigma^{-1}$
+
+### Signal normal distributed
+
+```{r, echo=FALSE}
+p <- 3L
+n <- 10000L ## number of observations, length of signal
+
+m <- c(-100, -10, -1, -0.1, -0.01, - 0.001, 0, 0.001, 0.01, 0.1, 1, 10, 100)
+sigma <- c(10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001)
+grid <- expand.grid(m = m, sigma = sigma)
+
+w <- rep(1/p, p)
+
+mav <- function(x) {mean(abs(x))}
+
+make_norm_X <- function(n, p, m, sigma) {
+  matrix(rnorm(n * p, m, sigma), nrow = n)
+}
+
+make_X_hat <- function(X) {
+  n <- nrow(X)
+  X_hat <- numeric(n)
+  for(i in 1:n){X_hat[i] <-mean(X[i, ])}
+  X_hat
+}
+
+for(i in 1:nrow(grid)) {
+  X_hat <- make_X_hat(make_norm_X(n, p, grid$m[i], grid$sigma[i]))
+  grid[i, "A1"] <- mult[1]
+  grid[i, "A2"] <- mult[2]
+  grid[i, "sd"] <- sd(X_hat)
+  grid[i, "mav"] <- mav(X_hat)
+  grid[i, "K"] <- grid$mav[i] / grid$sd[i]
+  grid[i, "sigma_recip"] <- 1/grid$sigma[i]
+}
+```
+
+```{r, echo=FALSE}
+ggplot(grid, aes(x = sigma_recip, y = K, color = as.factor(m))) +
+  geom_point() +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "1/sigma", y = "K", color = "m")
+```
+
+
+#### Conclusion
+
+- $K$ is generally not equal to $\sigma^{-1}$.
+- $K$ is equal to $\sigma^{-1}$ for values of $\mu$ a bit less than $1$, when $\sigma$ is less than 1.
