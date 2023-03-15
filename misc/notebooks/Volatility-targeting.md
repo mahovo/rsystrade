@@ -42,6 +42,17 @@ mhv
   - <a href="#signal-follows-a-skewed-t-distribution-2"
     id="toc-signal-follows-a-skewed-t-distribution-2">Signal follows a
     skewed t-distribution</a>
+- <a href="#comparison-4-contribution-of-d"
+  id="toc-comparison-4-contribution-of-d">Comparison 4: Contribution of
+  D</a>
+  - <a href="#signal-normal-distributed-3"
+    id="toc-signal-normal-distributed-3">Signal normal distributed</a>
+- <a href="#comparison-5-k-vs-sigma-1"
+  id="toc-comparison-5-k-vs-sigma-1">Comparison 5: <span
+  class="math inline"><em>K</em></span> vs <span
+  class="math inline"><em>σ</em><sup>−1</sup></span></a>
+  - <a href="#signal-normal-distributed-4"
+    id="toc-signal-normal-distributed-4">Signal normal distributed</a>
 
 (See Obsidian note “Volatility Targeting”)
 
@@ -317,11 +328,13 @@ is inverse proportional to the volatility of the raw signal.
 
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-39-1.png)<!-- -->
 
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-41-1.png)<!-- -->
+
 ### Diagnosis
 
 What’s going on? Let’s look at how `mean(abs(x))` depends on `mean(x)`.
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-41-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-43-1.png)<!-- -->
 
 We observe that the mean of the absolute values is equal to the absolute
 value of the mean:
@@ -425,9 +438,9 @@ mean(abs(sgnl8)) == abs(mean(sgnl8))
 
     ## [1] FALSE
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-49-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-51-1.png)<!-- -->
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-50-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-52-1.png)<!-- -->
 
 #### Analysis
 
@@ -477,10 +490,10 @@ Notice:
 ### mean = 1
 
 lin-lin
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-52-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-54-1.png)<!-- -->
 
 Remove the signal with sd=1
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-53-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-55-1.png)<!-- -->
 
 Means
 
@@ -942,9 +955,11 @@ mean(abs(std_norm_signal))
 How does the absolute difference between the two methods depend on the
 number of observations?
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-71-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-73-1.png)<!-- -->
 
 ## SDM
+
+Signal multiplication multiplier
 
 ``` r
 signal_1 <- round(rnorm(1000), 2)
@@ -1049,13 +1064,13 @@ H <- cor(signals)
 V <- cov(signals)
 signals_mat <- as.matrix(signals)
 W <- c(0.3, 0.7)
-comb_signals <- signals_mat %*% W
+comb_signals <- signals_mat %*% W ## X_hat
 ```
 
-Check that $\sigma[\tilde{X}] \cdot K = \text{MAV} [\tilde{X}]$.  
-When $\text{mean}(\tilde{X})=0$, $K = 2/\pi$.  
-Here, the mean of $[\tilde{X}]$ is not zero, so we shift $[\tilde{X}]$
-to get a zero mean.  
+Check that $\sigma[\hat{X}] \cdot K = \text{MAV} [\hat{X}]$.  
+When $\text{mean}(\hat{X})=0$, $K = \sqrt{2/\pi}$.  
+Here, the mean of $\hat{X}$ is not zero, so we shift $\hat{X}$ to get a
+zero mean.  
 Now the expected difference is zero.  
 0.01167052 is close to zero. Close enough?
 
@@ -1213,7 +1228,7 @@ H
 ## Comparison 1: Compare standard deviation and MAV
 
 For different distributions of $X_i \in \{{X_i}\}_{i=1}^p$, compute  
-$$K = \frac{\text{MAV}[\mathbf{\tilde{X}}]}{\sigma_{\tilde{X}}}$$  
+$$K = \frac{\text{MAV}[\mathbf{\hat{X}}]}{\sigma_{\hat{X}}}$$  
 - wrt. $\mu$  
 - wrt $\sigma$
 
@@ -1236,21 +1251,21 @@ sigma <- 1
 num_tests <- 100
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-90-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-92-1.png)<!-- -->
 
 The red line is $f(x) = x$.  
 MAV tends to lie below sd.
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-91-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-93-1.png)<!-- -->
 
 How does K depend on the population mean and standard deviation of the
 individual signals?  
 Assume that the distribution for all individual signals is the same.
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-93-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-95-1.png)<!-- -->
 
 For now it looks like:  
 - K is close to 1 if (e.g):  
-- $\sigma > 0.01$ and $0 < m < 0.001$.  
+- $\sigma > 0.01$ and $0 < \text{abs}(m) < 0.001$.  
 - $\sigma > 1$ and $0 < \text{abs}(m) < 0.1$.  
 - K close to 1 means that MAV and sd are equivalent.
 
@@ -1268,7 +1283,7 @@ So:
 This raises the question:  
 - For which $\mu$ is $K = 1$?
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-96-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-98-1.png)<!-- -->
 
 Range of optimal values of $\mu$:
 
@@ -1280,12 +1295,12 @@ range(vals)
 
 Inspect the mid range.
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-99-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-101-1.png)<!-- -->
 
 #### Conclusion
 
 - K is close to 1 if (e.g):
-  - $\sigma > 0.01$ and $0 < m < 0.001$.  
+  - $\sigma > 0.01$ and $0 < \text{abs}(m) < 0.001$.  
   - $\sigma > 1$ and $0 < \text{abs}(m) < 0.1$.  
 - K close to 1 means that MAV and sd are equivalent.  
 - WARNING: K can be huge, if the mean of the individual signals is
@@ -1311,13 +1326,13 @@ xi = 0.4
 n = 1000
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-101-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-103-1.png)<!-- -->
 
 ``` r
 hist(x, n = 50)
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-102-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-104-1.png)<!-- -->
 
 How does K depend on the population mean and standard deviation of the
 individual signals?  
@@ -1333,7 +1348,7 @@ xi = 0.4
 n = 10000
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-105-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-107-1.png)<!-- -->
 
 We see a similar pattern as with normal distributed signals, with the
 difference that K differs a bit for opposite signed values of $\mu$.
@@ -1356,7 +1371,7 @@ $$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^
 
 ### Signal normal distributed
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-107-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-109-1.png)<!-- -->
 
 #### Conclusion
 
@@ -1364,14 +1379,14 @@ $$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^
   in comparison 1 above.  
 - The contributions of $\mathbf{D}$ and $K$ cancel each other out, if
   (e.g.):
-  - $\sigma > 0.01$ and $0 m < 0.001$.  
+  - $\sigma > 0.01$ and $0 < \text{abs}(m) < 0.001$.  
   - $\sigma > 1$ and $\text{abs}(m) < 0.1$.  
 - WARNING: The difference can be huge, if the mean of the individual
   signals is different from 0, and the standard deviation is close to
   0.  
 - If we use $w^THw$ instead of $w^T\Sigma w$, the diversification
   multiplier can be many (millions of) orders of magnitude bigger than
-  the theoretical MAV that we are targeting, of $\sigma$ is small and
+  the theoretical MAV that we are targeting, oi $\sigma$ is small and
   $\mu$ is not $0$.
 - IMPORTANT: For these reasons, the target mean average signal should be
   bigger than 1. 10 seems good, or even 100, which may also be more
@@ -1386,12 +1401,12 @@ nu = 5
 xi = 0.4
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-110-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-112-1.png)<!-- -->
 
 #### Conclusion
 
-- For the heavily skewed signals, the picture is quite different than
-  for normal distributed data.  
+- For the heavily skewed signals, the picture is quite similar to the
+  normal distributed data.  
 - For $\mu = 0$, the fraction is approximately equal to $\sigma$.  
 - The further $\mu$ is from $0$, the bigger the fraction.  
 - From visual inspection: The fraction is quite stable around $1$ when
@@ -1410,7 +1425,7 @@ p = 3
 n = 10000
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-113-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-115-1.png)<!-- -->
 
 ### Signal follows a skewed t-distribution
 
@@ -1421,4 +1436,39 @@ nu <- 5
 xi <- 0.4
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-116-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-118-1.png)<!-- -->
+
+## Comparison 4: Contribution of D
+
+Study the contributions of $\mathbf{D}$.  
+-
+$$\frac{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}}}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$ -
+How bad is it to use $\text{cor}[X]$ instead of $\text{cov}[X]$?
+
+### Signal normal distributed
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-120-1.png)<!-- -->
+
+#### Conclusion
+
+- This shows precisely what we would expect: The contribution of
+  $\mathbf{D}$ is exactly the standard deviation of the individual
+  signal, when all signals are generated from the same distribution.  
+- So multiplying the combined signal by the signal multiplication
+  multiplier,  
+  $$\frac{1}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$ is equivalent
+  to multiplying the combined signal by  
+  $$\frac{\sigma}{\sqrt{\mathbf{w}^T \mathbf{\Sigma} \mathbf{w}}}$$
+  - So only when $K = \sigma^{-1}$ does the SDM make strict sense.
+
+## Comparison 5: $K$ vs $\sigma^{-1}$
+
+### Signal normal distributed
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-122-1.png)<!-- -->
+
+#### Conclusion
+
+- $K$ is generally not equal to $\sigma^{-1}$.
+- $K$ is equal to $\sigma^{-1}$ for values of $\mu$ a bit less than $1$,
+  when $\sigma$ is less than 1.
