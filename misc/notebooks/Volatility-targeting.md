@@ -29,12 +29,18 @@ mhv
   - <a href="#signal-follows-a-skewed-t-distribution"
     id="toc-signal-follows-a-skewed-t-distribution">Signal follows a skewed
     t-distribution</a>
+  - <a href="#signals-follow-different-t-distributions"
+    id="toc-signals-follow-different-t-distributions">Signals follow
+    different t-distributions</a>
 - <a href="#comparison-2" id="toc-comparison-2">Comparison 2</a>
   - <a href="#signal-normal-distributed-1"
     id="toc-signal-normal-distributed-1">Signal normal distributed</a>
   - <a href="#signal-follows-a-skewed-t-distribution-1"
     id="toc-signal-follows-a-skewed-t-distribution-1">Signal follows a
     skewed t-distribution</a>
+  - <a href="#signals-follow-different-t-distributions-1"
+    id="toc-signals-follow-different-t-distributions-1">Signals follow
+    different t-distributions</a>
 - <a href="#comparison-3-mav-wrt-m"
   id="toc-comparison-3-mav-wrt-m">Comparison 3: MAV wrt. m</a>
   - <a href="#signal-normal-distributed-2"
@@ -42,6 +48,9 @@ mhv
   - <a href="#signal-follows-a-skewed-t-distribution-2"
     id="toc-signal-follows-a-skewed-t-distribution-2">Signal follows a
     skewed t-distribution</a>
+  - <a href="#signals-follow-different-t-distributions-2"
+    id="toc-signals-follow-different-t-distributions-2">Signals follow
+    different t-distributions</a>
 - <a href="#comparison-4-contribution-of-d"
   id="toc-comparison-4-contribution-of-d">Comparison 4: Contribution of
   D</a>
@@ -1339,22 +1348,47 @@ individual signals?
 Assume that the distribution for all individual signals is the same.
 
 ``` r
-p <- 3
-n <- 10000
+p = 3
+n = 10000
 m = 0
 s = 1
 nu = 5
 xi = 0.4
-n = 10000
 ```
 
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-107-1.png)<!-- -->
+
+#### Conclusion
 
 We see a similar pattern as with normal distributed signals, with the
 difference that K differs a bit for opposite signed values of $\mu$.
 
 By eye it looks like K actually tends to be bigger for normal
 distributed signals than for heavily skewed signals.
+
+### Signals follow different t-distributions
+
+How does K depend on the population mean and standard deviation of the
+individual signals?
+
+The signals are distributed by all permutations of the following
+parameter values:
+
+``` r
+p <- 3
+n <- 10000
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-110-1.png)<!-- -->
+
+#### Conclusion
+
+- $K$ doesn’t look dramatically different when idd for mixed
+  distributions by visual inspection.
 
 ## Comparison 2
 
@@ -1371,7 +1405,7 @@ $$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^
 
 ### Signal normal distributed
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-109-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-112-1.png)<!-- -->
 
 #### Conclusion
 
@@ -1401,7 +1435,7 @@ nu = 5
 xi = 0.4
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-112-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-115-1.png)<!-- -->
 
 #### Conclusion
 
@@ -1411,6 +1445,27 @@ xi = 0.4
 - The further $\mu$ is from $0$, the bigger the fraction.  
 - From visual inspection: The fraction is quite stable around $1$ when
   $\mu$ is somewhere between $0.1$ and $1$, and $\sigma < 1$.
+
+### Signals follow different t-distributions
+
+The signals are distributed by all permutations of the following
+parameter values:
+
+``` r
+p = 3
+n = 10000
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-118-1.png)<!-- -->
+
+#### Conclusion
+
+- `frac` doesn’t look dramatically different when idd for mixed
+  distributions by visual inspection.
 
 ## Comparison 3: MAV wrt. m
 
@@ -1425,7 +1480,7 @@ p = 3
 n = 10000
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-115-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-121-1.png)<!-- -->
 
 ### Signal follows a skewed t-distribution
 
@@ -1436,7 +1491,28 @@ nu <- 5
 xi <- 0.4
 ```
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-118-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-124-1.png)<!-- -->
+
+### Signals follow different t-distributions
+
+The signals are distributed by all permutations of the following
+parameter values:
+
+``` r
+p <- 3L
+n <- 10000
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+```
+
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-127-1.png)<!-- -->
+
+#### Conclusion
+
+- `mav` doesn’t look dramatically different when idd for mixed
+  distributions by visual inspection.
 
 ## Comparison 4: Contribution of D
 
@@ -1447,7 +1523,7 @@ How bad is it to use $\text{cor}[X]$ instead of $\text{cov}[X]$?
 
 ### Signal normal distributed
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-120-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-129-1.png)<!-- -->
 
 #### Conclusion
 
@@ -1465,7 +1541,7 @@ How bad is it to use $\text{cor}[X]$ instead of $\text{cov}[X]$?
 
 ### Signal normal distributed
 
-![](Volatility-targeting_files/figure-gfm/unnamed-chunk-122-1.png)<!-- -->
+![](Volatility-targeting_files/figure-gfm/unnamed-chunk-131-1.png)<!-- -->
 
 #### Conclusion
 
