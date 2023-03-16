@@ -1236,17 +1236,21 @@ H
 
 ## Comparison 1: Compare standard deviation and MAV
 
-For different distributions of $X_i \in \{{X_i}\}_{i=1}^p$, compute  
-$$K = \frac{\text{MAV}[\mathbf{\hat{X}}]}{\sigma_{\hat{X}}}$$  
+For different distributions of $X_i \in \{{X_i}\}_{i=1}^p$, compute
+
+$$K = \frac{\text{MAV}[\mathbf{\hat{X}}]}{\sigma_{\hat{X}}}$$
+
 - wrt. $\mu$  
 - wrt $\sigma$
 
 where  
 - $X_i$: A stochastic variable. Produces a single signal vector.  
-- $\mathbf{\tilde{X}}$: A $(p \times 1)$ weighted stochastic vector:  
-$$\mathbf{\tilde{X}} := \mathbf{w} \circ \mathbf{X} \equiv [w_1 X_1, w_2 X_2, \ldots, w_p X_p]^T$$ -
-$\hat{X} := \sum_i^p \tilde{X}_i$: Combined, weighted signal. Stochastic
-variable.
+- $\mathbf{\tilde{X}}$: A $(p \times 1)$ weighted stochastic vector:
+
+$$\mathbf{\tilde{X}} := \mathbf{w} \circ \mathbf{X} \equiv [w_1 X_1, w_2 X_2, \ldots, w_p X_p]^T$$
+
+- $\hat{X} := \sum_i^p \tilde{X}_i$: Combined, weighted signal.
+  Stochastic variable.
 
 ### Signal normal distributed
 
@@ -1394,13 +1398,18 @@ xi <- c(0.2, 0.5, 0.8)
 
 Study to which degree the contributions of $\mathbf{D}$ and $K$ cancel
 each other out.
+
 $$\frac{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}} \cdot K}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}} = 1 \text{?}$$
 
 If the contributions from $\mathbf{D}$ and $K$ cancel each other out, we
-have:  
+have:
+
 $$= \left(\sum_i^p \tilde{X}_i \right) \frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{\Sigma} \mathbf{w}} \cdot K}$$
+
 $$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}} \cdot K}$$
+
 $$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$
+
 …which would mean, that the two methods are indeed identical.
 
 ### Signal normal distributed
