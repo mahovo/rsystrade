@@ -26,8 +26,8 @@ mhv
   Compare standard deviation and MAV</a>
   - <a href="#signal-normal-distributed"
     id="toc-signal-normal-distributed">Signal normal distributed</a>
-  - <a href="#signal-follows-a-skewed-t-distribution"
-    id="toc-signal-follows-a-skewed-t-distribution">Signal follows a skewed
+  - <a href="#signals-follow-a-skewed-t-distribution"
+    id="toc-signals-follow-a-skewed-t-distribution">Signals follow a skewed
     t-distribution</a>
   - <a href="#signals-follow-different-t-distributions"
     id="toc-signals-follow-different-t-distributions">Signals follow
@@ -35,8 +35,8 @@ mhv
 - <a href="#comparison-2" id="toc-comparison-2">Comparison 2</a>
   - <a href="#signal-normal-distributed-1"
     id="toc-signal-normal-distributed-1">Signal normal distributed</a>
-  - <a href="#signal-follows-a-skewed-t-distribution-1"
-    id="toc-signal-follows-a-skewed-t-distribution-1">Signal follows a
+  - <a href="#signals-follow-a-skewed-t-distribution-1"
+    id="toc-signals-follow-a-skewed-t-distribution-1">Signals follow a
     skewed t-distribution</a>
   - <a href="#signals-follow-different-t-distributions-1"
     id="toc-signals-follow-different-t-distributions-1">Signals follow
@@ -45,8 +45,8 @@ mhv
   id="toc-comparison-3-mav-wrt-m">Comparison 3: MAV wrt. m</a>
   - <a href="#signal-normal-distributed-2"
     id="toc-signal-normal-distributed-2">Signal normal distributed</a>
-  - <a href="#signal-follows-a-skewed-t-distribution-2"
-    id="toc-signal-follows-a-skewed-t-distribution-2">Signal follows a
+  - <a href="#signals-follow-a-skewed-t-distribution-2"
+    id="toc-signals-follow-a-skewed-t-distribution-2">Signals follow a
     skewed t-distribution</a>
   - <a href="#signals-follow-different-t-distributions-2"
     id="toc-signals-follow-different-t-distributions-2">Signals follow
@@ -1323,7 +1323,7 @@ Inspect the mid range.
   therefore $K$ should also be stable wrt. $\sigma$.  
 - For $\sigma \geq 10$ the optimal $\mu$ seems to be around $0.04$.
 
-### Signal follows a skewed t-distribution
+### Signals follow a skewed t-distribution
 
 Generate a skewed t-distributed series and inspect.
 
@@ -1393,14 +1393,14 @@ xi <- c(0.2, 0.5, 0.8)
 ## Comparison 2
 
 Study to which degree the contributions of $\mathbf{D}$ and $K$ cancel
-each other out.  
--
-$$\frac{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}} \cdot K}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}} = 1 \text{?}$$ -
-Ifthe contributions from $\mathbf{D}$ and $K$ cancel each other out, we
+each other out.
+$$\frac{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}} \cdot K}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}} = 1 \text{?}$$
+
+If the contributions from $\mathbf{D}$ and $K$ cancel each other out, we
 have:  
 $$= \left(\sum_i^p \tilde{X}_i \right) \frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{\Sigma} \mathbf{w}} \cdot K}$$
 $$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{D} \mathbf{H} \mathbf{D} \mathbf{w}} \cdot K}$$
-$$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$ -
+$$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$
 …which would mean, that the two methods are indeed identical.
 
 ### Signal normal distributed
@@ -1426,7 +1426,7 @@ $$= \left(\sum_i^p \tilde{X}_i \right)\frac{\text{MAV}_{\tau}}{\sqrt{\mathbf{w}^
   bigger than 1. 10 seems good, or even 100, which may also be more
   intuitive (200 means double, as in 200 percent).
 
-### Signal follows a skewed t-distribution
+### Signals follow a skewed t-distribution
 
 ``` r
 p = 3
@@ -1482,7 +1482,7 @@ n = 10000
 
 ![](Volatility-targeting_files/figure-gfm/unnamed-chunk-121-1.png)<!-- -->
 
-### Signal follows a skewed t-distribution
+### Signals follow a skewed t-distribution
 
 ``` r
 p <- 3L
