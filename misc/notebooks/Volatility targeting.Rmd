@@ -1422,13 +1422,12 @@ hist(x, n = 50)
 How does K depend on the population mean and standard deviation of the individual signals?  
 Assume that the distribution for all individual signals is the same.
 ```{r, eval=FALSE}
-p <- 3
-n <- 10000
+p = 3
+n = 10000
 m = 0
 s = 1
 nu = 5
 xi = 0.4
-n = 10000
 ```
 ```{r, echo=FALSE}
 p <- 3L
@@ -1474,9 +1473,78 @@ ggplot(grid, aes(x = sigma, y = K, color = as.factor(m))) +
   labs(title = "log-log")
 ```
 
+#### Conclusion
+
 We see a similar pattern as with normal distributed signals, with the difference that K differs a bit for opposite signed values of $\mu$.  
 
 By eye it looks like K actually tends to be bigger for normal distributed signals than for heavily skewed signals.  
+
+
+### Signals follow different t-distributions
+
+How does K depend on the population mean and standard deviation of the individual signals?  
+
+The signals are distributed by all permutations of the following parameter values:  
+```{r, eval=FALSE}
+p <- 3
+n <- 10000
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+```
+
+```{r, echo=FALSE}
+p <- 3L
+n <- 10000L ## number of observations, length of signal
+
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+grid <- expand.grid(m = m, sigma = sigma, nu = nu, xi = xi)
+
+seed <- 6354
+
+mav <- function(x) {mean(abs(x))}
+
+## X_hat is a vector of means of all three signals at each time t, i.e. the mean of each row.
+## X_hat is the combined signal, here using equal weights.
+make_sstd_X <- function(n, p, m, sigma, nu, xi) {
+  X <- matrix(rsstd(n, mean = m, sd = sigma, nu = nu, xi = xi), nrow = n)
+  X
+}
+
+make_X_hat <- function(X) {
+  n <- nrow(X)
+  X_hat <- numeric(n)
+  for(i in 1:n){X_hat[i] <-mean(X[i, ])}
+  X_hat
+}
+
+for(i in 1:nrow(grid)) {
+  set.seed(seed)
+  X_hat <- make_X_hat(make_sstd_X(n, p, grid$m[i], grid$sigma[i], grid$nu[i], grid$xi[i]))
+  grid[i, "sd"] <- sd(X_hat)
+  grid[i, "mav"] <- mav(X_hat)
+  grid[i, "K"] <- grid$mav[i]/grid$sd[i]
+}
+```
+
+```{r, echo=FALSE}
+ggplot(grid, aes(x = sigma, y = K, color = as.factor(m))) +
+  geom_point() +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "sigma", y = "K", color = "m") +
+  labs(title = "log-log")
+```
+
+#### Conclusion
+
+- $K$ doesn't look dramatically different when idd for mixed distributions by visual inspection.
+
 
 
 ## Comparison 2
@@ -1638,6 +1706,88 @@ ggplot(grid, aes(x = sigma, y = frac, color = as.factor(m))) +
 - From visual inspection: The fraction is quite stable around $1$ when $\mu$ is somewhere between $0.1$ and $1$, and $\sigma < 1$.  
 
 
+### Signals follow different t-distributions
+The signals are distributed by all permutations of the following parameter values:  
+```{r, eval=FALSE}
+p = 3
+n = 10000
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+```
+
+```{r, echo=FALSE}
+p <- 3L
+n <- 10000L ## number of observations, length of signal
+
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+grid <- expand.grid(m = m, sigma = sigma, nu = nu, xi = xi)
+
+seed <- 6354
+
+w <- rep(1/p, p)
+
+mav <- function(x) {mean(abs(x))}
+
+make_sstd_X <- function(n, p, m, sigma, nu, xi) {
+  X <- matrix(rsstd(n * p, mean = m, sd = sigma, nu = nu, xi = xi), nrow = n)
+  X
+}
+
+make_X_hat <- function(X) {
+  n <- nrow(X)
+  X_hat <- numeric(n)
+  for(i in 1:n){X_hat[i] <- mean(X[i, ])}
+  X_hat
+}
+
+make_multipliers <- function(n, p, m, sigma, nu, xi, w) {
+  X <- make_sstd_X(n, p, m, sigma, nu, xi)
+  X_hat <- make_X_hat(X)
+  Sigma <- cov(X)
+  H <- cor(X)
+  D <- sqrt(diag(diag(Sigma)))
+
+  A1 <- sqrt(crossprod(t(w %*% D %*% H %*% D),  w))
+  A2 <- sqrt(crossprod(t(w %*% H), w))
+  
+  list(A1, A2)
+}
+
+for(i in 1:nrow(grid)) {
+  set.seed(seed)
+  X_hat <- make_X_hat(make_sstd_X(n, p, grid$m[i], grid$sigma[i], grid$nu[i], grid$xi[i]))
+  mult <- make_multipliers(n, p, grid$m[i], grid$sigma[i], grid$nu[i], grid$xi[i], w)
+  grid[i, "A1"] <- mult[1]
+  grid[i, "A2"] <- mult[2]
+  grid[i, "sd"] <- sd(X_hat)
+  grid[i, "mav"] <- mav(X_hat)
+  grid[i, "K"] <- grid$mav[i] / grid$sd[i]
+  grid[i, "frac"] <- (grid$A1[i] * grid$K[i]) / grid$A2[i]
+}
+```
+
+```{r, echo=FALSE}
+ggplot(grid, aes(x = sigma, y = frac, color = as.factor(m))) +
+  geom_point() +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "sigma", y = "frac", color = "m")
+```
+
+
+#### Conclusion
+
+- `frac` doesn't look dramatically different when idd for mixed distributions by visual inspection.
+
+
+
+
 ## Comparison 3: MAV wrt. m
 
 How does MAV depend on $\mu$?  
@@ -1746,6 +1896,70 @@ ggplot(grid, aes(x = m, y = mav, color = as.factor(sigma))) +
   labs(x = "mu", y = "mav", color = "sigma") +
   labs(title = "lin-lin")
 ```
+
+
+### Signals follow different t-distributions
+The signals are distributed by all permutations of the following parameter values:  
+
+```{r, eval=FALSE}
+p <- 3L
+n <- 10000
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+```
+
+```{r, echo=FALSE}
+p <- 3L
+n <- 10000L ## number of observations, length of signal
+
+m <- c(-10, -0.1, 0, 0.1, 10)
+sigma <- c(10, 1, 0.1, 0.01, 0.001)
+nu <- c(3, 30)
+xi <- c(0.2, 0.5, 0.8)
+grid <- expand.grid(m = m, sigma = sigma, nu = nu, xi = xi)
+
+seed <- 6354
+
+mav <- function(x) {mean(abs(x))}
+
+## X_hat is a vector of means of all three signals at each time t, i.e. the mean of each row.
+## X_hat is the combined signal, here using equal weights.
+make_sstd_X <- function(n, p, m, sigma, nu, xi) {
+  X <- matrix(rsstd(n * p, mean = m, sd = sigma, nu = nu, xi = xi), nrow = n)
+  X
+}
+
+make_X_hat <- function(X) {
+  X_hat <- numeric(n)
+  for(i in 1:n){X_hat[i] <-mean(X[i, ])}
+  X_hat
+}
+
+for(i in 1:nrow(grid)) {
+  set.seed(seed)
+  X_hat <- make_X_hat(make_sstd_X(n, p, grid$m[i], grid$sigma[i], grid$nu[i], grid$xi[i]))
+  grid[i, "m"] <- grid$m[i]
+  grid[i, "sd"] <- sd(X_hat)
+  grid[i, "mav"] <- mav(X_hat)
+}
+```
+
+```{r, echo=FALSE}
+ggplot(grid, aes(x = m, y = mav, color = as.factor(sigma))) +
+  geom_point() +
+  geom_line() +
+  #scale_x_log10() +
+  #scale_y_log10() +
+  labs(x = "mu", y = "mav", color = "sigma") +
+  labs(title = "lin-lin")
+```
+
+#### Conclusion
+
+- `mav` doesn't look dramatically different when idd for mixed distributions by visual inspection.
+
 
 
 ## Comparison 4: Contribution of D
