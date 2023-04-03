@@ -2,14 +2,17 @@
 % Please edit documentation in R/formulas-basic.R
 \name{f_returns_from_prices}
 \alias{f_returns_from_prices}
-\title{Calculate net returns vector from price vector}
+\title{Calculate Net Returns Vector From Price Vector}
 \usage{
 f_returns_from_prices(prices)
 }
 \arguments{
-\item{prices}{A vector of prices in currency. Newest first. Top to bottom:
-Newer to older.}
+\item{prices}{A vector of prices in currency. Newest last Top to bottom:
+Older to new.}
+}
+\value{
+Percentage returns
 }
 \description{
-Calculate net returns vector from price vector
+Calculate Net Returns Vector From Price Vector
 }

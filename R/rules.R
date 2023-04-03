@@ -1,18 +1,7 @@
 
-
-
-
-#' Binary Moving Average Crossover
+#' Calculate a moving average crossover signal.
 #'
 #' @description
-#' Returns
-#' * 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
-#' * -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
-#' * 0 when abs(ma_fast - ma_slow) < gap.
-#'
-#' 1 indicates uptrend i.e. go long.
-#' -1 indicates downtrend i.e. go short.
-#'
 #' If `ma_fast` or `ma_slow` are not provided, both values are calculated from
 #' price vector. In this case `n_fast` and `n_slow` _must_ be provided.
 #'
@@ -25,13 +14,13 @@
 #'   the price vector.
 #'
 #' `ma_fast` and `ma_slow` inputs are typically single steps of moving averages,
-#' but can be vectors.
+#'   but can be vectors.
 #'
 #' On a side note, `mac_rule()` doesn't check that `ma_fast` and `ma_slow`
-#' inputs are in fact calculated as a moving averages. Any number or vector will
-#' work.
+#'   inputs are in fact calculated as a moving averages. Any number or vector
+#'   will work.
 #'
-#' @param prices. A vector of prices.
+#' @param prices A vector of prices.
 #' @param ma_fast A number. Fast _moving average_. Vector or single numeric.
 #' @param ma_slow A number. Slow _moving average_. Vector or single numeric.
 #' @param n_fast A positive integer. It is the responsibility of the user to
@@ -43,20 +32,30 @@
 #' @param strict Boolean. If `strict=TRUE`, `n_slow` must be smaller than the
 #'   number of prices in the `prices` vector, and `n_slow` must be greater than
 #'   `n_fast`.
+#' @param binary If `TRUE`: Binary mode. If `FALSE`: Proportional signal.
+#' In binary mode returns
+#' * 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
+#' * -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
+#' * 0 when abs(ma_fast - ma_slow) < gap.
 #'
-#' @returns A boolean.
+#' 1 indicates uptrend i.e. go long. -1 indicates downtrend i.e. go short.
+#'
+#' @returns A trade signal
 #' @export
 #'
 #' @example
-#'
-apply_binary_mac_rule <- function(
+mac_rule <- function(
     prices,
+    t = NA,
     ma_fast = NA,
     ma_slow = NA,
     n_fast = 20L,
     n_slow = 80L,
-    gap = 0L,
-    strict = TRUE) {
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE) {
+
+  if(is.na(t)) {t = length(prices)} ## Set t to last item if no t is provided
 
   ## If ma_fast or ma_slow is NA, calculate both values
   if((!is.na(ma_fast)) * (!is.na(ma_slow)) == 0) {
@@ -70,93 +69,98 @@ apply_binary_mac_rule <- function(
       stopifnot(nrow(prices) > n_slow + 1)
       stopifnot(n_slow > n_fast)
     }
-    ma_fast <- moving_average(
+    ma_fast <- f_moving_average(
       prices,
+      t,
       n_fast
     )
-    ma_slow <- ma_slow <- moving_average(
+    ma_slow <- f_moving_average(
       prices,
+      t,
       n_slow
     )
   }
 
-  ## Is the absolute difference bigger than the gap?
-  ## And is ma_fast bigger than ma_slow?
-  x <- abs(ma_fast - ma_slow) > gap
-  y <- ma_fast > ma_slow
+  if(binary == FALSE) {
+    ## Signal equals fast signal minus slow signal if the difference is bigger
+    ## than the gap value. Otherwise the signal is 0.
+    (ma_fast - ma_slow) * (abs(ma_fast - ma_slow) > gap)
+  } else { ## If binary mode, return -1, 0 or 1
+    ## Is the absolute difference bigger than the gap?
+    ## And is ma_fast bigger than ma_slow?
+    x <- abs(ma_fast - ma_slow) > gap
+    y <- ma_fast > ma_slow
 
-  ## Returns
-  ## 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
-  ## -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
-  ## 0 when abs(ma_fast - ma_slow) < gap.
-  x * (2 * y - 1)
+    ## Returns
+    ## 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
+    ## -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
+    ## 0 when abs(ma_fast - ma_slow) < gap.
+    x * (2 * y - 1)
+  }
 }
 
 
 
 
-apply_stop_loss_rule <- function(prices, instrument_risk_, stop_loss_fraction, t_trade_open) {
-  price_unit_vol_ <- price_unit_vol(instrument_risk_, price)
-  stop_loss_gap_ <- stop_loss_gap(price_unit_vol_, stop_loss_fraction)
+#' Stop loss rule
+#'
+#' @description
+#' Return 0 if price level breached stop loss threshold. Return 1 if stop loss
+#'   threshold was not breached.
+#'
+#' 0 indicates that an open position should be exited. 1 indicates that an open
+#'   position should remain open.
+#'
+#' @param t Time index.
+#' @param prices A vector of prices in currency. Newest first. Top to bottom:
+#'   Newer to older.
+#' @param instrument_risk Instrument risk.
+#' @param stop_loss_fraction Stop loss fraction.
+#' @param t_trade_open Time index of the time when trade is opened.
+#' @param direction Is current trade long or short? 1 for long, -1 for short.
+#' @param rnd If TRUE, add small random amount to stop loss level. Negative if
+#'   short.
+#'
+#' @return List:
+#'   - Open/close indicator: 0 or 1
+#'   - Stop loss gap
+#' @export
+#'
+#' @examples
+stop_loss_rule <- function(
+    prices,
+    t = NA,
+    instrument_risk,
+    stop_loss_fraction,
+    t_trade_open,
+    direction,
+    rnd = FALSE
+  ) {
+  price_unit_vol <- f_price_unit_vol(prices[t], instrument_risk)
+  stop_loss_gap <- f_stop_loss_gap(price_unit_vol, stop_loss_fraction)
 
   ## Close position if stop loss level was breached yesterday [LT, p. 138].
   ## Close position even if price has recovered. [LT, p. 141]
-  stop_loss_signal <- calculate_stop_loss_signal(
-    prices = prices,
-    t = t - 1,
-    t_trade_open = t_trade_open,
-    stop_loss_gap = stop_loss_gap_,
+  stop_loss_level <- f_stop_loss_level(
+    f_high_water_mark(prices, t - 1, t_trade_open),
+    f_low_water_mark(prices, t - 1, t_trade_open),
+    stop_loss_gap = stop_loss_gap,
     direction = direction,
-    rnd = FALSE
+    rnd  = FALSE
   )
 
   if(direction == 1) { ## If long
-    if(price < close_trade_stop_loss_) { ## Close position if...
-      open_close <- "CLOSE"
-    } else {open_close <- "OPEN"}
+    if(prices[t] < stop_loss_level) { ## Close position if...
+      open_close <- 0 ## Close
+    } else {open_close <- 1}
   } else if(direction == -1) { ## If short
-    open_close <- "OPEN"
-    if(price > close_trade_stop_loss_) { ## Close position if...
-      open_close <- "CLOSE"
-    } else {open_close <- "OPEN"}
-  } else {open_close <- "CLOSE"} ## Should be redundant...
-  open_close
+    open_close <- 1
+    if(prices[t] > stop_loss_level) { ## Close position if...
+      open_close <- 0 ## Close
+    } else {open_close <- 1}
+  } else {open_close <- 0} ## Should be redundant...
+  list("enter_exit" = open_close, "stop_loss_gap" = stop_loss_gap)
 }
-
-
-#' Stop loss signal
-#'
-#' @description Calculate stop loss signal.
-#'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
-#' @param t Time index.
-#' @param t_trade_open Time index of the time when trade is opened.
-#' @param stop_loss_gap Stop loss gap.
-#' @param rnd If TRUE, add small random amount to stop loss level. Negative if
-#'   short.
-#' @param direction Is current trade long or short? 1 for long, -1 for short.
-#'
-#' @returns -1, 0 or 1.
-#' @export
-#'
-#' @example
-#'
-calculate_stop_loss_signal <- function(prices, t, t_trade_open, stop_loss_gap, direction = 0, rnd = FALSE) {
-  stop_loss_level(hwm(prices, t, t_trade_open), lwm(prices, t, t_trade_open), stop_loss_gap, direction, rnd)
-}
-
-
-
-
-##################################################################
-
-#ToDo
-#Instead of apply_mac_rule use apply_rule in sys_frwk.R.
-#apply_rule takes whatever rule and applies it.
-#Note, mac_rule works for vectors (including a vector of length 1).
-
-##################################################################
 
 #' Moving Average
 #'

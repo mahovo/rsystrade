@@ -23,30 +23,29 @@
 #' calculates one step of the moving average, i.e. the mean of the past n
 #' prices.
 #'
-#' If the window length is shorter than the length of the price vector, the
+#' If the length of the price vector is shorter than the window length, the
 #' window length will be set to the length of the price vector, and a warning
 #' will be given. The function will not fail or abort in this case.
 #'
 #' @param prices A vector of prices in currency. Newest first. Top to bottom:
 #'   Newer to older.
-#' @param n Window length.
 #' @param t Time index.
+#' @param window_length Window length.
 #'
 #' @returns A single number. One step of a moving average.
 #' @export
 #'
 #' @example
 #'
-f_moving_average <- function(prices, n, t = NA) {
-  N <- length(prices)
-  if(is.na(t)) {t = N} ## Set t to last item if no t is provided
-
-  #stopifnot(N >= n)
-  ma <- NA
-  if(t <= n) { ## Handle t less than or equal to n
+f_moving_average <- function(prices, t = NA, window_length) {
+  #N <- length(prices)
+  #stopifnot(N >= window_length)
+  if(t > window_length) {
+    #ma <- sum(prices[(t - window_length + 1):N]) / window_length
+    ma <- mean(prices[(t - window_length + 1):t])
+  } else { ## Handle t less than or equal to window_length
     ma <- mean(prices[1:t])
-  } else {
-    ma <- sum(prices[(t - n + 1):N]) / n
+    warning("Price vector is shorter than MA window. Window length modified.")
   }
   ma
 }
@@ -88,25 +87,16 @@ f_ma_vector <- function(prices, n) {
   ma_prices
 }
 
-#' Exit Position Based On Stop Loss
-#'
-#' @description
-#' Close position if stop loss level was breached yesterday.
-#' Close position even if price has recovered.
-#'
-#' @return
-#' @export
-#'
-#' @examples
-f_exit_trade_stop_loss <- function() {
-  warning("calculate_close_trade_stop_loss() is not yet implemented.")
-}
+
+
+
+## Stop Loss ====
 
 ## LT F24
 #' Stop loss level
 #'
 #' @param hwm High Water Mark.
-#' @param lwm Low  Water Mark.
+#' @param lwm Low Water Mark.
 #' @param stop_loss_gap Stop loss gap.
 #' @param direction Is current trade long or short? 1 for long, -1 for short.
 #' @param rnd If TRUE, add small random amount to stop loss level. Negative if
@@ -124,15 +114,20 @@ f_stop_loss_level <- function(
     direction = 0,
     rnd = TRUE) {
   if(direction == 1){ ## If long
-    hwm - stop_loss_gap + runif(1, 0.01, 0.03) * rnd
-  } else {lwm + stop_loss_gap - runif(1, 0.01, 0.03) * rnd}
+    hwm - stop_loss_gap + stats::runif(1, 0.01, 0.03) * rnd
+  } else {lwm + stop_loss_gap - stats::runif(1, 0.01, 0.03) * rnd}
 }
 
 ## LT F23
 #' Calculate Stop Loss Gap
 #'
-#' @param price_unit_vol
-#' @param stop_loss_fraction
+#' @description
+#' Calculate stop loss gap. Stop loss only takes effect if the difference
+#'   between the current price and the stop loss level is bigger than the stop
+#'   loss gap.
+#'
+#' @param price_unit_vol Volatility of returns in price units.
+#' @param stop_loss_fraction Stop loss fraction.
 #'
 #' @returns
 #' @export
@@ -162,3 +157,9 @@ f_stop_loss_gap <- function(price_unit_vol, stop_loss_fraction) {
 f_stop_loss_risky_capital_pct <- function(risk_target, stop_loss_fraction) {
   risk_target * stop_loss_fraction
 }
+
+
+
+
+
+

@@ -4,13 +4,13 @@
 \alias{f_price_unit_vol}
 \title{Price Unit Volatility (instrument risk in price units)}
 \usage{
-f_price_unit_vol(instr_risk, price)
+f_price_unit_vol(price, inst_risk)
 }
 \arguments{
-\item{instr_risk}{Instrument risk.}
-
 \item{price}{A vector of prices in currency. Newest first. Top to bottom:
 Newer to older.}
+
+\item{inst_risk}{instrument risk.}
 }
 \description{
 Price Unit Volatility (instrument risk in price units)

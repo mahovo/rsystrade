@@ -6,6 +6,9 @@
 \usage{
 f_portfolio_weighted_position()
 }
+\value{
+Number
+}
 \description{
-Calculate Portfolio Weighted Position
+Calculate weighted position.
 }

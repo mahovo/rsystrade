@@ -2,9 +2,6 @@
 ## (CC BY-SA 4.0)
 ## https://github.com/jennybc/row-oriented-workflows/blob/master/iterate-over-rows.md
 
-library(scales)
-library(tidyverse)
-
 
 #' Benchmark
 #'
@@ -25,7 +22,7 @@ library(tidyverse)
 #'   `benchmark()` is called from `run_benchmark()` so the tested function will
 #'   be evaluated in the environment of `run_benchmark()`.
 #'
-#' @return
+#' @return List of benchmark times.
 #' @export
 #'
 #' @examples
@@ -33,7 +30,7 @@ benchmark <- function(n = 1, expr, envir = parent.frame()) {
   print(paste0("Running ", n, " benchmark tests on ", expr, "..."))
   expr <- parse(text = expr)
   gc()
-  benchmarks <- map(
+  benchmarks <- purrr::map(
     seq_len(n),
     ~ system.time(eval(expr, envir), gcFirst = FALSE),
     .progress = as.character(expr) ## Progress bar
@@ -81,10 +78,11 @@ benchmark <- function(n = 1, expr, envir = parent.frame()) {
 #'   be an integer, double, character, or any element that a data frame will
 #'   accept.
 #'
-#' @return
+#' @return A tibble of benchmark times.
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' f1 <- function() {rnorm(20)}
 #' f2 <- function() {runif(20)}
 #' f_list <- list(f1 = "f1", f2 = "f2")
@@ -93,8 +91,9 @@ benchmark <- function(n = 1, expr, envir = parent.frame()) {
 #'   run_benchmark,
 #'   ncol = 3,
 #'   functions = f_list, times = 1
-#') %>% order_graphs()
+#' ) %>% order_graphs()
 #' plot_bm(df_test, "nrow", mean_or_median = median)
+#' }
 run_benchmark <- function(
     nrow = 10,
     ncol = 3,
@@ -106,8 +105,8 @@ run_benchmark <- function(
   if(is.na(df)) {
     df <- switch(elements,
       "same" = data.frame(matrix(rep(element, nrow * ncol), ncol = ncol)),
-      "unif" = data.frame(matrix(runif(nrow * ncol), ncol = ncol)),
-      "norm" = data.frame(matrix(rnorm(nrow * ncol), ncol = ncol)),
+      "unif" = data.frame(matrix(stats::runif(nrow * ncol), ncol = ncol)),
+      "norm" = data.frame(matrix(stats::rnorm(nrow * ncol), ncol = ncol)),
       "seq" = data.frame(matrix(as.integer(seq_len(nrow * ncol)), ncol = ncol)),
       "letters" = data.frame(matrix(rep_len(letters, length.out = nrow * ncol), ncol = ncol))
     )
@@ -115,32 +114,36 @@ run_benchmark <- function(
     nrow <- nrow(df)
     ncol <- ncol(df)
   }
-  res <- map(functions, ~ benchmark(times, .x))
-  res <- map(res, ~ map_dbl(.x, "elapsed"))
-  tibble(
+  res <- purrr::map(functions, ~ benchmark(times, .x))
+  res <- purrr::map(res, ~ map_dbl(.x, "elapsed"))
+  tibble::tibble(
     nrow = nrow,
     ncol = ncol,
     method = rep(names(res), lengths(res)),
-    time = flatten_dbl(res)
+    time = rlang::flatten_dbl(res)
   )
 }
 
 ## Force plot legends to present methods in order of time
 order_graphs <- function(df) {
-  mutate(df, method = fct_reorder(method, .x = desc(time)))
+  dplyr::mutate(df, method = forcats::fct_reorder(method, .x = dplyr::desc(time)))
 }
 
 plot_bm <- function(df, nrow_or_ncol = "nrow", mean_or_median = mean) {
-  log10_breaks <- trans_breaks("log10", function(x) 10 ^ x)
+  log10_breaks <- scales::trans_breaks("log10", function(x) 10^x)
   log10_mbreaks <- function(x) {
     limits <- c(floor(log10(x[1])), ceiling(log10(x[2])))
     breaks <- 10^seq(limits[1], limits[2])
 
     unlist(lapply(breaks, function(x) x * seq(0.1, 0.9, by = 0.1)))
   }
-  log10_labels <- trans_format("log10", math_format(10 ^ .x))
 
-  ggplot(
+  # Instead of doing this, we use "@importFrom purr" in `R/pkg-package.R`.
+  #`%>%` <- purrr::`%>%` ## Import the pipe operator
+
+  log10_labels <- scales::trans_format("log10", scales::math_format(10^.x))
+
+  ggplot2::ggplot(
     df %>% dplyr::filter(time > 0),
     aes_string(x = nrow_or_ncol, y = "time", colour = "method")
   ) +

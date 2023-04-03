@@ -2,18 +2,18 @@
 % Please edit documentation in R/formulas-basic.R
 \name{f_prices_from_returns}
 \alias{f_prices_from_returns}
-\title{Calculate price vector from returns vector}
+\title{Calculate Price Vector From Returns Vector}
 \usage{
 f_prices_from_returns(returns, initial_price)
 }
 \arguments{
-\item{returns}{Returns.}
+\item{returns}{Percentage returns}
 
-\item{initial_price}{Initial price.}
+\item{initial_price}{Initial price}
 }
 \value{
 Vector of prices in currency of initial price.
 }
 \description{
-Calculate price vector from returns vector
+Calculate Price Vector From Returns Vector
 }

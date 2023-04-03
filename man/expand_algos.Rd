@@ -11,8 +11,8 @@ expand_algos(algos)
 }
 \value{
 A list where each element is a list containing one element named
-\code{instrument} and one list named \code{rule} containing one opening and one
-closing rule.
+\code{instrument} and one list named \code{rule} containing one signal rule and one
+optional stop loss rule.
 }
 \description{
 Takes a nested list of algo specifications and expands it to a list of all
@@ -20,7 +20,8 @@ possible permutations.
 
 An algo is a pair consisting of an instrument and a rule.
 
-A rule is a combination of one opening rule and one closing rule.
+A "rule" is a combination of one signal rule and optionally one stop loss
+rule.
 
 The \code{algos} parameter is a nested list in one in the following forms.
 Pairs of one instrument and one rule:

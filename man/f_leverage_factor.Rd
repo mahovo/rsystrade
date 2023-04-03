@@ -13,6 +13,9 @@ f_leverage_factor(cash = NA, invested = NA, borrowed = NA)
 
 \item{borrowed}{Amount needed to borrow.}
 }
+\value{
+Number
+}
 \description{
 Calculates leverage factor from any two provided valid parameters. At least
 two valid parameters must be provided.

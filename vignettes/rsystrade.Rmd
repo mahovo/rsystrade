@@ -33,23 +33,26 @@ The intention is to *not* veil calculations in an endless maze of OOP abstractio
 
 
 ### Calculate position size
-* $Z_C$, **position size** in *instrument contracts*.
-* $K_A$, trading **capital** in *account currency*.
-* $S$, **signal**.
-* $\sigma_{AST}$,  **annualized system risk** target in *decimal percentages*.
-* $\sigma_{AI}$, **annualized instrument risk** in *decimal percentages*.
-  * Measured as *daily price volatility*, which is the *volatility of daily returns* in decimal percentages.
-* $w$, **instrument weight**.
-* $\text{IDM}$, **Instrument Diversification Multiplier**.
-  * Measured as the value of a 1% increase in the price of a block.
+
+* $Z_C$, **position size** in *instrument contracts*.  
+* $K_A$, trading **capital** in *account currency*.  
+* $S$, **signal**.  
+* $\sigma_{AST}$,  **annualized system risk** target in *decimal percentages*.  
+* $\sigma_{AI}$, **annualized instrument risk** in *decimal percentages*.  
+  * Measured as *daily price volatility*, which is the *volatility of daily returns* in decimal percentages.  
+* $w$, **instrument weight**.  
+* $\text{IDM}$, **Instrument Diversification Multiplier**.  
+  * Measured as the value of a 1% increase in the price of a block.  
 $$Z_C = S \cdot \frac{\sigma_{AST}}{\sigma_{AI}} \cdot K_A \cdot w \cdot \text{IDM}$$
 
 ## System components
 
 A system consists of 
--   Any number of *algos*. An *algo* in this context is a distinct combination of a *trade rules pair variation* and data for an *instrument* (typically price data). For instance, a (20, 80) Moving Average Crossover plus a stop loss applied to a time series of S&P500 prices is one algo, and a (16, 64) MAC plus a stop loss applied to a time series of S&P500 prices is another algo. A (16, 64) MAC plus a stop loss applied to a time series of corn prices would be a third algo. Here a *rules pair* is a combination of one entering rule and one exiting rule.
--   A `signal` table for each algo. The `signal` table contains the *signal* calculated by the algo, and some data produced by intermediate steps in the algo. A *signal* is the trade signal used to determine whether to enter, exit or modify a trade.
--   A `position` table for each subsystem/instrument. All the different algos that affect a single instrument are combined to make up a single subsystem for that instrument. The *position* table contains the value of the resulting position for the subsystem as well as different data produced by intermediate steps.
+
+-   Any number of *algos*. An *algo* in this context is a distinct combination of a *trade rules pair variation* and data for an *instrument* (typically price data). For instance, a (20, 80) Moving Average Crossover plus a stop loss applied to a time series of S&P500 prices is one algo, and a (16, 64) MAC plus a stop loss applied to a time series of S&P500 prices is another algo. A (16, 64) MAC plus a stop loss applied to a time series of corn prices would be a third algo. Here a *rules pair* (or *rule* in short) is a combination of one *signal rule* and one optional *stop loss rule*.  
+
+-   A `signal` table for each algo. The `signal` table contains the *signal* calculated by the algo, and some data produced by intermediate steps in the algo. A *signal* is the trade signal used to determine whether to enter, exit or modify a trade.  
+-   A `position` table for each subsystem/instrument. All the different algos that affect a single instrument are combined to make up a single subsystem for that instrument. The *position* table contains the value of the resulting position for the subsystem as well as different data produced by intermediate steps.  
 -   A `system_account` table containing aggregate data for the entire system.
 
 When you create a new system, a list is created which contains the entire system. You create a new system with `make_system()`.
@@ -65,10 +68,11 @@ my_system <- make_system(
 )
 ```
 This list contains 
-  * A list of instrument data sets. One data set for each unique instrument.
-  * The user provided list `algos`, which contains a list of algos, which in turn each contain an instrument name and a list containing one _entering rule_ and one _exiting rule_.
-  * The list `signal_tables`, which contains a table as a data frame for each _algo_.
-  * The list `position_tables`, which contains a table as a data frame for each _instrument_.
+
+  * A list of instrument data sets. One data set for each unique instrument.  
+  * The user provided list `algos`, which contains a list of algos, which in turn each contain an instrument name and a list containing one _signal rule_ and one optional _stop loss rule_.  
+  * The list `signal_tables`, which contains a table as a data frame for each _algo_.  
+  * The list `position_tables`, which contains a table as a data frame for each _instrument_.  
   * The data frame `system_account`, which contains a table as a data frame.
   
 
@@ -149,10 +153,11 @@ An expected value of 1 seems intuitive. It is easy to relate to as a decimal rat
 ## Function names
 
 **rsystrade** aspires to follow the convention, that function names should include a verb. However, because most of what **rsystrade** does is calculations, there is one exception to this guideline:
--   The name of an R function that implements a *math function* begins with `f_`. 
--   Here `f` at the beginning of function name represents the verb `calculate`.
--   Instead of `calculate_normalization_factor()` we use `f_normalization_factor()`.
--   In other words: Functions with a name that begin with `f_` perform *calculations*.
+
+-   The name of an R function that implements a *math function* begins with `f_`.   
+-   Here `f` at the beginning of function name represents the verb `calculate`.  
+-   Instead of `calculate_normalization_factor()` we use `f_normalization_factor()`.  
+-   In other words: Functions with a name that begin with `f_` perform *calculations*.  
 -   As a mnemonic you might think of "formula", "function" or "find". I think of the math symbol for a function, because these calculations all implement some sort of formula. Visually the f at the beginning seems intuitive to me, when I skim the code, since it's an *R function* that implements a *math function*.
 
 See also Guidelines.md.
@@ -160,16 +165,16 @@ See also Guidelines.md.
 
 # **rsystrade** terminology
 ## Algo
-An *algo* in this context is a distinct combination of a *trade rules pair variation* and data for an *instrument* (typically price data). For instance, a (20, 80) Moving Average Crossover plus a stop loss applied to a time series of S&P500 prices is one algo, and a (16, 64) MAC plus a stop loss applied to a time series of S&P500 prices is another algo. A (16, 64) MAC plus a stop loss applied to a time series of corn prices would be a third algo. Here a *rules pair* is a combination of one entering rule and one exiting rule.
+An *algo* in this context is a distinct combination of a *trade rules pair variation* and data for an *instrument* (typically price data). For instance, a (20, 80) Moving Average Crossover plus a stop loss applied to a time series of S&P500 prices is one algo, and a (16, 64) MAC plus a stop loss applied to a time series of S&P500 prices is another algo. A (16, 64) MAC plus a stop loss applied to a time series of corn prices would be a third algo. Here a *rules pair* is a combination of one entry rule and one optional exit rule.
 
 ## Entering/exiting (opening/closing)
 We use *entering* and *exiting* rather than *opening* and *closing*, since "open" could indicate the price when the market opens, and "close" could indicate the price when the market closes.
 
 ## Rule
-Aka a *trade rules pair*. A combination of one *entering rule* and one *exiting rule*.
+Aka a *trade rules pair*. A combination of one *entry rule* and one *exit rule*.
 
 ## Signal
-A signal is an output number from a trade rule. The signal indicates whether we should enter or exit a position. The sign of the signal tells us if we should go long or short. The strength of the signal may indicate how big the position should be. Signals are proportional to expected risk adjusted returns.
+A signal is an output number from a trade rule. The signal indicates whether we should enter or exit a position. The sign of the signal tells us if we should go long or short. The strength of the signal may indicate how big the position should be. Signals are proportional to expected risk adjusted returns. A signal of $0$ indicates that the position should be closed. The value of a signal is the product of the *entry rule signal* and the *exit rule signal*. The exit rule signal is $0$ to trigger exit (e.g. when a stop loss threshold is breached), and $1$ otherwise.
 
 ## Clamp (cap)
 We use *clamp* rather than *cap* to indicate a restriction on a signal (or any value) which limits a signal to a lower and an upper limit. Typically a *cap* would be a restriction with an upper limit only. Sometimes a restriction with a lower limit only is called a *floor*. However, in mathematics *floor* means something else. The mathematical definition is implemented in the R function `floor()`. From the `?floor` help file: "`floor` takes a single numeric argument `x` and returns a numeric vector containing the largest integers not greater than the corresponding elements of `x`." To avoid confusion with the R function *floor* we don't use the term *floor* to indicate a lower restriction. Instead we say a *lower clamp*. Following this logic, we say *upper clamp* rather than *cap*.

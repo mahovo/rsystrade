@@ -49,6 +49,9 @@ distribution.
 be an integer, double, character, or any element that a data frame will
 accept.}
 }
+\value{
+A tibble of benchmark times.
+}
 \description{
 Run \code{benchmark()} test on one or more functions taking a data frame as input.
 
@@ -59,6 +62,7 @@ function, in which case the provided dimensions will be ignored. However,
 this is not the typical use case.
 }
 \examples{
+\dontrun{
 f1 <- function() {rnorm(20)}
 f2 <- function() {runif(20)}
 f_list <- list(f1 = "f1", f2 = "f2")
@@ -69,4 +73,5 @@ df_test <- map_df(
   functions = f_list, times = 1
 ) \%>\% order_graphs()
 plot_bm(df_test, "nrow", mean_or_median = median)
+}
 }

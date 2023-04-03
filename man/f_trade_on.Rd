@@ -2,10 +2,13 @@
 % Please edit documentation in R/formulas-portfolio.R
 \name{f_trade_on}
 \alias{f_trade_on}
-\title{Calculate trade_on flag}
+\title{Calculate trade_on Flag}
 \usage{
 f_trade_on()
 }
+\value{
+\code{0} or \code{1}
+}
 \description{
-Calculate trade_on flag
+Calculate \code{trade_on} flag
 }

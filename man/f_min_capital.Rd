@@ -4,11 +4,15 @@
 \alias{f_min_capital}
 \title{Minimum capital}
 \usage{
-f_min_capital(min_exposure, instr_risk, instrument_risk_target)
+f_min_capital(min_exposure, inst_risk, instrument_risk_target)
 }
 \arguments{
-\item{instrument_risk_target}{}
+\item{min_exposure}{Minimum exposure.}
+
+\item{inst_risk}{Instrument risk.}
+
+\item{instrument_risk_target}{Instrument risk target.}
 }
 \description{
-Minimum capital
+Calculate minimum capital required to trade the system.
 }

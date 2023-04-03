@@ -15,6 +15,9 @@ benchmark(n = 1, expr, envir = parent.frame())
 \code{benchmark()} is called from \code{run_benchmark()} so the tested function will
 be evaluated in the environment of \code{run_benchmark()}.}
 }
+\value{
+List of benchmark times.
+}
 \description{
 Run benchmark test on a single function.
 

@@ -4,14 +4,18 @@
 \alias{f_normalize_signal}
 \title{Normalize Signal}
 \usage{
-f_normalize_signal(signal, normalization_factor = 1)
+f_normalize_signal(raw_signal_value, signal_normalization_factor)
 }
 \arguments{
-\item{normalization_factor}{}
+\item{raw_signal_value}{Single raw signal value.}
+
+\item{signal_normalization_factor}{Normalization target.}
 }
 \value{
 Normalized signal as a number.
 }
 \description{
-Normalize Signal
+Normalize a value of a single signal based on the a signal normalization
+factor. The signal normalization factor for the system can be calculated
+with update_signal_normalization_factors().
 }

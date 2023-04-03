@@ -4,7 +4,7 @@
 \alias{f_low_water_mark}
 \title{Low water mark}
 \usage{
-f_low_water_mark(prices, t, t_trade_open)
+f_low_water_mark(prices, t, t_trade_entry)
 }
 \arguments{
 \item{prices}{A vector of prices in currency. Newest first. Top to bottom:
@@ -12,8 +12,8 @@ Newer to older.}
 
 \item{t}{Time index.}
 
-\item{t_trade_open}{Time index for the time when the trade is opened.}
+\item{t_trade_entry}{Time index for the time when the trade is opened.}
 }
 \description{
-Low water mark
+Lowest price since entry of a current open position.
 }

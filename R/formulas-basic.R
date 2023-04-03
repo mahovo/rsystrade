@@ -13,7 +13,7 @@
 ## Basic calculations ====
 
 ##LT F4.1a
-#' Growth rate with leverage
+#' Growth Rate With Leverage
 #'
 #' @param L Leverage factor.
 #' @param r Return rate on investment.
@@ -28,7 +28,7 @@ f_growth_rate_lvrg <- function(L, r, b) {L * r - (L - 1) * b}
 
 
 ## LT F4.1b
-#' Growth with leverage
+#' Growth With Leverage
 #'
 #' @param V Value (V_t, value at time t)
 #' @param L Leverage factor.
@@ -44,9 +44,9 @@ f_growth_lvrg <- function(V, L, r, b) {(1 + (L * r - (L - 1) * b)) * V}
 
 
 ## LT F4.1c
-#' Growth with leverage
+#' Growth With Leverage
 #'
-#' @param V Value (V_t, value at time t)
+#' @param V Value (\eqn{V_t}, value at time \eqn{t})
 #' @param L Leverage factor.
 #' @param r Return rate on investment.
 #' @param b Borrowing rate.
@@ -58,19 +58,19 @@ f_growth_lvrg <- function(V, L, r, b) {(1 + (L * r - (L - 1) * b)) * V}
 #'
 f_profit_lvrg <- function(V, L, r, b) {(L * r - (L - 1) * b) * V}
 
-#' Calculate net returns vector from price vector
+#' Calculate Net Returns Vector From Price Vector
 #'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Newest last Top to bottom:
+#'   Older to new.
 #'
 #' @return Percentage returns
 #' @export
 f_returns_from_prices <- function(prices) {
   N <- length(prices)
-  (head(prices, N - 1) / tail(prices, N - 1)) - 1
+  (utils::tail(prices, N - 1) / utils::head(prices, N - 1)) - 1
 }
 
-#' Calculate price vector from returns vector
+#' Calculate Price Vector From Returns Vector
 #'
 #' @param returns Percentage returns
 #' @param initial_price Initial price
@@ -85,7 +85,30 @@ f_prices_from_returns <- function(returns, initial_price) {
   cumprod(c(initial_price, returns[2:(n - 1)] + 1))
 }
 
-#' Simulate returns
-# sim_returns <- function(n) {
-#
-# }
+
+#' Calculate Exponentially Weighted Average
+#'
+#' Calculate EWA of vector \eqn{x} at time \eqn{t} based on a lookback window. If the
+#'   length of the lookback window is \eqn{L}, the range of the lookback window is
+#'   \eqn{[t-L, t-1]}.
+#'
+#' @param x vector
+#' @param lookback Lookback window length. If no `lookback` is provided, the
+#'   entire \eqn{x} vector will be used.
+#'
+#' @return Single exponentially weighted average value
+#' @export
+#'
+#' @examples
+f_ewa <- function(x, lookback = NA) {
+  if(is.na(lookback)) {
+    L <- length(x)
+    x_window <- x
+  } else {
+    L <- lookback
+    x_window <- utils::tail(x, L)
+  }
+  lambda <- 2/(1 + L)
+  w <- lambda^((0):(L - 1))
+  (sum(w %*% x_window)) / sum(w)
+}

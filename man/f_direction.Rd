@@ -2,9 +2,12 @@
 % Please edit documentation in R/formulas-portfolio.R
 \name{f_direction}
 \alias{f_direction}
-\title{Calculate direction flag}
+\title{Calculate Direction Flag}
 \usage{
 f_direction()
+}
+\value{
+\code{-1}, \code{0} or \code{1}
 }
 \description{
 Calculate direction flag
