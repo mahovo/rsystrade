@@ -1,6 +1,9 @@
 #' Calculate Position
 #'
-#' @return
+#' @description
+#' Calculate Position.
+#'
+#' @return Number
 #' @export
 #'
 #' @examples
@@ -11,7 +14,10 @@ f_position <- function() {
 
 #' Calculate Portfolio Weighted Position
 #'
-#' @return
+#' @description
+#' Calculate weighted position.
+#'
+#' @return Number
 #' @export
 #'
 #' @examples
@@ -19,13 +25,34 @@ f_portfolio_weighted_position <- function() {
   warning(" is not yet implemented.")
 }
 
+#' Calculate Final Position To Trade In Units Of Contracts
+#'
+#' @description
+#' Calculate final rounded position to trade in units of contracts.
+#'
+#' @param target_position_size_units Target position to trade in units of
+#'   contracts.
+#'
+#' @return Number of contracts
+#' @export
+#'
+#' @examples
+f_position_units <- function(
+    target_position_size_units
+) {
+  floor(target_position_size_units)
+}
+
 
 ## "enter_or_exit" is a column in the "positions" table.
 ## Should this flag be entered by a function or is it just a state in a
 ## variable?
-#' Calculate enter_or_exit flag
+#' Calculate enter_or_exit Flag
 #'
-#' @return
+#' @description
+#' Calculate `enter_or_exit` flag.
+#'
+#' @return Character string
 #' @export
 #'
 #' @examples
@@ -36,9 +63,12 @@ f_enter_or_exit <- function() {
 ## "trade_on" is a column in the "positions" table.
 ## Should this flag be entered by a function or is it just a state in a
 ## variable?
-#' Calculate trade_on flag
+#' Calculate trade_on Flag
 #'
-#' @return
+#' @description
+#' Calculate `trade_on` flag
+#'
+#' @return `0` or `1`
 #' @export
 #'
 #' @examples
@@ -49,9 +79,12 @@ f_trade_on <- function() {
 ## "direction" is a column in the "positions" table.
 ## Should this flag be entered by a function or is it just a state in a
 ## variable?
+#' Calculate Direction Flag
+#'
+#' @description
 #' Calculate direction flag
 #'
-#' @return
+#' @return `-1`, `0` or `1`
 #' @export
 #'
 #' @examples
@@ -69,7 +102,7 @@ f_direction <- function() {
 #' @param invested Amount to invest in an instrument.
 #' @param borrowed Amount needed to borrow.
 #'
-#' @return
+#' @return Number
 #' @export
 #'
 #' @examples
@@ -93,11 +126,14 @@ f_leverage_factor <- function(cash = NA, invested = NA, borrowed = NA) {
 
 #' Calculate Target Position Size In Units Of Contracts
 #'
-#' @param notional_exposure
-#' @param price
-#' @param fx_rate
+#' @description
+#' Calculate the target position size in units of contracts.
 #'
-#' @return
+#' @param notional_exposure Notional exposure.
+#' @param price Single price observation.
+#' @param fx_rate FX rate.
+#'
+#' @return Number
 #' @export
 #'
 #' @examples
@@ -113,11 +149,12 @@ f_target_position_size_units <- function(
 #' Calculate Position Size In Account Currency
 #'
 #' @description
+#' Calculate position size in price units of the account currency.
 #'
 #' @param price Price in currency of account
-#' @param position_size_units
+#' @param position_size_units Position size in units
 #'
-#' @return Amout in currency of account
+#' @return Amount in price units of account currency
 #' @export
 #'
 #' @examples
@@ -125,14 +162,15 @@ f_position_size_ccy <- function(
     price,
     position_size_units
     ) {
-  warning("calculate_position_size_ccy() is not yet implemented.")
   price * position_size_units
 }
 
 
 #' Calculate Units Of Asset Borrowed
 #'
-#' @return
+#' @description
+#'
+#' @return Number
 #' @export
 #'
 #' @examples

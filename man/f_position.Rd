@@ -6,6 +6,9 @@
 \usage{
 f_position()
 }
+\value{
+Number
+}
 \description{
-Calculate Position
+Calculate Position.
 }

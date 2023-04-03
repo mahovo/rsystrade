@@ -7,9 +7,11 @@
 f_instrument_risk_target(system_risk_target, IDM)
 }
 \arguments{
+\item{system_risk_target}{Annualized volatility target in percentages}
+
 \item{IDM}{Instrument Diversification Multiplier
-$$\text{IDM} = \frac{1}{\sqrt{W^{T}HW}}$$
-Where $H$ is the correlation matrix for returns, and $W$ is the vector
+\deqn{\text{IDM} = \frac{1}{\sqrt{W^{T}HW}}}
+where \eqn{H} is the correlation matrix for returns, and \eqn{W} is the vector
 of instrument weights summing to one.}
 }
 \value{

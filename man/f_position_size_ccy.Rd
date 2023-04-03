@@ -2,10 +2,18 @@
 % Please edit documentation in R/formulas-portfolio.R
 \name{f_position_size_ccy}
 \alias{f_position_size_ccy}
-\title{Calculate Position Size In Currency}
+\title{Calculate Position Size In Account Currency}
 \usage{
-f_position_size_ccy()
+f_position_size_ccy(price, position_size_units)
+}
+\arguments{
+\item{price}{Price in currency of account}
+
+\item{position_size_units}{Position size in units}
+}
+\value{
+Amount in price units of account currency
 }
 \description{
-Calculate Position Size In Currency
+Calculate position size in price units of the account currency.
 }

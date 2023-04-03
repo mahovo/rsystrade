@@ -2,13 +2,20 @@
 % Please edit documentation in R/formulas-risk.R
 \name{f_high_water_mark}
 \alias{f_high_water_mark}
-\title{High water mark}
+\title{High Water Mark}
 \usage{
-f_high_water_mark(prices, t, t_trade_open)
+f_high_water_mark(prices, t, t_trade_entry)
 }
 \arguments{
-\item{t_trade_open}{}
+\item{prices}{Vector of prices.}
+
+\item{t}{Time index.}
+
+\item{t_trade_entry}{Index of current open trade entry time.}
+}
+\value{
+A single price value
 }
 \description{
-High water mark
+Highest price since entry of a current open position.
 }

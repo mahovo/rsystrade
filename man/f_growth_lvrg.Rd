@@ -2,7 +2,7 @@
 % Please edit documentation in R/formulas-basic.R
 \name{f_growth_lvrg}
 \alias{f_growth_lvrg}
-\title{Growth with leverage}
+\title{Growth With Leverage}
 \usage{
 f_growth_lvrg(V, L, r, b)
 }
@@ -19,5 +19,5 @@ f_growth_lvrg(V, L, r, b)
 Value in price currency.
 }
 \description{
-Growth with leverage
+Growth With Leverage
 }

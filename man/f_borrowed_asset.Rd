@@ -6,6 +6,9 @@
 \usage{
 f_borrowed_asset()
 }
+\value{
+Number
+}
 \description{
 Calculate Units Of Asset Borrowed
 }

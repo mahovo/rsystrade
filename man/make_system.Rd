@@ -2,17 +2,18 @@
 % Please edit documentation in R/sys_frwk.R
 \name{make_system}
 \alias{make_system}
-\title{Make System}
+\title{Make Trade System}
 \usage{
 make_system(
   algos = list(),
   init_capital = 1e+05,
-  risk_target = 0.12,
+  system_risk_target = 0.12,
   risk_window_length = 25,
   stop_loss_fraction = 0.5,
   min_periods = 1,
-  signal_min = -2,
-  signal_max = 2,
+  min_signal = -2,
+  max_signal = 2,
+  instrument_data_folder_path,
   ...
 )
 }
@@ -21,6 +22,9 @@ make_system(
 
 \item{init_capital}{Initial capital.}
 
+\item{system_risk_target}{System risk target as decimal fraction (percent
+divided by 100).}
+
 \item{risk_window_length}{Risk window length.}
 
 \item{stop_loss_fraction}{Stop loss fraction.}
@@ -28,12 +32,15 @@ make_system(
 \item{min_periods}{Minimum number of periods (rows) in the data sets.
 Defaults to 1.}
 
-\item{...}{}
+\item{min_signal}{Minimum signal value.}
 
-\item{system_risk_target}{System risk target as decimal fraction (percent
-divided by 100).}
+\item{max_signal}{Maximum signal value.}
 
-\item{mode}{\code{sim} for \emph{simulation mode}, \code{live} for \emph{live mode}.}
+\item{instrument_data_folder_path}{\emph{Instrument data sets folder} path. Path
+of folder containing all the instrument csv-files for the trade system. The
+\emph{instrument data sets folder} can not be nested.}
+
+\item{...}{Additional arguments.}
 }
 \value{
 A list containing
@@ -42,18 +49,21 @@ A list containing
 assigned to each data frame as a comment. So we can get the data frame
 name:
 
-\if{html}{\out{<div class="sourceCode R">}}\preformatted{comment(expanded_algos[[1]]$data)
+\if{html}{\out{<div class="sourceCode R">}}\preformatted{comment(inst_data[[1]])
 [1] "instrument1"
 }\if{html}{\out{</div>}}
 \item a list of parsed algos, which in turn contains an instrument name and a
-list of two trade rule functions (one for opening and on for closing).
+list of two trade rule functions: One trade signal generating rule and
+one optional stop loss rule.
+If present, the exit rule is applied in the positions stage.
 \item a list \code{signal_tables}, each containing a data frame.
 \item a list \code{position_table}, each containing a data frame.
 \item a dataframe \code{system_account_table}.
+\item a list \code{config} containing system configuration.
 }
 
-\if{html}{\out{<div class="sourceCode">}}\preformatted{system <- list(
-  instrument_data <- list(
+\if{html}{\out{<div class="sourceCode">}}\preformatted{trade_system <- list(
+  inst_data <- list(
     data.frame(),
     data.frame(),
     ...,
@@ -61,25 +71,25 @@ list of two trade rule functions (one for opening and on for closing).
   )
   algos <- list(
     list(
-      instrument = <instrument_name_1>,
+      instrument = <instrument_name>,
       algo = list(
-        <opening_rule_function>,
-        <closing_rule_function>
+        <signal_rule_function>,
+        <stop_loss_rule_function>
       )
     ),
     list(
-      instrument = <instrument_name_1>,
+      instrument = <instrument_name>,
       algo = list(
-        <opening_rule_function>,
-        <closing_rule_function>
+        <signal_rule_function>,
+        <stop_loss_rule_function>
       )
     ),
     ...,
     list(
-      instrument = <instrument_name_1>,
+      instrument = <instrument_name>,
       algo = list(
-        <opening_rule_function>,
-        <closing_rule_function>
+        <signal_rule_function>,
+        <stop_loss_rule_function>
       )
     ),
   ),
@@ -100,5 +110,5 @@ list of two trade rule functions (one for opening and on for closing).
 }\if{html}{\out{</div>}}
 }
 \description{
-Make System
+Make Trade System
 }

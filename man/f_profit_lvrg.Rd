@@ -2,12 +2,12 @@
 % Please edit documentation in R/formulas-basic.R
 \name{f_profit_lvrg}
 \alias{f_profit_lvrg}
-\title{Growth with leverage}
+\title{Growth With Leverage}
 \usage{
 f_profit_lvrg(V, L, r, b)
 }
 \arguments{
-\item{V}{Value (V_t, value at time t)}
+\item{V}{Value (\eqn{V_t}, value at time \eqn{t})}
 
 \item{L}{Leverage factor.}
 
@@ -19,5 +19,5 @@ f_profit_lvrg(V, L, r, b)
 Profit in price currency.
 }
 \description{
-Growth with leverage
+Growth With Leverage
 }

@@ -7,17 +7,40 @@
 #'
 #' An algo is composed of one instrument (data) and one rule (functions).
 #'
-#' A "rule" is a combination of one entering rule and one exiting rule.
+#' Data sets must be csv files in a single folder. The system configuration must
+#'   include a path to the data folder. Data sets are referenced by their file
+#'   names (excluding extension) as character strings.
+#'
+#' A "rule" is a combination of one signal generating rule and one optional stop
+#'   loss rule. The stop loss rule is optional.
 #'
 #' `parse_algos()` takes a nested list of algo specifications and expands it to
-#'   a list of all possible permutations, then loads instrument data into the
-#'   elements in the list. Finally formats the list so that each element is a
-#'   list containing one instrument name, one corresponding data element and one
-#'   list named `rule` containing one entering rule function and one exiting rule
-#'   function.
+#'   a list of all possible permutations of instrument names and rules. Finally
+#'   formats the list so that each element is a list containing one instrument
+#'   name and one list named `rule` containing one signal generating rule name
+#'   and one optional stop loss rule name.
+#'
+#' `make_system()` loads the unique data sets specified in the parsed algos into
+#'   a sublist named `inst_data`.
 #'
 #' Note: In the input sublists we have `rules` (plural, indicating one or
 #'   more), in the output sublists we have `rule` (singular).
+#'
+#' Each rule in the `rules` list for each algo should be a function name
+#'   provided as a character string. E.g.
+#'    ```
+#'    trade_system$algos[[1]]$rules[[1]] <- list(
+#'        "MAC(20,80)",
+#'        "stoploss"
+#'    )
+#'    ```
+#'    With `get_rule_names_by_parsed_algo()` we can parse the name of rule 1
+#'    (entry rule 1 and exit rule 1 combined) as `"[MA(20,80), stoploss]"`.
+#'
+#' If for instance a moving average crossover rule is defined in the function
+#'   `mac(data, fast, slow)`, a (25, 100) variation should be provided to the
+#'   system as `entry_rule_1 <- function(x) {mac(data, 16, 64)}`. (The name
+#'   `entry_rule_1` is arbitrary.)
 #'
 #' In the the `algos` list, instruments must be provided as a path to a csv
 #'   file. Rules must be provided as functions. (For now. Eventually the way
@@ -56,32 +79,29 @@
 #'     )
 #'   )
 #'   ```
-#'   In these examples `rule1` is the name of a list containing one entering rule
-#'   and one exiting rule. `rule2` is the name of another list containing one
-#'   entering rule function and one exiting rule function.
+#'   In these examples `rule1` is the name of a list containing one signal
+#'   rule name and optionally one stop loss rule name . `rule2` is the name of
+#'   another list containing one signal rule name and one optional stop loss rule
+#'   name. Signal and stop loss rule names are supplied as character strings.
 #'
 #' Subsets are then expanded to all possible permutations:
 #'   ```R
 #'   input <- list(
 #'     list( ## algo 1: algos[[1]]
-#'       instrument = "<inst_1_data_frame>",
-#'       data = <data_frame>,
-#'       rule = rule1
+#'       instrument = "<inst_1_name>",
+#'       rule = "<rule_1_name>"
 #'     ),
 #'     list( ## algo 2: algos[[2]]
-#'       instrument = "<inst_name_2>",
-#'       data = <inst_2_data_frame>,
-#'       rule = rule1
+#'       instrument = "<inst_2_name",
+#'       rule = "<rule_1_name>"
 #'     )
 #'     list( ## algo 3: algos[[3]]
-#'       instrument = "<inst_1_data_frame>",
-#'       data = <data_frame>,
-#'       rule = rule2
+#'       instrument = "<inst_1_name>",
+#'       rule = "<rule_2_name>"
 #'     ),
 #'     list( ## algo 4: algos[[4]]
-#'       instrument = "<inst_2_data_frame>",
-#'       data = <data_frame>,
-#'       rule = rule2
+#'       instrument = "<inst_2_name>",
+#'       rule = "<rule_2_name>"
 #'     )
 #'   )
 #'   ```
@@ -91,9 +111,8 @@
 #' @return A list where each element is a list containing:
 #'   -  `instrument` An instrument name. The instrument name is also assigned
 #'      to the data frame as a comment.
-#'   -  `data` Corresponding data frame.
-#'   -  `rule` A list containing one entering rule function and one exiting rule
-#'      function.
+#'   -  `rule` A list containing one signal rule name as a character string and
+#'      optionally one stop loss rule name as a character string.
 #'
 #' @param mode `sim` for simulation mode or `live` for live trading mode.
 #'
@@ -122,18 +141,18 @@ parse_algos <- function(algos, mode = "sim") {
     ## Make list of only unique instrument data sets
     ## This is only needed if we are loading the data into each algo. But we
     ## don't do that.
-    # unique_instrument_datasets <- list()
+    # unique_inst_data <- list()
 
     ## Read the data into the list.
     ## This is only needed if we are loading the data into each algo. But we
     ## don't do that.
     # for(i in seq_along(unique_instrument_paths)) {
-    #   unique_instrument_datasets[[i]] <- data.frame(
+    #   unique_inst_data[[i]] <- data.frame(
     #     read.csv(unique_instrument_paths[[i]]))
     # }
 
 
-    ## Make a list of instrument datasets
+    ## Make a list of instrument data sets
     #for(i in seq_along(expanded_algos)) {
     #path_i = algos[[i]]$instruments[[1]]
     ## This is only needed if we are loading the data into each algo. But we
@@ -145,7 +164,7 @@ parse_algos <- function(algos, mode = "sim") {
     ## same data set, the same data set will be loaded multiple times (wich
     ## would work fine, but is not efficient).
     # expanded_algos[[i]]$data <-
-    #   unique_instrument_datasets[[which(unlist(unique_instrument_paths) ==
+    #   unique_inst_data[[which(unlist(unique_instrument_paths) ==
     #                                       expanded_algos[[i]]$path)]]
 
     ## When input instrument list in algo contains a path instead of a name:
@@ -183,7 +202,8 @@ parse_algos <- function(algos, mode = "sim") {
 #'
 #'   An algo is a pair consisting of an instrument and a rule.
 #'
-#'   A "rule" is a combination of one entering rule and one exiting rule.
+#'   A "rule" is a combination of one signal rule and optionally one stop loss
+#'   rule.
 #'
 #'   The `algos` parameter is a nested list in one in the following forms.
 #'   Pairs of one instrument and one rule:
@@ -221,8 +241,8 @@ parse_algos <- function(algos, mode = "sim") {
 #' @param algos A nested list (see specification above)
 #'
 #' @return A list where each element is a list containing one element named
-#'   `instrument` and one list named `rule` containing one entering and one
-#'   exiting rule.
+#'   `instrument` and one list named `rule` containing one signal rule and one
+#'   optional stop loss rule.
 #'
 #' @examples
 expand_algos <- function(algos) {
@@ -233,10 +253,15 @@ expand_algos <- function(algos) {
   for(subset_ID in seq_along(algos)) {
     for(instrument in algos[[subset_ID]]$instruments) {
       for(rule in algos[[subset_ID]]$rules) {
-        expanded_algos[[expanded_algos_ID]] <- list(
-          instrument = instrument,
-          rule = rule)
-        expanded_algos_ID = expanded_algos_ID + 1
+        if(length(rule) %in% c(1, 2)) {
+          expanded_algos[[expanded_algos_ID]] <- list(
+            instrument = instrument,
+            rule = rule)
+          expanded_algos_ID = expanded_algos_ID + 1
+        } else {
+          stop("One signal rule and optionally one stop loss rule must be
+               supplied for each algo.")
+        }
       }
     }
   }
@@ -248,12 +273,15 @@ expand_algos <- function(algos) {
 # This works on parsed algos, as it gets the instrument names from an
 # expanded algo.
 # Maybe parse_algos() is redundant. For now it only switches between "sim" and
-# "live" mode, when only makes a difference to load_instrument_data_sets().
+# "live" mode, when only makes a difference to load_inst_data().
 # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 #' Get Unique Instrument Paths From Expanded Algos List
 #'
-#' @param expanded_algos
-#' @param instrument_data_folder_path
+#' @description
+#' Get the unique instrument paths from an expanded algos list.
+#'
+#' @param expanded_algos Expanded list of algos.
+#' @param instrument_data_folder_path Path to instrument data folder.
 #'
 #' @return
 #' @export
@@ -279,14 +307,6 @@ get_unique_inst_paths_from_expanded_algos_list <- function(
 # fix§0035
 # We are not storing paths in algos anymore. Only instrument names.
 # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-#' Get Unique Instrument Paths From Parsed Algos List
-#'
-#' @param parsed_algos
-#'
-#' @return
-#' @export
-#'
-#' @examples
 # get_unique_inst_paths_from_parsed_algos_list <- function(parsed_algos) {
 #   ## Collect all instrument paths from expanded_algos
 #   instrument_paths <- list()
@@ -299,33 +319,13 @@ get_unique_inst_paths_from_expanded_algos_list <- function(
 #   unique_instrument_paths
 # }
 
-#' Get Unique Instrument Names From Expanded Algos List
-#'
-#' @param parsed_algos
-#'
-#' @return
-#' @export
-#'
-#' @examples
-get_unique_inst_names_from_parsed_algos_list <- function(parsed_algos) {
-  ## Collect all instrument names from expanded_algos
-  instrument_names <- list()
-  for(i in seq_along(parsed_algos)) {
-    instrument_names[i] <- parsed_algos[[i]]$instrument
-  }
-
-  ## Make list of only unique names
-  unique_instrument_names <- unique(instrument_names)
-  unique_instrument_names
-}
-
 #' Get Instrument Names By Parsed Algo
 #'
 #' @description
 #' The instrument name from each parsed algo and place the names in a list in
 #'   the same order as they appear in the algos list.
 #'
-#' @param parsed_algos
+#' @param parsed_algos List of expanded algos.
 #'
 #' @return
 #' @export
@@ -342,21 +342,224 @@ get_inst_names_by_parsed_algo <- function(parsed_algos) {
   instrument_names
 }
 
+#' Get Unique Instrument Names From Expanded Algos List
+#'
+#' @description
+#' Get unique instrument names from list of expanded algos.
+#'
+#' @param parsed_algos List of expanded algos.
+#'
+#' @return List of character strings
+#' @export
+#'
+#' @examples
+get_unique_inst_names_from_parsed_algos_list <- function(parsed_algos) {
+  ## Collect all instrument names from expanded_algos
+  instrument_names <- get_inst_names_by_parsed_algo(parsed_algos)
+
+  ## Make list of only unique names
+  unique(instrument_names)
+}
+
 #' Get Number Of Unique Instruments From Parsed Algos List
 #'
-#' @param parsed_algos
+#' @description
+#' Get the number of unique instruments from the parsed algos list.
+#'
+#' @param parsed_algos List of expanded algos.
 #'
 #' @return
 #' @export
 #'
 #' @examples
 get_num_inst_from_parsed_algos_list <- function(parsed_algos) {
-  num_instr <-
+  num_inst <-
     length(get_unique_inst_names_from_parsed_algos_list(parsed_algos))
 
   ## Check that num_instr is at least 1 and not NA.
-  if(num_instr >= 1 && !is.na(num_instr)) {num_instr} else {
+  if(num_inst >= 1 && !is.na(num_inst)) {num_inst} else {
     stop("At least one instrument must be provided to the system.")
   }
 
 }
+
+
+#' Get Number Of Rules Per Instrument From Parsed Algos
+#'
+#' Get a named list of numbers of rules for each instrument.
+#' One named item for each instrument. The name of the item is the name of the
+#' instrument.
+#' Each item in the list is a number of rules for the corresponding instrument.
+#'
+#' @param parsed_algos List of expanded algos.
+#'
+#' @return Named list of numbers of rules for each instrument.
+#' @export
+#'
+#' @examples
+get_num_rules_per_inst_from_parsed_algos <- function(parsed_algos) {
+  inst_names <- unlist(get_inst_names_by_parsed_algo(parsed_algos))
+  unique_names <- unique(inst_names)
+
+  ## List of numbers of rules for each instrument.
+  ## One named item for each instrument. The name of the item is the name of
+  ## the instrument.
+  ## Each item in the list is a number of rules for the corresponding
+  ## instrument.
+  num_rules <- numeric(length(unique_names))
+  names(num_rules) <- unique_names
+
+  for(i in seq_along(unique_names)) {
+    num_rules[i] <- sum(inst_names == unique_names[i])
+  }
+  num_rules
+}
+
+#' Get Rule Function Names By Parsed Algo
+#'
+#' @description
+#' Get list of rule function names by parsed algo.
+#'
+#' @param parsed_algos
+#'
+#' @return List
+#' @export
+#'
+#' @examples
+get_rule_function_names_by_parsed_algo <- function(parsed_algos) {
+  ## Collect all instrument names from expanded_algos
+  rule_function_names <- list()
+  for(i in seq_along(parsed_algos)) {
+    rule_function_names[[i]] <- lapply(
+      parsed_algos[[i]]$rule,
+      function(x) {x}
+    )
+  }
+  rule_function_names
+}
+
+#' Get Unique Rule Function Names By Parsed Algo
+#'
+#' @description
+#' Get list of unique rule function names by parsed algo. These functions are
+#'   either signal rule functions or stop loss rule functions.
+#'
+#' @param parsed_algos List of expanded algos
+#'
+#' @return List
+#' @export
+#'
+#' @examples
+get_unique_rule_function_names_by_parsed_algo <- function(parsed_algos) {
+  rule_function_names <- get_rule_function_names_by_parsed_algo(parsed_algos)
+  unique(unlist(rule_function_names))
+}
+
+#' Get Rule Names By Parsed Algo
+#'
+#' @description
+#' Gets the rule name as a character string from each parsed algo and place the
+#'   names in a list in the same order as they appear in the algos list. Each
+#'   rule is a combination of one signal rule and optionally one stop loss rule.
+#'
+#' To get the names of all signal and stop loss rules, use
+#'   `get_rule_function_names_by_parsed_algo()`.
+#'
+#' Rule names are the names of elements in the rule list for each algo.
+#'
+#' @param parsed_algos List of expanded algos.
+#'
+#' @return List of character strings.
+#' @export
+#'
+#' @examples
+get_rule_names_by_parsed_algo <- function(parsed_algos) {
+  ## Collect all instrument names from expanded_algos
+  rule_names <- list()
+  for(i in seq_along(parsed_algos)) {
+    rule_names[[i]] <- ""
+    ## Append each name string to the previous one and separate by comma
+    for(j in seq_along(parsed_algos[[i]]$rule)) {
+      rule_names[[i]] <- paste(rule_names[[i]], parsed_algos[[i]]$rule[[j]], sep = ",")
+    }
+    ## Remove leading comma
+    rule_names[[i]] <- substring(rule_names[[i]], 2)
+    ## Add square brackets (no need)
+    #rule_names[i] <- paste0("[",rule_names[i], "]")
+  }
+
+  ## Make list of only instrument names
+  rule_names
+}
+
+#' Get Unique Rule Names From Expanded Algos List
+#'
+#' @description
+#' Get the unique rule names from an expanded algos list. Each rule is a
+#'   combination of one signal rule and optionally one stop loss rule.
+#'
+#' To get the names of all unique signal and stop loss rules, use
+#'   `get_unique_rule_function_names_by_parsed_algo()`.
+#'
+#' @param parsed_algos List of expanded algos.
+#'
+#' @return List of character strings.
+#' @export
+#'
+#' @examples
+get_unique_rule_names_from_parsed_algos_list <- function(parsed_algos) {
+  ## Collect all instrument names from expanded_algos
+  rule_names <- get_rule_names_by_parsed_algo(parsed_algos)
+
+  ## Make list of only unique names
+  unique(rule_names)
+}
+
+#' Get Number Of Unique Rules From Parsed Algos List
+#'
+#' @description
+#' Get the number of unique rules from an expanded algos list.
+#'
+#' @param parsed_algos List of expanded algos.
+#'
+#' @return Number
+#' @export
+#'
+#' @examples
+get_num_rules_from_parsed_algos_list <- function(parsed_algos) {
+  num_rules <-
+    length(get_unique_rule_names_from_parsed_algos_list(parsed_algos))
+
+  ## Check that num_instr is at least 1 and not NA.
+  if(num_rules >= 1 && !is.na(num_rules)) {num_rules} else {
+    stop("At least one rule must be provided to the system.")
+  }
+}
+
+
+#' Get Signal Normalization Factors By Algos
+#'
+#' @description
+#' Get signal normalization factors by algos.
+#'
+#' @param signal_normalization_factors Named list of unique normalization
+#'   factors.
+#'
+#' @return Unnamed list of normalization factors matching the order of the list
+#'   of parsed algos
+#' @export
+#'
+#' @examples
+get_signal_normalization_factors_by_algos <- function(
+    signal_normalization_factors, parsed_algos) {
+
+  sig_norm_fact_by_algos <- list()
+  rule_names_by_parsed_algo <- get_rule_names_by_parsed_algo(parsed_algos)
+
+  for(i in seq_along(parsed_algos)) {
+    sig_norm_fact_by_algos[[i]] <- signal_normalization_factors[rule_names_by_parsed_algo[[i]]][[1]]
+  }
+  flatten(sig_norm_fact_by_algos)
+}
+
+

@@ -6,8 +6,8 @@
 #' If input value is NA, output will be NA too.
 #'
 #' @param signal Single number or numeric vector
-#' @param signal_min
-#' @param signal_max
+#' @param min_signal Minimum signal value
+#' @param max_signal Maximum signal value
 #'
 #' @return
 #' @export
@@ -29,8 +29,8 @@ clamp_signal <- function(signal, min_signal = -Inf, max_signal = Inf) {
 #' @description
 #' Limit any signal value below `min_signal` to `min_signal`.
 #'
-#' @param signal
-#' @param min_signal
+#' @param signal Signal
+#' @param min_signal Minimum signal value
 #'
 #' @return Number
 #' @export
@@ -45,8 +45,8 @@ clamp_signal_lower <- function(signal, min_signal = -Inf) {
 #' @description
 #' Limit any signal value above `max_signal` to `max_signal`.
 #'
-#' @param signal
-#' @param max_signal
+#' @param signal Signal
+#' @param max_signal Maximum signal value
 #'
 #' @return
 #' @export
@@ -63,9 +63,9 @@ clamp_signal_upper <- function(signal, max_signal = Inf) {
 #' For each element in the matrix limit any signal value below `min_signal` to
 #' `min_signal` and any value above `max_signal` to `max_signal`.
 #'
-#' @param input
-#' @param min_signal
-#' @param max_signal
+#' @param input_matrix Input matric
+#' @param min_signal Minimum signal value
+#' @param max_signal Maximum signal value
 #'
 #' @return
 #' @export
@@ -87,8 +87,8 @@ clamp_matrix <- function(input_matrix, min_signal = -Inf, max_signal = Inf) {
 #' For each element in the matrix limit any signal value below `min_signal` to
 #' `min_signal`.
 #'
-#' @param input
-#' @param min_signal
+#' @param input_matrix Input matrix
+#' @param min_signal Minimum signal value
 #'
 #' @return
 #' @export
@@ -110,14 +110,14 @@ clamp_matrix_lower <- function(input_matrix, min_signal) {
 #' For each element in the matrix limit any signal value above `max_signal` to
 #' `max_signal`.
 #'
-#' @param input
-#' @param min_signal
+#' @param input_matrix Input matrix
+#' @param max_signal Maximum signal
 #'
 #' @return
 #' @export
 #'
 #' @examples
-clamp_matrix_upper <- function(input_matrix, min_signal) {
+clamp_matrix_upper <- function(input_matrix, max_signal) {
   apply(input_matrix,
         c(1,2),
         clamp_signal_upper,
@@ -129,8 +129,8 @@ clamp_matrix_upper <- function(input_matrix, min_signal) {
 #'
 #' Converts binary label from "binary" format to "sign" format.
 #'
-#' * "binary" format: ${0, 1}$
-#' * "sign" format: ${-1, 1}$
+#' * "binary" format: \eqn{\{0, 1\}}
+#' * "sign" format: \eqn{\{-1, 1\}}
 #' * "auto format": Automatically converts from "binary" to "sign" or vice
 #'   versa. This is a faster than the other options, but doesn't check
 #'   validity of the input. WARNING: Nonsensical input will produce nonsensical
@@ -150,7 +150,7 @@ clamp_matrix_upper <- function(input_matrix, min_signal) {
 #' @examples
 #' convert_binary_class_label(0) # -1
 #' convert_binary_class_label(1) # 1
-#' convert_binary_class_label(-1, "sign", "binary"), # 0
+#' convert_binary_class_label(-1, "sign", "binary") # 0
 #' convert_binary_class_label(0, "sign", "binary") # 0 not valid input
 convert_binary_class_label <- function(
     input,

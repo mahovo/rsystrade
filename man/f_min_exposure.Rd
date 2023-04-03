@@ -4,12 +4,12 @@
 \alias{f_min_exposure}
 \title{Minimum Exposure}
 \usage{
-f_min_exposure(min_exposure, instr_risk, instrument_risk_target)
+f_min_exposure(min_exposure, inst_risk, instrument_risk_target)
 }
 \arguments{
 \item{min_exposure}{Notional exposure of the minimum trade}
 
-\item{instr_risk}{Instrument risk as decimal fraction}
+\item{inst_risk}{Instrument risk as decimal fraction}
 
 \item{instrument_risk_target}{Target risk as decimal fraction}
 }

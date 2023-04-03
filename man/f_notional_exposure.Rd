@@ -4,23 +4,26 @@
 \alias{f_notional_exposure}
 \title{Notional exposure}
 \usage{
-f_notional_exposure(signal, instrument_risk_target, capital, instrument_risk)
+f_notional_exposure(
+  combined_signal,
+  capital,
+  required_leverage_factor,
+  instrument_weight
+)
 }
 \arguments{
-\item{capital}{Trading capital in currency.}
+\item{combined_signal}{Combined signal. Should be normalized to a an expected
+absolute value of 1 and capped between -2 and 2.}
 
-\item{instrument_risk}{Instrument risk as decimal fraction.}
+\item{capital}{Trading capital in account currency.}
 
-\item{risk_target}{Risk target as decimal fraction.}
+\item{required_leverage_factor}{Required leverage factor. Indstrument risk
+target divided by instrument risk (in same units).}
 
-\item{normalized_signal}{Input signal are normalized to an expected absolute
-value of 1 as default.}
-
-\item{signal_min}{Normalized signal will be capped at a minimum of
-min_signal.}
-
-\item{signal_max}{Normalized signal will be capped at a maximum of
-max_signal.}
+\item{instrument_weight}{Instrument weight.}
+}
+\value{
+Number
 }
 \description{
 Calculate the notional exposure.

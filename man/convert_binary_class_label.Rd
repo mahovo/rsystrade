@@ -21,8 +21,8 @@ Converts binary label from "binary" format to "sign" format.
 }
 \details{
 \itemize{
-\item "binary" format: ${0, 1}$
-\item "sign" format: ${-1, 1}$
+\item "binary" format: \eqn{\{0, 1\}}
+\item "sign" format: \eqn{\{-1, 1\}}
 \item "auto format": Automatically converts from "binary" to "sign" or vice
 versa. This is a faster than the other options, but doesn't check
 validity of the input. WARNING: Nonsensical input will produce nonsensical
@@ -36,6 +36,6 @@ input unchanged.
 \examples{
 convert_binary_class_label(0) # -1
 convert_binary_class_label(1) # 1
-convert_binary_class_label(-1, "sign", "binary"), # 0
+convert_binary_class_label(-1, "sign", "binary") # 0
 convert_binary_class_label(0, "sign", "binary") # 0 not valid input
 }

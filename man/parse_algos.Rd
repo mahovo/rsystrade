@@ -16,9 +16,8 @@ A list where each element is a list containing:
 \itemize{
 \item \code{instrument} An instrument name. The instrument name is also assigned
 to the data frame as a comment.
-\item \code{data} Corresponding data frame.
-\item \code{rule} A list containing one opening rule function and one closing rule
-function.
+\item \code{rule} A list containing one signal rule name as a character string and
+optionally one stop loss rule name as a character string.
 }
 }
 \description{
@@ -26,17 +25,41 @@ Loads data and rules into the system by parsing a list of algos.
 
 An algo is composed of one instrument (data) and one rule (functions).
 
-A "rule" is a combination of one opening rule and one closing rule.
+Data sets must be csv files in a single folder. The system configuration must
+include a path to the data folder. Data sets are referenced by their file
+names (excluding extension) as character strings.
+
+A "rule" is a combination of one signal generating rule and one optional stop
+loss rule. The stop loss rule is optional.
 
 \code{parse_algos()} takes a nested list of algo specifications and expands it to
-a list of all possible permutations, then loads instrument data into the
-elements in the list. Finally formats the list so that each element is a
-list containing one instrument name, one corresponding data element and one
-list named \code{rule} containing one opening rule function and one closing rule
-function.
+a list of all possible permutations of instrument names and rules. Finally
+formats the list so that each element is a list containing one instrument
+name and one list named \code{rule} containing one signal generating rule name
+and one optional stop loss rule name.
+
+\code{make_system()} loads the unique data sets specified in the parsed algos into
+a sublist named \code{inst_data}.
 
 Note: In the input sublists we have \code{rules} (plural, indicating one or
 more), in the output sublists we have \code{rule} (singular).
+
+Each rule in the \code{rules} list for each algo should be a function name
+provided as a character string. E.g.
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{trade_system$algos[[1]]$rules[[1]] <- list(
+    "MAC(20,80)",
+    "stoploss"
+)
+}\if{html}{\out{</div>}}
+
+With \code{get_rule_names_by_parsed_algo()} we can parse the name of rule 1
+(entry rule 1 and exit rule 1 combined) as \code{"[MA(20,80), stoploss]"}.
+
+If for instance a moving average crossover rule is defined in the function
+\code{mac(data, fast, slow)}, a (25, 100) variation should be provided to the
+system as \code{entry_rule_1 <- function(x) {mac(data, 16, 64)}}. (The name
+\code{entry_rule_1} is arbitrary.)
 
 In the the \code{algos} list, instruments must be provided as a path to a csv
 file. Rules must be provided as functions. (For now. Eventually the way
@@ -78,32 +101,29 @@ Or multiple rules to a single instrument.:
 )
 }\if{html}{\out{</div>}}
 
-In these examples \code{rule1} is the name of a list containing one opening rule
-and one closing rule. \code{rule2} is the name of another list containing one
-opening rule function and one closing rule function.
+In these examples \code{rule1} is the name of a list containing one signal
+rule name and optionally one stop loss rule name . \code{rule2} is the name of
+another list containing one signal rule name and one optional stop loss rule
+name. Signal and stop loss rule names are supplied as character strings.
 
 Subsets are then expanded to all possible permutations:
 
 \if{html}{\out{<div class="sourceCode R">}}\preformatted{input <- list(
   list( ## algo 1: algos[[1]]
-    instrument = "<instr_1_data_frame>",
-    data = <data_frame>,
-    rule = rule1
+    instrument = "<inst_1_name>",
+    rule = "<rule_1_name>"
   ),
   list( ## algo 2: algos[[2]]
-    instrument = "<instr_name_2>",
-    data = <instr_2_data_frame>,
-    rule = rule1
+    instrument = "<inst_2_name",
+    rule = "<rule_1_name>"
   )
   list( ## algo 3: algos[[3]]
-    instrument = "<instr_1_data_frame>",
-    data = <data_frame>,
-    rule = rule2
+    instrument = "<inst_1_name>",
+    rule = "<rule_2_name>"
   ),
   list( ## algo 4: algos[[4]]
-    instrument = "<instr_2_data_frame>",
-    data = <data_frame>,
-    rule = rule2
+    instrument = "<inst_2_name>",
+    rule = "<rule_2_name>"
   )
 )
 }\if{html}{\out{</div>}}

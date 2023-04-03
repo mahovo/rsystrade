@@ -2,7 +2,7 @@
 % Please edit documentation in R/formulas-basic.R
 \name{f_growth_rate_lvrg}
 \alias{f_growth_rate_lvrg}
-\title{Growth rate with leverage}
+\title{Growth Rate With Leverage}
 \usage{
 f_growth_rate_lvrg(L, r, b)
 }
@@ -17,5 +17,5 @@ f_growth_rate_lvrg(L, r, b)
 Growth rate as a decimal fraction.
 }
 \description{
-Growth rate with leverage
+Growth Rate With Leverage
 }
