@@ -15,8 +15,8 @@ stop_loss_rule(
 )
 }
 \arguments{
-\item{prices}{A vector of prices in currency. Newest first. Top to bottom:
-Newer to older.}
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer}
 
 \item{t}{Time index.}
 
@@ -32,10 +32,10 @@ Newer to older.}
 short.}
 }
 \value{
-List:
+A named list containing:
 \itemize{
-\item Open/close indicator: 0 or 1
-\item Stop loss gap
+\item \code{signal} Trade on/off indicator: 1 or 0
+\item \code{stop_loss_gap} Stop loss gap
 }
 }
 \description{
@@ -43,5 +43,6 @@ Return 0 if price level breached stop loss threshold. Return 1 if stop loss
 threshold was not breached.
 
 0 indicates that an open position should be exited. 1 indicates that an open
-position should remain open.
+position should remain open. If a position is closed, and the stop loss
+returns value 1, the position will remain closed.
 }

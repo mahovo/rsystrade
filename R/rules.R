@@ -20,7 +20,8 @@
 #'   inputs are in fact calculated as a moving averages. Any number or vector
 #'   will work.
 #'
-#' @param prices A vector of prices.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param ma_fast A number. Fast _moving average_. Vector or single numeric.
 #' @param ma_slow A number. Slow _moving average_. Vector or single numeric.
 #' @param n_fast A positive integer. It is the responsibility of the user to
@@ -40,7 +41,10 @@
 #'
 #' 1 indicates uptrend i.e. go long. -1 indicates downtrend i.e. go short.
 #'
-#' @returns A trade signal
+#' @returns A named list containing:
+#'   - `signal` Moving average crossover signal
+#'   - `ma_fast` Fast moving average price
+#'   - `ma_slow` Slow moving average price
 #' @export
 #'
 #' @example
@@ -84,7 +88,7 @@ mac_rule <- function(
   if(binary == FALSE) {
     ## Signal equals fast signal minus slow signal if the difference is bigger
     ## than the gap value. Otherwise the signal is 0.
-    (ma_fast - ma_slow) * (abs(ma_fast - ma_slow) > gap)
+    signal <- (ma_fast - ma_slow) * (abs(ma_fast - ma_slow) > gap)
   } else { ## If binary mode, return -1, 0 or 1
     ## Is the absolute difference bigger than the gap?
     ## And is ma_fast bigger than ma_slow?
@@ -95,8 +99,13 @@ mac_rule <- function(
     ## 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
     ## -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
     ## 0 when abs(ma_fast - ma_slow) < gap.
-    x * (2 * y - 1)
+    signal <- x * (2 * y - 1)
   }
+  list(
+    signal = signal,
+    ma_fast = ma_fast,
+    ma_slow = ma_slow
+  )
 }
 
 
@@ -109,11 +118,12 @@ mac_rule <- function(
 #'   threshold was not breached.
 #'
 #' 0 indicates that an open position should be exited. 1 indicates that an open
-#'   position should remain open.
+#'   position should remain open. If a position is closed, and the stop loss
+#'   returns value 1, the position will remain closed.
 #'
 #' @param t Time index.
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer
 #' @param instrument_risk Instrument risk.
 #' @param stop_loss_fraction Stop loss fraction.
 #' @param t_trade_open Time index of the time when trade is opened.
@@ -121,9 +131,9 @@ mac_rule <- function(
 #' @param rnd If TRUE, add small random amount to stop loss level. Negative if
 #'   short.
 #'
-#' @return List:
-#'   - Open/close indicator: 0 or 1
-#'   - Stop loss gap
+#' @return A named list containing:
+#'   - `signal` Trade on/off indicator: 1 or 0
+#'   - `stop_loss_gap` Stop loss gap
 #' @export
 #'
 #' @examples
@@ -149,17 +159,17 @@ stop_loss_rule <- function(
     rnd  = FALSE
   )
 
+  signal <- 1 ## bypass by default
   if(direction == 1) { ## If long
     if(prices[t] < stop_loss_level) { ## Close position if...
-      open_close <- 0 ## Close
-    } else {open_close <- 1}
+      signal <- 0 ## Close
+    }
   } else if(direction == -1) { ## If short
-    open_close <- 1
     if(prices[t] > stop_loss_level) { ## Close position if...
-      open_close <- 0 ## Close
-    } else {open_close <- 1}
-  } else {open_close <- 0} ## Should be redundant...
-  list("enter_exit" = open_close, "stop_loss_gap" = stop_loss_gap)
+      signal <- 0 ## Close
+    }
+  } else {signal <- 0} ## Should be redundant...
+  list(signal = signal, stop_loss_gap = stop_loss_gap)
 }
 
 #' Moving Average
@@ -176,7 +186,8 @@ stop_loss_rule <- function(
 #'   row number `length(prices) - 1` in ` ma_data`. The rows between the last
 #'   row in the input data frame and the new row will be filled with NAs.
 #'
-#' @param prices
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param ma_data Vector of previous moving averages passed to output
 #' @param n_fast
 #' @param n_slow

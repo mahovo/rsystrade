@@ -33,7 +33,7 @@
 #'    * a list of parsed algos, which in turn contains an instrument name and a
 #'      list of two trade rule functions: One trade signal generating rule and
 #'      one optional stop loss rule.
-#'      If present, the exit rule is applied in the positions stage.
+#'      If present, the stop loss rule is applied in the positions stage.
 #'    * a list `signal_tables`, each containing a data frame.
 #'    * a list `position_table`, each containing a data frame.
 #'    * a dataframe `system_account_table`.
@@ -603,12 +603,19 @@ update_signal_table_row <- function(
   price_t <- update_price(inst_data, algo, t)
   prices <- c(signal_table$price, price_t)
 
-  raw_signal <- generate_signal(
+  # * generate signal ----
+  signal_list <- generate_signal(
     prices, ## For now only price data is allowed as input for rules
     algo,
     rule_function
     #trade_system$signal,
   )
+
+  ## Everything in signal list except signal
+  secondary_rule_output <- signal_list[-1]
+
+  ## Signal from signal list
+  raw_signal <- signal_list[[1]]
 
   normalized_signal <- f_normalize_signal(
     raw_signal,
@@ -682,6 +689,8 @@ update_position_table_row <- function(
 
   latest_trade_direction <- position_table$direction[t - 1]
 
+  trade_on <- abs(latest_trade_direction)
+
   instrument_risk <- f_inst_risk(
     #c(position_table$price[1:(t - 1)], price),
     prices,
@@ -742,7 +751,7 @@ update_position_table_row <- function(
       enter_or_exit <- "enter"
       t_last_position_entry <- t
       trade_on <- TRUE
-    } else if(direction == 0 && abs(latest_trade_direction) == 1) { ## If closing an open position
+    } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
       enter_or_exit <- "exit"
       trade_on <- FALSE
       t_last_position_entry <- "---"
@@ -756,31 +765,35 @@ update_position_table_row <- function(
       trade_on <- NA
     }
 
+    # * stop loss ----
+    ## stop_loss acts as a gate.
+    ## If stop_loss == 1, the signal is allowed to pass through unchanged.
+    ## If stop_loss == 0, the signal is changed to 0.
     stop_loss <- 1
     stop_loss_gap <- NA
 
-    # if(trade_on == TRUE) {
-    #   ## apply stop loss rule
-    #   if(length(algo$rule) == 2) {
-    #     stop_loss <- rule_functions[[ algo$rule[[2]] ]](
-    #       prices,
-    #       t,
-    #       instrument_risk,
-    #       config$stop_loss_fraction,
-    #       t_last_position_entry,
-    #       direction,
-    #       rnd = false
-    #     )
-    #
-    #     ## for now the stop loss rule must return a list of a stop loss signal
-    #     ## and a stop loss gap. gop extracted for book keeping.
-    #     ## extract separate variables
-    #     stop_loss_gap <- stop_loss$stop_loss_gap
-    #     stop_loss <- stop_loss$stop_loss
-    #
-    #     subsystem_position <- subsystem_position * stop_loss
-    #   }
-    # }
+    if(trade_on == TRUE) {
+      ## apply stop loss rule
+      if(length(algo$rule) == 2) {
+        stop_loss <- rule_functions[[ algo$rule[[2]] ]](
+          prices,
+          t,
+          instrument_risk,
+          config$stop_loss_fraction,
+          t_last_position_entry,
+          direction,
+          rnd = false
+        )
+
+        ## for now the stop loss rule must return a list of a stop loss signal
+        ## and a stop loss gap. gop extracted for book keeping.
+        ## extract separate variables
+        stop_loss_gap <- stop_loss$stop_loss_gap
+        stop_loss <- stop_loss$stop_loss
+
+        subsystem_position <- subsystem_position * stop_loss
+      }
+    }
 
 
     ## Notional exposure in account currency
@@ -1141,7 +1154,7 @@ calculate_signal_weights <- function(algos, method = "equal") {
   weights
 }
 
-
+# * generate signal def ----
 #' Generate Trade Signal From Rule
 #'
 #' @description
@@ -1160,7 +1173,8 @@ calculate_signal_weights <- function(algos, method = "equal") {
 #' For now `generate_signal()` only accepts a price vector as input. The last
 #'   observation is time $t$ ("now").
 #'
-#' @param prices Vector of prices. The last observation is time t.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param algo Single algo from the expanded algos list.
 #'
 #' @return Single signal value

@@ -17,7 +17,8 @@ mac_rule(
 )
 }
 \arguments{
-\item{prices}{A vector of prices.}
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer. The last observation is time t.}
 
 \item{ma_fast}{A number. Fast \emph{moving average}. Vector or single numeric.}
 
@@ -47,7 +48,12 @@ In binary mode returns
 1 indicates uptrend i.e. go long. -1 indicates downtrend i.e. go short.}
 }
 \value{
-A trade signal
+A named list containing:
+\itemize{
+\item \code{signal} Moving average crossover signal
+\item \code{ma_fast} Fast moving average price
+\item \code{ma_slow} Slow moving average price
+}
 }
 \description{
 If \code{ma_fast} or \code{ma_slow} are not provided, both values are calculated from

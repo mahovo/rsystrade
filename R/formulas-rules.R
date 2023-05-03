@@ -27,8 +27,8 @@
 #' window length will be set to the length of the price vector, and a warning
 #' will be given. The function will not fail or abort in this case.
 #'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param t Time index.
 #' @param window_length Window length.
 #'
@@ -63,7 +63,8 @@ f_moving_average <- function(prices, t = NA, window_length) {
 #' N (length of price vector) smaller than or equal to n is accepted.
 #' This will not be the desired moving average, but will also not fail.
 #'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom: Newer to older.
+#' @param prices A vector of prices in currency. Newest first. Top to bottom:
+#'   Newer to older.
 #' @param n Moving Average lookback period.
 #'
 #' @returns A vector of prices.

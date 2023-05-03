@@ -7,7 +7,8 @@
 generate_signal(prices, algo, rule_function)
 }
 \arguments{
-\item{prices}{Vector of prices. The last observation is time t.}
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer. The last observation is time t.}
 
 \item{algo}{Single algo from the expanded algos list.}
 }

@@ -55,7 +55,7 @@ name:
 \item a list of parsed algos, which in turn contains an instrument name and a
 list of two trade rule functions: One trade signal generating rule and
 one optional stop loss rule.
-If present, the exit rule is applied in the positions stage.
+If present, the stop loss rule is applied in the positions stage.
 \item a list \code{signal_tables}, each containing a data frame.
 \item a list \code{position_table}, each containing a data frame.
 \item a dataframe \code{system_account_table}.

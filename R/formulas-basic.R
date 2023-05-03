@@ -60,8 +60,8 @@ f_profit_lvrg <- function(V, L, r, b) {(L * r - (L - 1) * b) * V}
 
 #' Calculate Net Returns Vector From Price Vector
 #'
-#' @param prices A vector of prices in currency. Newest last Top to bottom:
-#'   Older to new.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #'
 #' @return Percentage returns
 #' @export

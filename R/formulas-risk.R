@@ -692,8 +692,8 @@ f_indiv_normalization_factor <- function(raw_signal_vector, target = 1) {
 #'   252 is the number of business days in a year.
 #'   (We could also round off to 16, and we would probably be fine.)
 #'
-#' @param prices A time series of prices in currency. Newest first.
-#'   Top to bottom: Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param window_length Window length. Includes all if `window_length` is NA.
 #' @param t Time index.
 #'
@@ -753,8 +753,8 @@ f_min_capital <- function(min_exposure, inst_risk, instrument_risk_target) {
 ## LT F22
 #' Price Unit Volatility (instrument risk in price units)
 #'
-#' @param price A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param inst_risk instrument risk.
 #'
 #' @returns
@@ -772,7 +772,8 @@ f_price_unit_vol <- function(price, inst_risk) {
 #' @description
 #' Highest price since entry of a current open position.
 #'
-#' @param prices Vector of prices.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param t Time index.
 #' @param t_trade_entry Index of current open trade entry time.
 #'
@@ -791,8 +792,8 @@ f_high_water_mark <- function (prices, t, t_trade_entry) {
 #' @description
 #' Lowest price since entry of a current open position.
 #'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param t Time index.
 #' @param t_trade_entry Time index for the time when the trade is opened.
 #'
