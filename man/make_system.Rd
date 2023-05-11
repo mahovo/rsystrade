@@ -52,10 +52,13 @@ name:
 \if{html}{\out{<div class="sourceCode R">}}\preformatted{comment(inst_data[[1]])
 [1] "instrument1"
 }\if{html}{\out{</div>}}
+\item a list of rule functions.
+\item a matrix of correlations between subsystem returns.
 \item a list of parsed algos, which in turn contains an instrument name and a
 list of two trade rule functions: One trade signal generating rule and
 one optional stop loss rule.
 If present, the stop loss rule is applied in the positions stage.
+\item a list of signal normalization factors
 \item a list \code{signal_tables}, each containing a data frame.
 \item a list \code{position_table}, each containing a data frame.
 \item a dataframe \code{system_account_table}.
@@ -110,5 +113,29 @@ If present, the stop loss rule is applied in the positions stage.
 }\if{html}{\out{</div>}}
 }
 \description{
-Make Trade System
+\code{config} contains
+\itemize{
+\item \code{init_capital}
+\item \code{system_risk_target}
+\item \code{risk_window_length}
+\item \code{stop_loss_fraction}
+\item \code{min_periods}
+\item \code{min_signal}
+\item \code{max_signal}
+\item \code{min_cor} Default is \code{0}.
+\item \code{max_sdm} Default is \code{2.5}.
+\item \code{same_direction_trade_allowed} Default is \code{FALSE}.
+\item \code{instrument_data_folder_path}
+\item \code{signal_weight_calculation_method} Default is \code{"equal"}.
+\item \code{inst_weight_calculation_method} Default is \code{"equal"}.
+\item \code{target_normalization_factor} Default is \code{1},
+\item \code{signal_normalization_factors_method} Default is \code{"equal"}.
+\item \code{signal_normalization_factors_args} A list of additional arguments for
+each method in \code{update_signal_normalization_factors()}.
+\itemize{
+\item Additional argument for method \code{"equal"} is \code{equal_norm_factor}.
+\item Additional argument for method \code{"median_pool_all"} is
+\code{min_periods_median_pool_all}.
+}
+}
 }

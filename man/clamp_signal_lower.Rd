@@ -2,12 +2,12 @@
 % Please edit documentation in R/utils.R
 \name{clamp_signal_lower}
 \alias{clamp_signal_lower}
-\title{Clamp Signal At Lower Limit}
+\title{Clamp Single Signal Value At Lower Limit}
 \usage{
 clamp_signal_lower(signal, min_signal = -Inf)
 }
 \arguments{
-\item{signal}{Signal}
+\item{signal}{Single signal value}
 
 \item{min_signal}{Minimum signal value}
 }

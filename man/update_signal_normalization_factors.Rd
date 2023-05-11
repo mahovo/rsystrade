@@ -21,12 +21,12 @@ update_signal_normalization_factors(
 \item{instrument_data_sets}{Instrument data sets list from trade system.}
 
 \item{target}{The target expected value of the signal scaled by the
-normalization factor.}
+normalization factor. Default is 1.}
 
 \item{method}{Method.
 \itemize{
 \item \code{"equal"} All rules use the same normalization factor, passed as
-\code{value}.
+\code{target}.
 \item \code{"pool_traded"} Calculate the normalization factor for each rule based on
 actual past signals for that rule across all the instruments to which
 the individual rule has been applied.

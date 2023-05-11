@@ -405,10 +405,10 @@ f_normalize_signal <- function(raw_signal_value, signal_normalization_factor) {
 #' @param signal_tables Signal tables list from trade system.
 #' @param instrument_data_sets Instrument data sets list from trade system.
 #' @param target The target expected value of the signal scaled by the
-#'   normalization factor.
+#'   normalization factor. Default is 1.
 #' @param method Method.
 #' * `"equal"` All rules use the same normalization factor, passed as
-#'   `value`.
+#'   `target`.
 #' * `"pool_traded"` Calculate the normalization factor for each rule based on
 #'   actual past signals for that rule across all the instruments to which
 #'   the individual rule has been applied.
@@ -457,12 +457,18 @@ update_signal_normalization_factors <- function(
     stop("A single valid method must be provided to update_normalization_factors()")
   }
 
-  equal <- function(parsed_algos, equal_norm_factor) {
+  equal <- function(
+    parsed_algos,
+    args = list(equal_norm_factor = 1)
+  ) {
     n <- get_num_rules_from_parsed_algos_list(parsed_algos)
-    as.list(rep(equal_norm_factor, n))
+    as.list(rep(args$equal_norm_factor, n))
   }
 
-  pool_traded <- function(signal_tables, parsed_algos) {
+  pool_traded <- function(
+    signal_tables,
+    parsed_algos
+  ) {
     ## Get rule name for each algo in the order they appear in the parsed algos
     ## list
     rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
@@ -498,7 +504,10 @@ update_signal_normalization_factors <- function(
     ## values doesn't make much sense.
     lapply(raw_signals_list,
            function(raw_signal_vector) {
-             f_indiv_normalization_factor(unlist(raw_signal_vector), target = 1)
+             f_indiv_normalization_factor(
+               unlist(raw_signal_vector),
+               target = 1
+              )
            }
     )
   }
@@ -513,20 +522,20 @@ update_signal_normalization_factors <- function(
   median_pool_all <- function(
       parsed_algos, ## parsed (expanded) algos
       data_sets, ## instrument data sets
-      min_periods = 250) {
-
-    stop("pool_all() not implemented yet.")
+      args = list(min_periods_median_pool_all = 250)
+    ) {
 
     ## Get number of rows from first data set.
     num_rows <- nrow(data_sets[[1]])
     num_data_sets <- length(data_sets)
+    min_periods <- args$min_periods_median_pool_all
 
     if(num_rows < min_periods) {
       stop("Not enough data to estimate normalization factor with pool_all().")
     }
 
     ## Get rule name for each algo in the order they appear in the algos list
-    rule_names_by_algo <- get_rule_names_by_parsed_algo(algos)
+    rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
 
     ## Get all unique rule names in a list
     all_unique_rule_names <-get_unique_rule_names_from_parsed_algos_list(parsed_algos)
@@ -584,12 +593,19 @@ update_signal_normalization_factors <- function(
 # trade_system$position_tables
 #
 #
-#   raw_signals_df[i, t] <- apply_rule(
-#   sim_algos[[i]],
-#   trade_system$signal_tables[[i]],
-#   trade_system$position_tables[[i]],
-#   t
-# )
+  # raw_signals_df[i, t] <- apply_rule(
+  #   sim_algos[[i]],
+  #   trade_system$signal_tables[[i]],
+  #   trade_system$position_tables[[i]],
+  #   t
+  # )
+
+  raw_signals_df[i, t] <- generate_signal(
+    prices, ## For now only price data is allowed as input for rules
+    sim_algos[[i]],
+    rule_function
+    #trade_system$signal,
+  )
 # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 
       }
@@ -604,6 +620,7 @@ update_signal_normalization_factors <- function(
     cs_medians <- data.frame()
     for(i in seq_along(data_sets)) {
       for(j in 1:(num_rows - min_periods)) {
+
         cs_medians[j, i] <- stats::median(unlist(raw_signals_df[j, ])) ## Row median
       }
     }
@@ -633,6 +650,7 @@ update_signal_normalization_factors <- function(
       instrument_data_sets,
       ...),
     "median_pool_all" = median_pool_all(
+      parsed_algos,
       instrument_data_sets,
       ...),
     "pool_class" = pool_class()
@@ -669,7 +687,10 @@ get_normalization_factors <- NA
 #' @export
 #'
 #' @examples
-f_indiv_normalization_factor <- function(raw_signal_vector, target = 1) {
+f_indiv_normalization_factor <- function(
+    raw_signal_vector,
+    target = 1
+  ) {
   target/mean(abs(raw_signal_vector))
 }
 

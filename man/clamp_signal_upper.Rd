@@ -2,12 +2,12 @@
 % Please edit documentation in R/utils.R
 \name{clamp_signal_upper}
 \alias{clamp_signal_upper}
-\title{Clamp Signal At Upper Limit}
+\title{Clamp Single Signal Value At Upper Limit}
 \usage{
 clamp_signal_upper(signal, max_signal = Inf)
 }
 \arguments{
-\item{signal}{Signal}
+\item{signal}{Single signal value}
 
 \item{max_signal}{Maximum signal value}
 }

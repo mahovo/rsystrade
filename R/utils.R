@@ -24,12 +24,12 @@ clamp_signal <- function(signal, min_signal = -Inf, max_signal = Inf) {
 }
 
 
-#' Clamp Signal At Lower Limit
+#' Clamp Single Signal Value At Lower Limit
 #'
 #' @description
 #' Limit any signal value below `min_signal` to `min_signal`.
 #'
-#' @param signal Signal
+#' @param signal Single signal value
 #' @param min_signal Minimum signal value
 #'
 #' @return Number
@@ -40,12 +40,12 @@ clamp_signal_lower <- function(signal, min_signal = -Inf) {
   max(min_signal, signal)
 }
 
-#' Clamp Signal At Upper Limit
+#' Clamp Single Signal Value At Upper Limit
 #'
 #' @description
 #' Limit any signal value above `max_signal` to `max_signal`.
 #'
-#' @param signal Signal
+#' @param signal Single signal value
 #' @param max_signal Maximum signal value
 #'
 #' @return

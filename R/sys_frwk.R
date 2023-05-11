@@ -7,6 +7,30 @@
 # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 #' Make Trade System
 #'
+#' @description
+#' `config` contains
+#'
+#'   * `init_capital`
+#'   * `system_risk_target`
+#'   * `risk_window_length`
+#'   * `stop_loss_fraction`
+#'   * `min_periods`
+#'   * `min_signal`
+#'   * `max_signal`
+#'   * `min_cor` Default is `0`.
+#'   * `max_sdm` Default is `2.5`.
+#'   * `same_direction_trade_allowed` Default is `FALSE`.
+#'   * `instrument_data_folder_path`
+#'   * `signal_weight_calculation_method` Default is `"equal"`.
+#'   * `inst_weight_calculation_method` Default is `"equal"`.
+#'   * `target_normalization_factor` Default is `1`,
+#'   * `signal_normalization_factors_method` Default is `"equal"`.
+#'   * `signal_normalization_factors_args` A list of additional arguments for
+#'     each method in `update_signal_normalization_factors()`.
+#'     * Additional argument for method `"equal"` is `equal_norm_factor`.
+#'     * Additional argument for method `"median_pool_all"` is
+#'       `min_periods_median_pool_all`.
+#'
 #' @param algos A list of algos.
 #' @param init_capital Initial capital.
 #' @param system_risk_target System risk target as decimal fraction (percent
@@ -30,10 +54,13 @@
 #'      comment(inst_data[[1]])
 #'      [1] "instrument1"
 #'      ```
+#'    * a list of rule functions.
+#'    * a matrix of correlations between subsystem returns.
 #'    * a list of parsed algos, which in turn contains an instrument name and a
 #'      list of two trade rule functions: One trade signal generating rule and
 #'      one optional stop loss rule.
 #'      If present, the stop loss rule is applied in the positions stage.
+#'    * a list of signal normalization factors
 #'    * a list `signal_tables`, each containing a data frame.
 #'    * a list `position_table`, each containing a data frame.
 #'    * a dataframe `system_account_table`.
@@ -49,26 +76,17 @@
 #'      algos <- list(
 #'        list(
 #'          instrument = <instrument_name>,
-#'          algo = list(
-#'            <signal_rule_function>,
-#'            <stop_loss_rule_function>
-#'          )
+#'          rule_function = <rule_function_name>
 #'        ),
 #'        list(
 #'          instrument = <instrument_name>,
-#'          algo = list(
-#'            <signal_rule_function>,
-#'            <stop_loss_rule_function>
-#'          )
+#'          rule_function = <rule_function_name>
 #'        ),
 #'        ...,
 #'        list(
 #'          instrument = <instrument_name>,
-#'          algo = list(
-#'            <signal_rule_function>,
-#'            <stop_loss_rule_function>
-#'          )
-#'        ),
+#'          rule_function = <rule_function_name>
+#'        )
 #'      ),
 #'      signal_tables <- list(
 #'        data.frame(),
@@ -114,8 +132,14 @@ make_system <- function(
       instrument_data_folder_path = instrument_data_folder_path,
       signal_weight_calculation_method = "equal",
       inst_weight_calculation_method = "equal",
-      normalization_target = 1,
-      signal_normalization_factors_method = "equal"
+      normalization_factor_target = 1,
+      signal_normalization_factors_method = "equal",
+      ## A list of additional arguments for each method in
+      ## update_signal_normalization_factors()
+      signal_normalization_factors_args = list(
+        equal = list(equal_norm_factor = 1),
+        median_pool_all = list(min_periods_median_pool_all = 250)
+      )
     )
   ##////////////////////
   ## Initialize system
@@ -200,8 +224,8 @@ make_system <- function(
       position_size_units = numeric(min_periods),
       position_size_ccy = numeric(min_periods),
       direction = numeric(min_periods),
-      stop_loss = numeric(min_periods),
-      stop_loss_gap = numeric(min_periods),
+      #stop_loss = numeric(min_periods),
+      #stop_loss_gap = numeric(min_periods),
       subsystem_position = numeric(min_periods),
       enter_or_exit = rep("---", min_periods),
       t_last_position_entry = rep(0, min_periods),
@@ -237,11 +261,14 @@ make_system <- function(
   signal_normalization_factors <- update_signal_normalization_factors(
     parsed_algos,
     signal_tables,
-    instrument_data_sets,
-    target = 1,
+    inst_data,
+    target = config$normalization_factor_target,
     method = config$signal_normalization_factors_method,
-    equal_norm_factor = 1
+    ## Get any additional arguments from config.
+    ## Looks up method in config, then gets the associated argument values.
+    args = config$signal_normalization_factors_args[[config$signal_normalization_factors_method]]
   )
+
   names(signal_normalization_factors) <- unlist(get_unique_rule_names_from_parsed_algos_list(parsed_algos))
 
   list(
@@ -305,22 +332,18 @@ update_system <- function(
   ##   algos <- list(
   ##     list( ## algo 1: algos[[1]]
   ##       instrument = "<inst_1_name>",
-  ##       data = <data_frame>,
   ##       rule = rule1
   ##     ),
   ##     list( ## algo 2: algos[[2]]
   ##       instrument = "<inst_2_name>",
-  ##       data = <data_frame>,
   ##       rule = rule1
   ##     )
   ##     list( ## algo 3: algos[[3]]
   ##       instrument = "<inst_1_name>",
-  ##       data = <data_frame>,
   ##       rule = rule2
   ##     ),
   ##     list( ## algo 4: algos[[4]]
   ##       instrument = "<inst_2_name>",
-  ##       data = <data_frame>,
   ##       rule = rule2
   ##     )
   ##   )
@@ -423,7 +446,7 @@ update_system <- function(
   ## list
   sig_norm_fact_by_algos <- get_signal_normalization_factors_by_algos(
     trade_system$signal_normalization_factors,
-    parsed_algos
+    trade_system$algos
   )
 
   ## Update new row in each signal_table
@@ -517,7 +540,7 @@ update_system <- function(
     position_tables[[i]][t, ] <- update_position_table_row(
       trade_system$inst_data[[i]],
       #trade_system$algos[[i]], ## algo
-      trade_system$rule_functions,
+      #trade_system$rule_functions,
       #signal_tables[[i]], ## Current signal_table (not yet in system)
       trade_system$position_tables[[i]], ## position_table
       raw_combined_signals[[i]],
@@ -668,7 +691,7 @@ update_signal_table_row <- function(
 update_position_table_row <- function(
   #algo,
   inst_data,
-  rule_functions,
+  #rule_functions,
   #signal_table,
   position_table,
   raw_combined_signal,
@@ -765,35 +788,38 @@ update_position_table_row <- function(
       trade_on <- NA
     }
 
+    ## Stop loss is not calculated here anymore.
+    ## Instead stop loss should be included in the rule function.
+
     # * stop loss ----
     ## stop_loss acts as a gate.
     ## If stop_loss == 1, the signal is allowed to pass through unchanged.
     ## If stop_loss == 0, the signal is changed to 0.
-    stop_loss <- 1
-    stop_loss_gap <- NA
+    #stop_loss <- 1
+    #stop_loss_gap <- NA
 
-    if(trade_on == TRUE) {
-      ## apply stop loss rule
-      if(length(algo$rule) == 2) {
-        stop_loss <- rule_functions[[ algo$rule[[2]] ]](
-          prices,
-          t,
-          instrument_risk,
-          config$stop_loss_fraction,
-          t_last_position_entry,
-          direction,
-          rnd = false
-        )
-
-        ## for now the stop loss rule must return a list of a stop loss signal
-        ## and a stop loss gap. gop extracted for book keeping.
-        ## extract separate variables
-        stop_loss_gap <- stop_loss$stop_loss_gap
-        stop_loss <- stop_loss$stop_loss
-
-        subsystem_position <- subsystem_position * stop_loss
-      }
-    }
+    # if(trade_on == TRUE) {
+    #   ## apply stop loss rule
+    #   if(length(algo$rule) == 2) {
+    #     stop_loss <- rule_functions[[ algo$rule[[2]] ]](
+    #       prices,
+    #       t,
+    #       instrument_risk,
+    #       config$stop_loss_fraction,
+    #       t_last_position_entry,
+    #       direction,
+    #       rnd = false
+    #     )
+    #
+    #     ## for now the stop loss rule must return a list of a stop loss signal
+    #     ## and a stop loss gap. gop extracted for book keeping.
+    #     ## extract separate variables
+    #     stop_loss_gap <- stop_loss$stop_loss_gap
+    #     stop_loss <- stop_loss$stop_loss
+    #
+    #     subsystem_position <- subsystem_position * stop_loss
+    #   }
+    # }
 
 
     ## Notional exposure in account currency
@@ -920,8 +946,8 @@ update_position_table_row <- function(
     position_size_units,
     position_size_ccy,
     direction,
-    stop_loss,
-    stop_loss_gap,
+    #stop_loss,
+    #stop_loss_gap,
     subsystem_position,
     enter_or_exit,
     t_last_position_entry,

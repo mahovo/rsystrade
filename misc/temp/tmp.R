@@ -599,6 +599,74 @@ f <- function(...) {
 f(x = 10, y = 20)
 
 
+##
+
+
+f <- function(x, y, ...) {
+  print(x)
+  g(y,  ...)
+}
+g <- function(y, ...) {
+  print(y)
+  h1 <- function(z1 = "z1") {
+    print(z1)
+  }
+  h2 <- function(z2 = "z2") {
+    print(z2)
+  }
+  h1(...)
+  h2(...)
+}
+
+f(x = "x", y = "y")
+f(x = "x", y = "y", z = "zz")
+
+
+##
+
+config <- list(
+  signal_normalization_factors_method = "equal",
+  signal_normalization_factors_args = list(
+    equal = list(equal_norm_factor = 100, bla = 200),
+    median_pool_all = list(min_periods_median_pool_all = 250)
+  )
+)
+
+
+update_signal_normalization_factors <- function(
+    parsed_algos,
+    signal_tables,
+    instrument_data_sets,
+    target,
+    method,
+    ...
+  ) {
+
+  print(list(...))
+  print(signal_tables)
+  print(instrument_data_sets)
+  print(target)
+  print(method)
+  equal <- function(parsed_algos, args = list(equal_norm_factor = 1, bla = 2)) {
+    print(parsed_algos)
+    print(paste("equal_norm_factor:", args$equal_norm_factor))
+    print(paste("bla:", args$bla))
+  }
+  equal(
+    parsed_algos,
+    ...)
+}
+
+update_signal_normalization_factors(
+  parsed_algos = "parsed_algos",
+  signal_tables = "signal_tables",
+  instrument_data_sets = "instrument_data_sets",
+  target = 1,
+  method = "equal",
+  args = config$signal_normalization_factors_args[[config$signal_normalization_factors_method]]
+)
+
+
 
 # Pipes ----
 
@@ -2205,4 +2273,26 @@ View(syst$position_tables[[2]])
 
 
 View(syst$system_account_table)
+
+
+
+## Which environment do rule functions live in? ----
+
+## If we define a rule function in the global env, and reassign it inside
+## another function, where will it live?
+
+f <- function(x) {print(x)}
+str(f)
+eval(parse(text = "f"))
+
+g <- function(y) {
+  h <- eval(parse(text = "f"))
+  str(h)
+}
+
+g()
+
+## h lives in the global env, not the env of g!
+
+
 
