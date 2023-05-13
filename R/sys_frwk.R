@@ -126,6 +126,7 @@ make_system <- function(
       min_periods = min_periods,
       min_signal = min_signal,
       max_signal = max_signal,
+      correlation_method = "Pearson",
       min_cor = 0,
       max_sdm = 2.5,
       same_direction_trade_allowed = FALSE,
@@ -176,10 +177,6 @@ make_system <- function(
   rule_functions <-load_rule_functions(parsed_algos)
   names(rule_functions) <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
 
-  ## The way to access a specific rule function:
-  ## rule_functions[[ parsed_algos[[i]]$rule[[1]] ]] # Signal rule
-  ## rule_functions[[ parsed_algos[[i]]$rule[[2]] ]] # Stop loss rule
-
   ## Get number of signals
   num_signals <- length(parsed_algos)
 
@@ -193,9 +190,9 @@ make_system <- function(
       time = inst_data[[ parsed_algos[[i]]$instrument ]]$time[1:min_periods],
       price = inst_data[[ parsed_algos[[i]]$instrument ]]$price[1:min_periods],
       ## Fill with small random values to avoid zero-sd
-      raw_signal = rnorm(min_periods, 0, 0.001), #nnumeric(min_periods), #rep(NA, min_periods),
-      normalized_signal = rnorm(min_periods, 0, 0.001), #nnumeric(min_periods), #rep(NA, min_periods),
-      clamped_signal = rnorm(min_periods, 0, 0.001), #nnumeric(min_periods), #rep(NA, min_periods),
+      raw_signal = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      normalized_signal = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      clamped_signal = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       signal_weight = numeric(min_periods) #rep(NA, min_periods)
     )
   }
@@ -231,8 +228,8 @@ make_system <- function(
       t_last_position_entry = rep(0, min_periods),
       trade_on = rep(FALSE, min_periods),
       ## Fill with small random values to avoid zero-sd
-      instrument_returns = rnorm(min_periods, 0, 0.001),
-      subsystem_pandl = rnorm(min_periods, 0, 0.001), #numeric(min_periods),
+      instrument_returns = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       borrowed_asset_ccy = numeric(min_periods),
       position_change_ccy = numeric(min_periods)
     )
@@ -457,11 +454,12 @@ update_system <- function(
       trade_system$algos[[i]],
 
       #TODO
-      #change rule[[1]] when rule changed to only ever include 1 element
+      ## Note: Subsetting of rule is redundant, as there is only ever 1 rule.
       trade_system$rule_functions[ trade_system$algos[[i]]$rule[[1]] ],
       trade_system$signal_tables[[i]],
       signal_weights_all_algos[[i]],
       sig_norm_fact_by_algos[[i]],
+      trade_system$position_tables[[i]],
       t,
       trade_system$config
     )
@@ -505,7 +503,11 @@ update_system <- function(
   ## Correlations of subsystem returns.
   subsystem_ret_cor_win_len <- trade_system$config$subsystem_ret_cor_win_len
   subsystem_ret_cor_mat <-
-    f_subsystem_ret_cor_mat(subsystem_pandl_vectors)
+    f_subsystem_ret_cor_mat(
+      subsystem_pandl_vectors,
+      method = trade_system$config$correlation_method, #"Pearson"
+      min_cor = trade_system$config$min_cor
+    )
 
   ## Vector of weights
   instrument_weights <- calculate_equal_inst_weights(trade_system$algos)
@@ -617,6 +619,7 @@ update_signal_table_row <- function(
     signal_table,
     signal_weight, ## Weight is just passed to the output vector
     signal_normalization_factor,
+    position_table,
     t, ## Time index
     config
   ) {
@@ -628,10 +631,12 @@ update_signal_table_row <- function(
 
   # * generate signal ----
   signal_list <- generate_signal(
-    prices, ## For now only price data is allowed as input for rules
+    prices,
+    signal_table,
+    position_table,
     algo,
-    rule_function
-    #trade_system$signal,
+    rule_function,
+    t
   )
 
   ## Everything in signal list except signal
@@ -1180,6 +1185,274 @@ calculate_signal_weights <- function(algos, method = "equal") {
   weights
 }
 
+#' Update Signal Normalization Factors
+#'
+#' @description
+#' Each raw signal is scaled by a normalization factor. This normalization
+#'   factor is the _required leverage target_.
+#'
+#' `update_signal_normalization_factors()` calculates the normalization factors
+#'   and updates the `normalization_factor` in each algo list.
+#'
+#' `normalization_factors()` calculates the normalization_factors for all
+#'   signals based on the algos list.
+#'
+#' @param parsed_algos Parsed algos list from trade system.
+#' @param signal_tables Signal tables list from trade system.
+#' @param instrument_data_sets Instrument data sets list from trade system.
+#' @param target The target expected value of the signal scaled by the
+#'   normalization factor. Default is 1.
+#' @param method Method.
+#' * `"equal"` All rules use the same normalization factor, passed as
+#'   `target`.
+#' * `"pool_traded"` Calculate the normalization factor for each rule based on
+#'   actual past signals for that rule across all the instruments to which
+#'   the individual rule has been applied.
+#'   We are pooling all the instruments for each rule. We are not taking the
+#'   cross section median across instruments, as we do for `pool_all()`,
+#'   because the number of instruments per rule is likely to be small - taking
+#'   the median of two values doesn't make much sense.
+#' * `"pool_all"` Calculate the normalization factor for each rule based on
+#'   signals simulated by applying each rule to all available instruments and
+#'   pooling the resulting signals.
+#'   The normalization factor for each rule is the target divided by the mean
+#'   absolute value of the pooled signals.
+#'   Additional argument:
+#'   * `min_period`. A value of `250` (ca. 1 year of
+#'     daily data) might be a good starting point. It is up to the user to
+#'     provide data sets with enough data.
+#' * `"median_pool_all"` Calculate the normalization factor for each rule
+#'   based on signals simulated by applying each rule to all available
+#'   instruments.
+#'   The normalization factor for each rule is the target divided by the mean
+#'   absolute value of all cross section medians.
+#'   Additional argument:
+#'   * `min_period`. A value of `250` (ca. 1 year of
+#'     daily data) might be a good starting point. It is up to the user to
+#'     provide data sets with enough data.
+#' * `"pool_class"` Calculate the normalization factor for each rule based on
+#'   signals simulated by applying each rule to all available instruments in
+#'   a relevant asset class.
+#' @param ... Additional method specific arguments.
+#'
+#' @return Named list of normalization factors
+#' @export
+#'
+#' @examples
+update_signal_normalization_factors <- function(
+    parsed_algos,
+    signal_tables,
+    instrument_data_sets,
+    target = 1,
+    method = "equal",
+    ...) {
+
+  ## Check that a single valid method is provided.
+  valid_methods <- c("equal", "pool_traded", "pool_all", "median_pool_all", "pool_class")
+  if(length(method) != 1 || sum(method == valid_methods) != 1) {
+    stop("A single valid method must be provided to update_normalization_factors()")
+  }
+
+  equal <- function(
+    parsed_algos,
+    args = list(equal_norm_factor = 1)
+  ) {
+    n <- get_num_rules_from_parsed_algos_list(parsed_algos)
+    as.list(rep(args$equal_norm_factor, n))
+  }
+
+  pool_traded <- function(
+    signal_tables,
+    parsed_algos
+  ) {
+    ## Get rule name for each algo in the order they appear in the parsed algos
+    ## list
+    rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
+
+    ## Get all unique rule names in a list
+    all_unique_rule_names <- get_unique_rule_names_from_parsed_algos_list(parsed_algos)
+
+    ## For each unique rule name, get the IDs of that rule in the
+    ## rule_names_by_algo list
+    IDs_grouped_by_rule_names <- split(
+      seq_along(rule_names_by_algo),
+      unlist(rule_names_by_algo)
+    )
+
+    ## For each unique rule name, get all signals produced by that rule.
+    ## We are assuming that algos are in the same order as signal tables
+    raw_signals_list <- list()
+    for(rule in unlist(all_unique_rule_names)) {
+      ll <- lapply(
+        signal_tables[unlist(IDs_grouped_by_rule_names[rule])],
+        function(x) {x$raw_signal}
+      )
+      df <- data.frame(ll)
+      names(df) <- NULL
+      raw_signals_list[[rule]] <- df
+    }
+
+    ## When we unlist the raw signal data frame, all the column vectors in that
+    ## data frame are concatenated to one vector. So in effect we are pooling all
+    ## the instruments for each rule. We are not taking the cross section median
+    ## across instruments, as we do for median_pool_all(), because the number of
+    ## instruments per rule is likely to be small - taking the median of two
+    ## values doesn't make much sense.
+    lapply(raw_signals_list,
+           function(raw_signal_vector) {
+             f_indiv_normalization_factor(
+               unlist(raw_signal_vector),
+               target = 1
+             )
+           }
+    )
+  }
+
+  # TODO
+  # Same as median_pool_all(), but instead of median(unlist(raw_signals_df[j, ]))
+  # do mean(abs(unlist(raw_signals_df))) for each rule.
+  pool_all <- function(signal_tables, parsed_algos) {
+    stop("pool_all() not implemented yet")
+  }
+
+  median_pool_all <- function(
+    parsed_algos, ## parsed (expanded) algos
+    data_sets, ## instrument data sets
+    args = list(min_periods_median_pool_all = 250)
+  ) {
+
+    ## Get number of rows from first data set.
+    num_rows <- nrow(data_sets[[1]])
+    num_data_sets <- length(data_sets)
+    min_periods <- args$min_periods_median_pool_all
+
+    if(num_rows < min_periods) {
+      stop("Not enough data to estimate normalization factor with pool_all().")
+    }
+
+    ## Get rule name for each algo in the order they appear in the algos list
+    rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
+
+    ## Get all unique rule names in a list
+    all_unique_rule_names <-get_unique_rule_names_from_parsed_algos_list(parsed_algos)
+
+    ## For each unique rule name, get the first ID of that rule in the
+    ## rule_names_by_algo list
+    rule_functions <- lapply(all_unique_rule_names,
+                             function(x) {
+                               #ID = which(x == rule_names_by_algo)[1]
+                               #This should be equivalent:
+                               ID = match(x, rule_names_by_algo)
+                               ## Get functions at each ID in algos list
+                               ## Exit rule should be 0 or 1. The combined
+                               ## rule is the product of entry and exit rule.
+                               ## (Exit rule is optional, i.e constant 1 if
+                               ## omitted.)
+                               c(
+                                 parsed_algos[[ID]]$rule[1],
+                                 parsed_algos[[ID]]$rule[2]
+                               )
+                             }
+    )
+
+    ## Make list of algos for simulation
+    sim_algos <- list()
+    k <- 1
+    for(i in seq_along(rule_functions)) {
+      for(j in seq_along(data_sets)) {
+        sim_algos[[k]] <- list(
+          "data" = data_sets[[j]],
+          "rule" = list(
+            rule_functions[[i]][[1]], ## Entry rule
+            rule_functions[[i]][[2]]  ## Exit rule
+          )
+        )
+        k <- k + 1
+      }
+    }
+
+    ## For each unique rule, apply that rule to all instruments.
+    ## Each column in raw_signals_df is a signal vector.
+    ## One data frame for each rule.
+    ## In each data frame, one column for each instrument.
+    raw_signals_df <- data.frame()
+    for(i in seq_along(sim_algos)) {
+      for(t in (min_periods + 1):num_rows) {
+
+        # TODO
+        # Should handle situation with no exit rule.
+
+        # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+        # fix§0039
+        # No good here:
+        # trade_system$signal_tables
+        # trade_system$position_tables
+        #
+        #
+        # raw_signals_df[i, t] <- apply_rule(
+        #   sim_algos[[i]],
+        #   trade_system$signal_tables[[i]],
+        #   trade_system$position_tables[[i]],
+        #   t
+        # )
+
+        raw_signals_df[i, t] <- generate_signal(
+          prices, ## For now only price data is allowed as input for rules
+          sim_algos[[i]],
+          rule_function
+          #trade_system$signal,
+        )
+        # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+
+      }
+    }
+
+    ## Calculate cross section medians across all instruments for each
+    ## rule.
+    ## Columns are vectors of cross section medians across all instruments for
+    ## each rule.
+    ## Each column in cs_medians corresponds to a rule.
+    ## Rows are observations (oldest to newest, so higher row numbers mean newer).
+    cs_medians <- data.frame()
+    for(i in seq_along(data_sets)) {
+      for(j in 1:(num_rows - min_periods)) {
+
+        cs_medians[j, i] <- stats::median(unlist(raw_signals_df[j, ])) ## Row median
+      }
+    }
+
+    ## Take mean absolute value of each vector of medians
+    mav_for_each_rule <- lapply(
+      cs_medians,
+      function(x) {unlist(mean(abs(x)))}
+    )
+
+    target / unlist(mav_for_each_rule)
+  }
+
+  pool_class <-  function() {
+    "pool_class() not yet implemented."
+  }
+
+  switch(
+    method,
+    "equal" = equal(
+      parsed_algos,
+      ...),
+    "pool_traded" = pool_traded(
+      signal_tables,
+      parsed_algos),
+    "pool_all" = pool_all(
+      instrument_data_sets,
+      ...),
+    "median_pool_all" = median_pool_all(
+      parsed_algos,
+      instrument_data_sets,
+      ...),
+    "pool_class" = pool_class()
+  )
+}
+
 # * generate signal def ----
 #' Generate Trade Signal From Rule
 #'
@@ -1201,16 +1474,23 @@ calculate_signal_weights <- function(algos, method = "equal") {
 #'
 #' @param prices A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer. The last observation is time t.
+#' @param signal_table Signal table. Last row is time t-1.
+#' @param position_table Position table. Last row is time t-1.
 #' @param algo Single algo from the expanded algos list.
+#' @param rule_function
+#' @param t
 #'
 #' @return Single signal value
 #' @export
 #'
 #' @examples
 generate_signal <- function(
-    prices, ## Vector of prices
+    prices,
+    signal_table,
+    position_table,
     algo, ## Single algo from the algos list
-    rule_function ## Rule function
+    rule_function, ## Rule function
+    t
     #signal_table, ## signal table for the instrument
 ) {
 
@@ -1224,7 +1504,13 @@ generate_signal <- function(
   #raw_signal <- algo$rule[[1]](algo$data)
 
   #raw_signal <- rule_functions[[ algo$rule[[1]] ]](prices)
-  raw_signal <- rule_function[[1]](prices)
+  #raw_signal <- rule_function[[1]](prices)
+  raw_signal <- rule_function[[1]](
+    prices,
+    signal_table,
+    position_table,
+    t
+  )
 
   # # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   # # fix§0027:
@@ -1392,7 +1678,7 @@ calculate_equal_signal_weights <- function(parsed_algos) {
   weights_by_instrument <- numeric(length(num_signals))
   for(i in seq_along(num_signals)) {
     if(!is.na(num_signals[[i]]) && num_signals[[i]] >= 1) {
-      weights_by_instrument[i] <- 1/num_signals[[i]]
+      weights_by_instrument[i] <- 1 / num_signals[[i]]
     } else {
       stop("At least one rule must be provided to the trade system.")
     }
@@ -1424,7 +1710,7 @@ calculate_equal_signal_weights <- function(parsed_algos) {
 #' @examples
 calculate_equal_inst_weights <- function(parsed_algos) {
   n <- get_num_inst_from_parsed_algos_list(parsed_algos)
-  rep(1/n, n)
+  rep(1 / n, n)
 }
 
 #' Combine Signals For Instrument Subsystem

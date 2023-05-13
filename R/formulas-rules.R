@@ -73,6 +73,10 @@ f_moving_average <- function(prices, t = NA, window_length) {
 #' @example
 #'
 f_ma_vector <- function(prices, n) {
+
+  if(!is.integer(n)) {stop("window_length must be an integer (e.g. 16L).")}
+  if(!(n > 0L)) {stop("window_length must be positive.")}
+
   N <- length(prices)
 
   #stopifnot(N >= n)

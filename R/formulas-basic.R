@@ -88,13 +88,13 @@ f_prices_from_returns <- function(returns, initial_price) {
 
 #' Calculate Exponentially Weighted Average
 #'
-#' Calculate EWA of vector \eqn{x} at time \eqn{t} based on a lookback window. If the
-#'   length of the lookback window is \eqn{L}, the range of the lookback window is
-#'   \eqn{[t-L, t-1]}.
+#' Calculate EWA of vector \eqn{x} at time \eqn{t} based on a lookback window.
+#'   If the length of the lookback window is \eqn{L}, the range of the lookback
+#'   window is \eqn{[t-L, t-1]}.
 #'
 #' @param x vector
-#' @param lookback Lookback window length. If no `lookback` is provided, the
-#'   entire \eqn{x} vector will be used.
+#' @param lookback Lookback window length as positive integer. If no `lookback`
+#'   is provided, the entire \eqn{x} vector will be used.
 #'
 #' @return Single exponentially weighted average value
 #' @export
@@ -108,7 +108,10 @@ f_ewa <- function(x, lookback = NA) {
     L <- lookback
     x_window <- utils::tail(x, L)
   }
-  lambda <- 2/(1 + L)
+  if(!is.integer(L)) {stop("lookback must be an integer (e.g. 25L).")}
+  if(!(L >= 0L)) {stop("lookback must be zero or positive.")}
+
+  lambda <- 2 / (1 + L)
   w <- lambda^((0):(L - 1))
   (sum(w %*% x_window)) / sum(w)
 }

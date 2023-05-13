@@ -70,7 +70,7 @@ mac_rule <- function(
       warning("n_fast is equal to n_slow.")
     }
     if(strict == TRUE) {
-      stopifnot(nrow(prices) > n_slow + 1)
+      stopifnot(length(prices) > n_slow + 1)
       stopifnot(n_slow > n_fast)
     }
     ma_fast <- f_moving_average(
@@ -145,7 +145,7 @@ stop_loss_rule <- function(
     t_trade_open,
     direction,
     rnd = FALSE
-  ) {
+) {
   price_unit_vol <- f_price_unit_vol(prices[t], instrument_risk)
   stop_loss_gap <- f_stop_loss_gap(price_unit_vol, stop_loss_fraction)
 
@@ -198,7 +198,7 @@ stop_loss_rule <- function(
 #'
 #' @examples
 # apply_mac_rule <- function(
-#     prices,
+    #     prices,
 #     ma_data, ## Data frame
 #     n_fast = 16,
 #     n_slow = 64,
