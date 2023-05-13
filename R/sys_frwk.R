@@ -167,7 +167,8 @@ make_system <- function(
     parsed_algos = parsed_algos,
     instrument_data_folder_path = instrument_data_folder_path
   )
-  names(inst_data) <- unlist(get_unique_inst_names_from_parsed_algos_list(parsed_algos))
+  inst_names <- unlist(get_unique_inst_names_from_parsed_algos_list(parsed_algos))
+  names(inst_data) <- inst_names
 
   ## The way to access a data set:
   ## inst_data[[parsed_algos[[i]]$instrument]]
@@ -234,6 +235,7 @@ make_system <- function(
       position_change_ccy = numeric(min_periods)
     )
   }
+  names(position_tables) <- inst_names
 
   ## Totals for entire system
   system_account_table <- data.frame(
@@ -450,7 +452,7 @@ update_system <- function(
   signal_tables <- trade_system$signal_tables
   for(i in seq_along(trade_system$algos)) {
     signal_tables[[i]][t, ] <- update_signal_table_row(
-      trade_system$inst_data[ trade_system$algos[[i]]$instrument ],
+      trade_system$inst_data[ trade_system$algos[[i]]$instrument ][[1]],
       trade_system$algos[[i]],
 
       #TODO
@@ -624,12 +626,14 @@ update_signal_table_row <- function(
     config
   ) {
 
-  time_t <- update_time(inst_data, algo, t)
+  time_t <- inst_data$time[t] #update_time(inst_data, algo, t)
 
-  price_t <- update_price(inst_data, algo, t)
-  prices <- c(signal_table$price, price_t)
+  #price_t <- inst_data$price[t] #update_price(inst_data, algo, t)
+  #prices <-  c(signal_table$price, price_t)
 
-  # * generate signal ----
+  prices <-  inst_data$price[1:t]
+  price_t <- prices[t]
+
   signal_list <- generate_signal(
     prices,
     signal_table,
@@ -796,7 +800,6 @@ update_position_table_row <- function(
     ## Stop loss is not calculated here anymore.
     ## Instead stop loss should be included in the rule function.
 
-    # * stop loss ----
     ## stop_loss acts as a gate.
     ## If stop_loss == 1, the signal is allowed to pass through unchanged.
     ## If stop_loss == 0, the signal is changed to 0.
@@ -1453,7 +1456,6 @@ update_signal_normalization_factors <- function(
   )
 }
 
-# * generate signal def ----
 #' Generate Trade Signal From Rule
 #'
 #' @description
@@ -1905,7 +1907,7 @@ save_tables <- function() {
 #' Update Price
 #'
 #' @description
-#' Get latest price from data set in trade system list according to algo.
+#' Get latest price from data frame in trade system list according to algo.
 #'
 #' @param inst_data List of unique data frames.
 #' @param algo Algo list for a single expanded algo.
@@ -1920,7 +1922,7 @@ update_price <- function(inst_data, algo, t) {
 
 #' Update time
 #'
-#' Get latest time from data in `algo` list.
+#' Get latest time from data frame in `algo` list.
 #'
 #' @param inst_data List of unique data frames.
 #' @param algo Algo list for a single expanded algo.

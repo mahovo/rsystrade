@@ -477,7 +477,8 @@ f_indiv_normalization_factor <- function(
 f_inst_risk <- function(prices, t, window_length = 25) {
   if(is.na(window_length)) {window_length = t} ## Include all if window_length is NA
   if(t > window_length) {
-    sd_ <- stats::sd(f_returns_from_prices(prices[(t - window_length + 1):t])) * 15.87451 ## 252 is the number of business days in a year. sqrt(252) = 15.87451
+    ## t - window_length is the time index before the first return we want to calculate
+    sd_ <- stats::sd(f_returns_from_prices(prices[(t - window_length):t])) * 15.87451 ## 252 is the number of business days in a year. sqrt(252) = 15.87451
   } else if (t > 1) {
     sd_ <- sd(f_returns_from_prices(prices[1:t])) * 15.87451
     warning("Window length for instrument risk calculation is bigger than length of price vector.\n")
