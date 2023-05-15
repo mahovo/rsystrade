@@ -258,15 +258,14 @@ expand_algos <- function(algos) {
   for(subset_ID in seq_along(algos)) {
     for(instrument in algos[[subset_ID]]$instruments) {
       for(rule in algos[[subset_ID]]$rules) {
-        if(length(rule) == 1) {
+        #if(length(rule) == 1) {
           expanded_algos[[expanded_algos_ID]] <- list(
             instrument = instrument,
             rule = rule)
           expanded_algos_ID = expanded_algos_ID + 1
-        } else {
-          stop("Exactly one signal rule function name as a character string must
-               be supplied for each algo.")
-        }
+        #} else {
+          #stop("Exactly one signal rule function name as a character string must be supplied for each algo.")
+        #}
       }
     }
   }
@@ -496,7 +495,7 @@ get_rule_names_by_parsed_algo <- function(parsed_algos) {
     rule_names[[i]] <- ""
     ## Append each name string to the previous one and separate by comma
     for(j in seq_along(parsed_algos[[i]]$rule)) {
-      rule_names[[i]] <- paste(rule_names[[i]], parsed_algos[[i]]$rule[[j]], sep = ",")
+      rule_names[[i]] <- paste(rule_names[[i]], names(parsed_algos[[i]]$rule[[j]]), sep = ",")
     }
     ## Remove leading comma
     rule_names[[i]] <- substring(rule_names[[i]], 2)

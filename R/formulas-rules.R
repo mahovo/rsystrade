@@ -117,10 +117,16 @@ f_stop_loss_level <- function(
     lwm,
     stop_loss_gap,
     direction = 0,
-    rnd = TRUE) {
+    rnd = FALSE) {
+
+  RND_MIN <- 0.01
+  RND_MAX <- 0.03
+
+  rnd_val <- stats::runif(1, RND_MIN, RND_MAX)
+
   if(direction == 1){ ## If long
-    hwm - stop_loss_gap + stats::runif(1, 0.01, 0.03) * rnd
-  } else {lwm + stop_loss_gap - stats::runif(1, 0.01, 0.03) * rnd}
+    hwm - stop_loss_gap + rnd_val * rnd
+  } else {lwm + stop_loss_gap - rnd_val * rnd}
 }
 
 ## LT F23

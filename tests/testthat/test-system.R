@@ -26,8 +26,8 @@
 
 test_that("system works", {
 
-  my_test_system <- make_test_system_2()
-  my_expected_system <- readRDS(test_path("fixtures", "my_test_system_2.rds"))
+  my_test_system <- make_test_system()
+  my_expected_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 
   expect_equal(
     my_test_system,

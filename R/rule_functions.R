@@ -121,13 +121,18 @@ mac_rule <- function(
 #'   position should remain open. If a position is closed, and the stop loss
 #'   returns value 1, the position will remain closed.
 #'
+#' Note that `instrument_risk`, `t_last_position_entry` and `direction` are
+#'   calculated at time `t - 1`. If we want these parameters at time `t`, we
+#'   need to apply the stop loss rule after `update_position_table_row`.
+#'
 #' @param t Time index.
 #' @param prices A vector of prices in currency. Oldest first. Top to bottom:
-#'   Older to newer
-#' @param instrument_risk Instrument risk.
+#'   Older to newer.
+#' @param instrument_risk Instrument risk at time t-1.
 #' @param stop_loss_fraction Stop loss fraction.
-#' @param t_trade_open Time index of the time when trade is opened.
-#' @param direction Is current trade long or short? 1 for long, -1 for short.
+#' @param t_trade_entry Time index of the time when current trade was entered.
+#' @param direction Was current trade long or short at time t-1? 1 for long, -1
+#'   for short.
 #' @param rnd If TRUE, add small random amount to stop loss level. Negative if
 #'   short.
 #'
@@ -140,36 +145,44 @@ mac_rule <- function(
 stop_loss_rule <- function(
     prices,
     t = NA,
-    instrument_risk,
+    instrument_risk, # at time t-1
     stop_loss_fraction,
-    t_trade_open,
-    direction,
+    t_last_position_entry, # at time t-1
+    direction, # at time t-1
     rnd = FALSE
 ) {
   price_unit_vol <- f_price_unit_vol(prices[t], instrument_risk)
   stop_loss_gap <- f_stop_loss_gap(price_unit_vol, stop_loss_fraction)
 
-  ## Close position if stop loss level was breached yesterday [LT, p. 138].
-  ## Close position even if price has recovered. [LT, p. 141]
+  ## Exit position if stop loss level was breached yesterday [LT, p. 138].
+  ## Exit position even if price has recovered. [LT, p. 141]
   stop_loss_level <- f_stop_loss_level(
-    f_high_water_mark(prices, t - 1, t_trade_open),
-    f_low_water_mark(prices, t - 1, t_trade_open),
+    f_high_water_mark(prices, t - 1, t_last_position_entry),
+    f_low_water_mark(prices, t - 1, t_last_position_entry),
     stop_loss_gap = stop_loss_gap,
     direction = direction,
-    rnd  = FALSE
+    rnd  = rnd
   )
 
   signal <- 1 ## bypass by default
+  stop_loss <- "---"
   if(direction == 1) { ## If long
-    if(prices[t] < stop_loss_level) { ## Close position if...
-      signal <- 0 ## Close
+    if(prices[t] < stop_loss_level) { ## Exit position if...
+      signal <- 0 ## Exit
+      stop_loss <- "stop_loss"
     }
   } else if(direction == -1) { ## If short
-    if(prices[t] > stop_loss_level) { ## Close position if...
-      signal <- 0 ## Close
+    if(prices[t] > stop_loss_level) { ## Exit position if...
+      signal <- 0 ## Exit
+      stop_loss <- "stop_loss"
     }
-  } else {signal <- 0} ## Should be redundant...
-  list(signal = signal, stop_loss_gap = stop_loss_gap)
+  } #else {signal <- 0} ## Should be redundant...
+
+  list(
+    signal = signal,
+    stop_loss_gap = stop_loss_gap,
+    stop_loss = stop_loss
+  )
 }
 
 #' Moving Average

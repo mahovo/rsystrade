@@ -125,11 +125,8 @@ f_subsystem_ret_cor_mat <- function(
 
   ## Check if any correlation is NA
   if(sum(is.na(cor_mat)) > 0) {
-    warning("NAs in correlation matrix have been replaced by min_cor value.
-  NAs in a correlation matrix are common when previous returns are
-  identical, resulting in standard deviations of zero.
-  Replacing NAs in correlation matrix by min_cor value is supposed to
-  fix this problem.")
+    warning("NAs in correlation matrix have been replaced by min_cor value. NAs in a correlation matrix are common when previous returns are identical, resulting in standard deviations of zero.
+Replacing NAs in correlation matrix by min_cor value is supposed to fix this problem.")
 
     ## Replace missing values (divide-by-zero NA's) with minimum correlation
     cor_mat[is.na(cor_mat)] <- min_cor
@@ -543,7 +540,7 @@ f_price_unit_vol <- function(price, inst_risk) {
 #' High Water Mark
 #'
 #' @description
-#' Highest price since entry of a current open position.
+#' Highest price since entry of a current (time t) open position.
 #'
 #' @param prices A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer. The last observation is time t.

@@ -628,19 +628,17 @@ update_signal_table_row <- function(
 
   time_t <- inst_data$time[t] #update_time(inst_data, algo, t)
 
-  #price_t <- inst_data$price[t] #update_price(inst_data, algo, t)
-  #prices <-  c(signal_table$price, price_t)
-
+  ## Only prices are currently supported as variable params.
+  ## This should be generalized.
   prices <-  inst_data$price[1:t]
   price_t <- prices[t]
 
   signal_list <- generate_signal(
-    prices,
-    signal_table,
-    position_table,
-    algo,
-    rule_function,
-    t
+    variable_param_vals = list(prices, t),
+    signal_table = signal_table,
+    position_table = position_table,
+    algo = algo,
+    config = config
   )
 
   ## Everything in signal list except signal
@@ -1486,13 +1484,41 @@ update_signal_normalization_factors <- function(
 #' @export
 #'
 #' @examples
+# generate_signal <- function(
+#     prices,
+#     signal_table,
+#     position_table,
+#     algo, ## Single algo from the algos list
+#     rule_function, ## Rule function
+#     t,
+#     config
+#     #signal_table, ## signal table for the instrument
+# ) {
+#
+#   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+#   # fix§0014:
+#   # Get the needed variables from the trade system.
+#   # Pass the calculated variables back to trade system.
+#   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+#
+#   ## Signal rule
+#   raw_signal <- rule_function[[1]](
+#     prices,
+#     signal_table,
+#     position_table,
+#     t,
+#     config
+#   )
+#
+#   raw_signal
+# }
+
 generate_signal <- function(
-    prices,
+    variable_param_vals, ## list
     signal_table,
     position_table,
-    algo, ## Single algo from the algos list
-    rule_function, ## Rule function
-    t
+    algo, ## Single parsed algo from the algos list
+    config
     #signal_table, ## signal table for the instrument
 ) {
 
@@ -1502,142 +1528,33 @@ generate_signal <- function(
   # Pass the calculated variables back to trade system.
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 
-  ## Signal rule
-  #raw_signal <- algo$rule[[1]](algo$data)
+  fixed_params_names <- names(algo$rule[-1])
+  fixed_params <- algo$rule[-1]
 
-  #raw_signal <- rule_functions[[ algo$rule[[1]] ]](prices)
-  #raw_signal <- rule_function[[1]](prices)
-  raw_signal <- rule_function[[1]](
-    prices,
-    signal_table,
-    position_table,
-    t
+  signal_generator_function <- algo$rule[[1]]
+  variable_param_names <- {x = names(formals(signal_generator_function)); setdiff(x, fixed_params_names)} ## All params that are not fixed
+  variable_params <- variable_param_vals #as.list(variable_param_names) ## Place holder
+  names(variable_params) <- variable_param_names
+  #variable_params[[variable_param_names]] <- variable_param_vals
+
+
+  # if(length(fixed_param_vals_by_algo) != 0) {
+  #   params <- c(
+  #     variable_params, ## assign variable params
+  #     fixed_param_vals_by_algo ## fixed params
+  #   )
+  # } else {
+  #   params <- variable_params
+  # }
+  params <- c(
+    variable_params, ## assign variable params
+    fixed_params ## fixed params
   )
 
-  # # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  # # fix§0027:
-  # # Move the rest of this if condition to update_position_table_row() after
-  # # `combine_signals() and update_account(), as appropriate.
-  # # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  # if(trade_on == FALSE) {
-  #   #if(latest_trade_direction == direction) {direction = 0}
-  #
-  #   if(direction != 0) {
-  #     update_position_table_row(
-  #       # price,
-  #       # direction,
-  #       # latest_trade_direction,
-  #       # system_account_table,
-  #       # risk_target,
-  #       # instrument_risk,
-  #       # position_size_ccy,
-  #       # t
-  #     )
-  #   } else { ## direction == 0: no position change (don't enter trade)
-  #     ## We don't have any trade on, and nothing changes
-  #     ## Still 0
-  #     position_size_units <- position_table$position_size_units[t - 1]
-  #     ## Still 0
-  #     position_size_ccy <- position_table$position_size_ccy[t - 1]
-  #
-  #     ## How much did we borrow when we entered the trade?
-  #     borrowed_cash <- system_account_table$borrowed_cash[t_trade_enter]
-  #     borrowed_asset <- system_account_table$borrowed_asset[t_trade_enter]
-  #
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <- system_account_table$capital[t - 1]
-  #
-  #
-  #     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  #     # fix§0016
-  #     # Calculate `cash` for entire trade system and move `cash` from
-  #     # `position_tables` to `system_account_table`.
-  #     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  #     account_value <- capital
-  #   }
-  # } else { ## If trade is on, check optional stop loss rule.
-  #
-  #   #inst_risk_at_entry <- trade_data$instrument_risk[t_trade_enter]
-  #   #price_at_entry <- trade_data$price[t_trade_enter]
-  #   #price_vol_at_entry <- price_unit_vol(inst_risk_at_entry, price_at_entry)
-  #
-  #
-  #   ## NOTE:
-  #   ## position_size_units will never be negative, as long as capital is not
-  #   ## allowed to reach 0 or below.
-  #   ## The break below takes care of that.
-  #
-  #   ## While long trade is on:
-  #   ## cash[t] = cash[t - 1]
-  #   ##
-  #   #### borrowed_cash[t] = borrowed_cash[t_trade_enter]
-  #   #### borrowed_asset[t] = 0
-  #   #### capital[t] = position_size_ccy[t] - borrowed_cash[t_trade_enter] + cash
-  #
-  #   ## While short trade is on:
-  #   ## cash[t] = cash[t - 1]
-  #   ## borrowed_cash[t] = 0
-  #   ## borrowed_asset[t] = position_size_units[t]
-  #   ## capital[t] = cash[t_trade_enter - 1] + (position_size_ccy[t] - position_size_ccy[t_trade_enter])
-  #
-  #   ## When long trade has just been exited:
-  #   ## cash[t] = cash[t - 1] + position_size_ccy[t] - borrowed_cash[t_trade_enter]
-  #   ## borrowed_cash[t] = 0
-  #   ## borrowed_asset[t] = 0
-  #   ## capital[t] = cash[t]
-  #
-  #   ## When short trade has just been exited:
-  #   ## cash[t] = cash[t - 1] - position_size_ccy[t]
-  #   ## borrowed_cash[t] = 0
-  #   ## borrowed_asset[t] = 0
-  #   ## capital[t] = cash[t]
-  #
-  #   position_size_units <- position_table$position_size_units[t - 1]
-  #   position_size_ccy <- position_size_units * price
-  #
-  #   ## (direction > 0) == 0 if short
-  #   borrowed_cash =
-  #     system_account_table$borrowed_cash[t_trade_enter] * (direction > 0)
-  #
-  #   ## (1 - (direction > 0)) == 1 if short
-  #   borrowed_asset = position_size_units * (1 - (direction > 0))
-  #
-  #   ## Stop loss rule
-  #   #raw_signal <- algo$rule[[2]](algo$data)
-  #
-  #   if(direction == 1) { ## If long
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <-
-  #       cash + position_size_ccy - system_account_table$borrowed_cash[t_trade_enter]
-  #     if(enter_or_exit == "EXIT") {
-  #       trade_on <- FALSE ## Exit trade
-  #       direction <- 0
-  #       cash <- system_account_table$cash[t - 1] + position_size_ccy -
-  #         system_account_table$borrowed_cash[t_trade_enter]
-  #       capital <- cash
-  #     }
-  #   } else if(direction == -1) { ## If short
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <- system_account_table$cash[t_trade_enter - 1] +
-  #       (position_table$position_size_ccy[t_trade_enter] - position_size_ccy)
-  #     if(enter_or_exit <- "EXIT") {
-  #       trade_on <- FALSE ## Exit trade
-  #       direction <- 0
-  #       cash <- system_account_table$cash[t - 1] - position_size_ccy
-  #       capital <- cash
-  #     }
-  #   } else { ## Should be redundant, since we know a trade is on, and a trade
-  #            ## will either be long or short...
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <- system_account_table$capital[t - 1]
-  #   }
-  # }
-  # list(
-  #   time = time,
-  #   price = price,
-  #   raw_signal = raw_signal,
-  #   normalized_signal
-  # )
+  raw_signal <- do.call(
+    signal_generator_function,
+    params
+  )
 
   raw_signal
 }
