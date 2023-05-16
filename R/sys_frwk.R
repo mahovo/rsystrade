@@ -175,8 +175,10 @@ make_system <- function(
   ## For instance, get prices:
   ## inst_data[[parsed_algos[[i]]$instrument]]$price
 
-  rule_functions <-load_rule_functions(parsed_algos)
-  names(rule_functions) <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
+  ## We don't need to load rule functions anymore, as they are stored in each
+  ## parsed algo
+  #rule_functions <-load_rule_functions(parsed_algos)
+  #names(rule_functions) <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
 
   ## Get number of signals
   num_signals <- length(parsed_algos)
@@ -272,7 +274,7 @@ make_system <- function(
 
   list(
     inst_data = inst_data,
-    rule_functions = rule_functions,
+    #rule_functions = rule_functions,
     subsystem_ret_cor_mat = subsystem_ret_cor_mat,
     algos = parsed_algos,
     signal_normalization_factors = signal_normalization_factors,
@@ -452,20 +454,18 @@ update_system <- function(
   signal_tables <- trade_system$signal_tables
   for(i in seq_along(trade_system$algos)) {
     signal_tables[[i]][t, ] <- update_signal_table_row(
-      trade_system$inst_data[ trade_system$algos[[i]]$instrument ][[1]],
-      trade_system$algos[[i]],
-
-      #TODO
-      ## Note: Subsetting of rule is redundant, as there is only ever 1 rule.
-      trade_system$rule_functions[ trade_system$algos[[i]]$rule[[1]] ],
-      trade_system$signal_tables[[i]],
-      signal_weights_all_algos[[i]],
-      sig_norm_fact_by_algos[[i]],
-      trade_system$position_tables[[i]],
-      t,
-      trade_system$config
+      t = t,
+      inst_data = trade_system$inst_data[ trade_system$algos[[i]]$instrument ][[1]],
+      algo = trade_system$algos[[i]],
+      #trade_system$rule_functions[ trade_system$algos[[i]]$rule[[1]] ],
+      signal_table = trade_system$signal_tables[[i]],
+      signal_weight = signal_weights_all_algos[[i]],
+      signal_normalization_factor = sig_norm_fact_by_algos[[i]],
+      position_table = trade_system$position_tables[[i]],
+      config = trade_system$config
     )
   }
+
 
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   # fix§0004
@@ -589,7 +589,7 @@ update_system <- function(
   ## Return updated trade system
   list(
     inst_data = trade_system$inst_data,
-    rule_functions = trade_system$rule_functions,
+    #rule_functions = trade_system$rule_functions,
     subsystem_ret_cor_mat = subsystem_ret_cor_mat,
     algos = trade_system$algos,
     signal_normalization_factors = trade_system$signal_normalization_factors,
@@ -615,14 +615,14 @@ update_system <- function(
 #'
 #' @examples
 update_signal_table_row <- function(
+    t, ## Time index
     inst_data,
     algo,
-    rule_function,
+    #rule_function,
     signal_table,
     signal_weight, ## Weight is just passed to the output vector
     signal_normalization_factor,
     position_table,
-    t, ## Time index
     config
   ) {
 
@@ -634,11 +634,12 @@ update_signal_table_row <- function(
   price_t <- prices[t]
 
   signal_list <- generate_signal(
-    variable_param_vals = list(prices, t),
-    signal_table = signal_table,
-    position_table = position_table,
-    algo = algo,
-    config = config
+    variable_param_vals = get_variable_param_vals(t, inst_data, algo),
+    #signal_table = signal_table,
+    #position_table = position_table,
+    algo = algo#,
+    #t
+    #config = config
   )
 
   ## Everything in signal list except signal
@@ -796,7 +797,7 @@ update_position_table_row <- function(
     }
 
     ## Stop loss is not calculated here anymore.
-    ## Instead stop loss should be included in the rule function.
+    ## Instead stop loss should be included in the signal generator function.
 
     ## stop_loss acts as a gate.
     ## If stop_loss == 1, the signal is allowed to pass through unchanged.
@@ -1060,9 +1061,13 @@ load_instrument_data_sets <- function(
 #' Load Rule Functions
 #'
 #' @description
-#' Load rule functions as specified by function names as character strings in
-#'   parsed algos into a list. The functions must be loaded into the enclosing
-#'   (typically global) environment.
+#' DEPRECATED: This depends on a previous structure of parsed algos, where
+#'   rule functions were given by their name as a character string!
+#'
+#' Load rule functions into a list. Functions are specified as functions
+#'   assigned to variables or by function names as character strings in parsed
+#'   algos. The functions must be loaded into the enclosing (typically global)
+#'   or package environment.
 #'
 #' @param parsed_algos
 #'
@@ -1071,11 +1076,19 @@ load_instrument_data_sets <- function(
 #'
 #' @examples
 load_rule_functions <- function(parsed_algos) {
-  unique_rule_names <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
-  unique_rule_functions <- lapply(unique_rule_names,
-    function(x) {eval(parse(text = x))}
+  unique_rule_names <- get_unique_rule_variation_names_by_parsed_algo(parsed_algos)
+  unique_signal_generators <- lapply(
+    unique_rule_names,
+    function(x) {
+      if(is.character(x)) {
+        #eval(parse(text = x))
+        eval_function_from_string(x)
+      } else {
+        x
+      }
+    }
   )
-  unique_rule_functions
+  unique_signal_generators
 }
 
 #' Evaluate Instrument Data Set
@@ -1083,7 +1096,7 @@ load_rule_functions <- function(parsed_algos) {
 #' @description
 #' Evaluate an instrument data set given a name as a character string.
 #'
-#' @param rule_name Instrument data set name as a character string.
+#' @param instrument_name Instrument data set name as a character string.
 #'
 #' @return Data frame
 #' @export
@@ -1093,19 +1106,19 @@ eval_inst <- function(instrument_name) {
   eval(parse(text = instrument_name))
 }
 
-#' Evaluate Rule Function
+#' Evaluate Function From String
 #'
 #' @description
-#' Evaluate a rule function given a function name as a character string.
+#' Evaluate a function given a function name as a character string.
 #'
-#' @param rule_name Rule function name as a character string.
+#' @param function_name Function name as a character string.
 #'
 #' @return Function
 #' @export
 #'
 #' @examples
-eval_rule <- function(rule_name) {
-  eval(parse(text = rule_name))
+eval_function_from_string <- function(function_name) {
+  eval(parse(text = function_name))
 }
 
 #' Run Trade System
@@ -1513,14 +1526,31 @@ update_signal_normalization_factors <- function(
 #   raw_signal
 # }
 
+
+
+get_variable_param_vals <- function(t, inst_data, algo) {
+  c(
+    ## t must be the first variable param
+    list(t = t),
+    ## Exclude t, which we get as the system is running
+    inst_data[names(algo$rule$variable_params[-1])]
+  )
+}
+
+
+
 generate_signal <- function(
-    variable_param_vals, ## list
-    signal_table,
-    position_table,
-    algo, ## Single parsed algo from the algos list
-    config
+    variable_param_vals, ## list. The first param must be t
+    #signal_table,
+    #position_table,
+    algo#, ## Single parsed algo from the algos list
+    #config
     #signal_table, ## signal table for the instrument
-) {
+  ) {
+
+  if(names(variable_param_vals[1]) != "t") {
+    stop("The first variable parameter must be t.")
+  }
 
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   # fix§0014:
@@ -1528,31 +1558,18 @@ generate_signal <- function(
   # Pass the calculated variables back to trade system.
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 
-  fixed_params_names <- names(algo$rule[-1])
-  fixed_params <- algo$rule[-1]
+  ## Pass values from instrument data to variable params
+  variable_params <- variable_param_vals
+  ## Assign the variable names from algo to appropriate values
+  names(variable_params) <- algo$rule$variable_param_names
 
-  signal_generator_function <- algo$rule[[1]]
-  variable_param_names <- {x = names(formals(signal_generator_function)); setdiff(x, fixed_params_names)} ## All params that are not fixed
-  variable_params <- variable_param_vals #as.list(variable_param_names) ## Place holder
-  names(variable_params) <- variable_param_names
-  #variable_params[[variable_param_names]] <- variable_param_vals
-
-
-  # if(length(fixed_param_vals_by_algo) != 0) {
-  #   params <- c(
-  #     variable_params, ## assign variable params
-  #     fixed_param_vals_by_algo ## fixed params
-  #   )
-  # } else {
-  #   params <- variable_params
-  # }
   params <- c(
     variable_params, ## assign variable params
-    fixed_params ## fixed params
+    algo$rule$fixed_params ## fixed params
   )
 
   raw_signal <- do.call(
-    signal_generator_function,
+    algo$rule$signal_generator,
     params
   )
 

@@ -5,76 +5,68 @@
 #'
 #' Loads data and rules into the system by parsing a list of algos.
 #'
-#' An algo is composed of one instrument (data) and one rule function.
+#' An algo is composed of one instrument (data) and one rule variation.
 #'
 #' Data sets must be csv files in a single folder. The system configuration must
 #'   include a path to the data folder. Data sets are referenced by their file
 #'   names (excluding extension) as character strings.
 #'
-#' A rule function is a function that produces a trade signal. A *rule function*
-#'   may implement several rules to produce one signal. The typical use case for
-#'   multiple rules in one rule function would by one rule generating an actual
-#'   trade signal, and one rule triggering a position to be closed, e.g. a stop
+#' A rule variation is a function that produces a trade signal. A
+#'   *rule variation* is produced by a *signal generator*, which may implement
+#'   several rules to produce one signal. The typical use case for multiple
+#'   rules in one *signal generator* would by one rule generating an actual trade
+#'   signal, and one rule triggering a position to be closed, e.g. a stop
 #'   loss rule. (See vignette: `vignette(package = "rsystrade")`)
 #'
 #' `parse_algos()` takes a nested list of algo specifications and expands it to
-#'   a list of all possible permutations of instrument names and rules. Finally
-#'   formats the list so that each element is a list containing one element
-#'   named `instrument` containing an instrument name, and one element named
-#'   `rule` containing one *signal generating rule function* name.
+#'   a list of all possible permutations of instrument names and rules. It then
+#'   finally formats the list so that each element is a list containing one
+#'   element named `instrument` containing an instrument name, and one element
+#'   simply named `rule` containing
+#'   -  one rule variation name
+#'   -  one signal generator function, given as a function name which may be
+#'      a character string or a variable to which the function is assigned.
+#'      Note that the function name should not be followed by parentheses.
+#'   -  One list of variable parameters. The first of these must always be `t`,
+#'      which is provided by the system as it runs. Additional variable params,
+#'      such as `price` will get their values from the instrument data sets.
+#'   -  One list of fixed parameters. These are parameters to the signal
+#'      generator function which are assigned a value.
 #'
 #' Note: In the input sublists we have `rules` (plural, indicating one or
 #'   more), in the output sublists we have `rule` (singular).
 #'
-#' Each rule in the `rules` list for each user-specified algo should be a
-#'   function name provided as a character string. E.g.
-#'    ```
-#'    trade_system$algos[[1]]$rules[[1]] <- "MAC_20_80"
-#'    ```
-#'
-#' #REDUNDANT
-#' #
-#' #With `get_rule_names_by_parsed_algo()` we can parse the name of rule 1
-#' #  (entry rule 1 and exit rule 1 combined) as `"[MA_20_80, stoploss]"`.
-#'
-#' If for instance a moving average crossover rule is defined in the function
-#'   `mac(data, fast, slow)`, a (20, 80) variation should be provided to the
-#'   system as `MA_20_80 <- function(x) {mac(data, 20, 80)}`. (The name
-#'   `MA_20_80` is arbitrary.)
 #'
 #' In the the `algos` list, instruments must be provided as a path to a csv
 #'   file. (For now. Eventually the way the `algos` list is parsed will depends
 #'   on the mode, which can be specified as `sim` for _simulation mode_ or
-#'   `live` for _live mode_.) Rules must be provided as character string
-#'   function names. The *signal generating rule function* name must match the
-#'   name of a function which is loaded into the environment in which the system
-#'   list is stored. In other words: You must define the rule functions in the
-#'   same environment as the one where you call `make_system()` (typically the
-#'   global environment).
+#'   `live` for _live mode_.) Rule variations must be provided as character
+#'   string. The *signal generator* name must match the name of a function which
+#'   is loaded into the environment in which the system list is stored. In other
+#'   words: You must define the signal generators in the same environment as the
+#'   one where you call `make_system()` (typically the global environment).
+#'   *Signal generator* functions included in the rsystrade package are loaded
+#'   into the package env, which will also work.
 #'
 #' `make_system()` loads the unique data sets specified in the parsed algos into
 #'   a sublist named `inst_data`.
 #'
 #' The `algos` parameter is a nested list in one in the following forms.
-#'   Pairs of one instrument and one rule function:
+#'   Pairs of one instrument and one signal generator:
 #'   ```R
 #'   algos <- list(
 #'     list( ## algo 1: algos[[1]]
 #'       instruments = list("instr1"),
-#'       rules = list("rule1")
-#'     ),
-#'     list( ## algo 2: algos[[2]]
-#'       instruments = list("instr2"),
-#'       rules = list("rule2")
+#'       rules = list(rule1)
 #'     )
 #'   )
 #'   ```
-#'   Or we can apply the same rule function to multiple instruments:
+#'   Or we can apply the same signal generator to multiple instruments:
 #'   ```R
 #'   algos <- list(
 #'     list( ## algo 1: algos[[1]]
 #'       instruments = list("instr1", "instr2"),
-#'       rules = list("rule1")
+#'       rules = list(rule1)
 #'     )
 #'   )
 #'   ```
@@ -83,47 +75,88 @@
 #'   algos <- list(
 #'     list( ## algo 1: algos[[1]]
 #'       instruments = list("instr1"),
-#'       rules = list("rule1", "rule2")
+#'       rules = list(rule1, rule2)
 #'     )
 #'   )
 #'   ```
-#'   In these examples `"rule1"` is the name of a rule function. `"rule2"` is
-#'     the name of another rule function. Rule functionnames are supplied as
-#'     character strings.
+#' In these examples `rule1` represents a rule variation. `rule2` represents
+#'   another rule variation. An example of a rule variation might look like
+#'   this:
+#'   ```R
+#'   list(
+#'     "mac_2_4",
+#'     r_mac,
+#'     ma_fast = NA,
+#'     ma_slow = NA,
+#'     n_fast = 2L,
+#'     n_slow = 4L,
+#'     gap = 0,
+#'     strict = TRUE,
+#'     binary = FALSE
+#'   )
+#'   ```
+#' In this example `r_mac` is the name of a function which takes `t` as the
+#'   first parameter and `price` as the second. These are the *variable*
+#'   *parameters*, which get input from the system. The remaining *fixed*
+#'   *parameters* are specified in the remaining elements in the *rule*
+#'   *variation list*.
+#'
+#' `r_mac` is the name of a *rule function*. We may use *rule functions* directly,
+#'   provided that the interface conforms to the standardized interface of a
+#'   *signal generator*. Alternatively we may use a *signal generator*, the name of
+#'   which should be prefixed by `s_`. We may combine several *rule functions*
+#'   in one *signal generator*.
 #'
 #' Subsets are then expanded to all possible permutations:
 #'   ```R
 #'   input <- list(
 #'     list( ## algo 1: algos[[1]]
 #'       instrument = "inst1",
-#'       rule = "rule1"
+#'       rule = list(
+#'         rule_variation = "rule_variation_1",
+#'         signal_generator = signal_generator_1,
+#'         variable_params = variable_params_1,
+#'         fixed_params = fixed_params_1,
+#'       )
 #'     ),
 #'     list( ## algo 2: algos[[2]]
 #'       instrument = "inst2",
-#'       rule = "rule1"
+#'       rule = list(
+#'         rule_variation = "rule_variation_1",
+#'         signal_generator = signal_generator_1,
+#'         variable_params = variable_params_1,
+#'         fixed_params = fixed_params_1,
+#'       )
 #'     )
 #'     list( ## algo 3: algos[[3]]
 #'       instrument = "inst1",
-#'       rule = "rule2"
+#'       rule = list(
+#'         rule_variation = "rule_variation_2",
+#'         signal_generator = signal_generator_2,
+#'         variable_params = variable_params_2,
+#'         fixed_params = fixed_params_2,
+#'       )
 #'     ),
 #'     list( ## algo 4: algos[[4]]
-#'       instrument = "<inst_2_name>",
-#'       rule = "rule2"
+#'       instrument = "inst2",
+#'       rule = list(
+#'         rule_variation = "rule_variation_2",
+#'         signal_generator = signal_generator_2,
+#'         variable_params = variable_params_2,
+#'         fixed_params = fixed_params_2,
+#'       )
 #'     )
 #'   )
 #'   ```
 #'
 #' @param algos A nested list (see specification above)
+#' @param mode `sim` for simulation mode or `live` for live trading mode.
 #'
 #' @return A list where each element is a list containing:
 #'   -  `instrument` An instrument name. The instrument name is also assigned
 #'      to the corresponding data frame as a comment.
-#'   -  `rule` A list containing one signal rule functionname as a character
-#'      string.
-#'
-#' @param mode `sim` for simulation mode or `live` for live trading mode.
-#'
-#' @return
+#'   -  `rule` A list containing one rule variation list (see specification
+#'      above.)
 #'
 #' @examples
 parse_algos <- function(algos, mode = "sim") {
@@ -131,63 +164,6 @@ parse_algos <- function(algos, mode = "sim") {
 
     ## Expand algos nested list to all permutations of algos.
     expanded_algos <- expand_algos(algos)
-
-    ## Collect all instrument paths from expanded_algos
-    # instrument_paths <- list()
-    # for(i in seq_along(expanded_algos)) {
-    #   instrument_paths[i] <- expanded_algos[[i]]$instrument
-    # }
-
-    ## Make list of only unique paths given instrument names from input algos.
-    ## This is only needed if we are loading the data into each algo. But we
-    ## don't do that.
-    #unique_instrument_paths <- unique(instrument_paths)
-    # unique_instrument_paths <-
-    #   get_unique_inst_paths_from_expanded_algos_list(expanded_algos)
-
-    ## Make list of only unique instrument data sets
-    ## This is only needed if we are loading the data into each algo. But we
-    ## don't do that.
-    # unique_inst_data <- list()
-
-    ## Read the data into the list.
-    ## This is only needed if we are loading the data into each algo. But we
-    ## don't do that.
-    # for(i in seq_along(unique_instrument_paths)) {
-    #   unique_inst_data[[i]] <- data.frame(
-    #     read.csv(unique_instrument_paths[[i]]))
-    # }
-
-
-    ## Make a list of instrument data sets
-    #for(i in seq_along(expanded_algos)) {
-    #path_i = algos[[i]]$instruments[[1]]
-    ## This is only needed if we are loading the data into each algo. But we
-    ## don't do that.
-    #expanded_algos[[i]]$path = expanded_algos[[i]]$instrument
-
-    ## Store the data for each algo inside the algo list.
-    ## Note: We don't do that because if different rules are applied to the
-    ## same data set, the same data set will be loaded multiple times (wich
-    ## would work fine, but is not efficient).
-    # expanded_algos[[i]]$data <-
-    #   unique_inst_data[[which(unlist(unique_instrument_paths) ==
-    #                                       expanded_algos[[i]]$path)]]
-
-    ## When input instrument list in algo contains a path instead of a name:
-    ## Set instrument to instrument name instead of instrument data set path
-    # expanded_algos[[i]]$instrument <-
-    #   tools::file_path_sans_ext(basename(expanded_algos[[i]]$path))
-
-    ## Assign name as comment to data frame.
-    ## This is only needed if we are loading the data into each algo. But we
-    ## don't do that.
-    # comment(expanded_algos[[i]]$data) <- expanded_algos[[i]]$instrument
-
-    ## Now we can get the data frame name:
-    ## > comment(expanded_algos[[1]]$data)
-    ## [1] "instrument1"
-    #}
 
     ## Return list of all algos
     expanded_algos
@@ -207,28 +183,68 @@ parse_algos <- function(algos, mode = "sim") {
 #' Takes a nested list of algo specifications and expands it to a list of all
 #'   possible permutations.
 #'
-#' An algo is a pair consisting of an instrument and a rule function.
+#' An algo is composed of one instrument (data) and one rule variation.
 #'
-#'   The `algos` parameter is a nested list in one of the following forms.
-#'   Pairs of one instrument and one rule:
+#' Data sets must be csv files in a single folder. The system configuration must
+#'   include a path to the data folder. Data sets are referenced by their file
+#'   names (excluding extension) as character strings.
+#'
+#' A rule variation is a function that produces a trade signal. A
+#'   *rule variation* is produced by a *signal generator*, which may implement
+#'   several rules to produce one signal. The typical use case for multiple
+#'   rules in one *signal generator* would by one rule generating an actual trade
+#'   signal, and one rule triggering a position to be closed, e.g. a stop
+#'   loss rule. (See vignette: `vignette(package = "rsystrade")`)
+#'
+#' `parse_algos()` takes a nested list of algo specifications and expands it to
+#'   a list of all possible permutations of instrument names and rules. It then
+#'   finally formats the list so that each element is a list containing one
+#'   element named `instrument` containing an instrument name, and one element
+#'   simply named `rule` containing
+#'   -  one rule variation name
+#'   -  one signal generator function, given as a function name which may be
+#'      a character string or a variable to which the function is assigned.
+#'      Note that the function name should not be followed by parentheses.
+#'   -  One list of variable parameters. The first of these must always be `t`,
+#'      which is provided by the system as it runs. Additional variable params,
+#'      such as `price` will get their values from the instrument data sets.
+#'   -  One list of fixed parameters. These are parameters to the signal
+#'      generator function which are assigned a value.
+#'
+#' Note: In the input sublists we have `rules` (plural, indicating one or
+#'   more), in the output sublists we have `rule` (singular).
+#'
+#'
+#' In the the `algos` list, instruments must be provided as a path to a csv
+#'   file. (For now. Eventually the way the `algos` list is parsed will depends
+#'   on the mode, which can be specified as `sim` for _simulation mode_ or
+#'   `live` for _live mode_.) Rule variations must be provided as character
+#'   string. The *signal generator* name must match the name of a function which
+#'   is loaded into the environment in which the system list is stored. In other
+#'   words: You must define the signal generators in the same environment as the
+#'   one where you call `make_system()` (typically the global environment).
+#'   *Signal generator* functions included in the rsystrade package are loaded
+#'   into the package env, which will also work.
+#'
+#' `make_system()` loads the unique data sets specified in the parsed algos into
+#'   a sublist named `inst_data`.
+#'
+#' The `algos` parameter is a nested list in one in the following forms.
+#'   Pairs of one instrument and one signal generator:
 #'   ```R
 #'   algos <- list(
 #'     list( ## algo 1: algos[[1]]
 #'       instruments = list("instr1"),
-#'       rules = list("rule1")
-#'     ),
-#'     list( ## algo 2: algos[[2]]
-#'       instruments = list("instr2"),
-#'       rules = list("rule2")
+#'       rules = list(rule1)
 #'     )
 #'   )
 #'   ```
-#'   Or we can apply the same rule function to multiple instruments:
+#'   Or we can apply the same signal generator to multiple instruments:
 #'   ```R
 #'   algos <- list(
 #'     list( ## algo 1: algos[[1]]
 #'       instruments = list("instr1", "instr2"),
-#'       rules = list("rule1")
+#'       rules = list(rule1)
 #'     )
 #'   )
 #'   ```
@@ -237,17 +253,87 @@ parse_algos <- function(algos, mode = "sim") {
 #'   algos <- list(
 #'     list( ## algo 1: algos[[1]]
 #'       instruments = list("instr1"),
-#'       rules = list("rule1", "rule2")
+#'       rules = list(rule1, rule2)
+#'     )
+#'   )
+#'   ```
+#' In these examples `rule1` represents a rule variation. `rule2` represents
+#'   another rule variation. An example of a rule variation might look like
+#'   this:
+#'   ```R
+#'   list(
+#'     "mac_2_4",
+#'     r_mac,
+#'     ma_fast = NA,
+#'     ma_slow = NA,
+#'     n_fast = 2L,
+#'     n_slow = 4L,
+#'     gap = 0,
+#'     strict = TRUE,
+#'     binary = FALSE
+#'   )
+#'   ```
+#' In this example `r_mac` is the name of a function which takes `t` as the
+#'   first parameter and `price` as the second. These are the *variable*
+#'   *parameters*, which get input from the system. The remaining *fixed*
+#'   *parameters* are specified in the remaining elements in the *rule*
+#'   *variation list*.
+#'
+#' `r_mac` is the name of a *rule function*. We may use *rule functions* directly,
+#'   provided that the interface conforms to the standardized interface of a
+#'   *signal generator*. Alternatively we may use a *signal generator*, the name of
+#'   which should be prefixed by `s_`. We may combine several *rule functions*
+#'   in one *signal generator*.
+#'
+#' Subsets are then expanded to all possible permutations:
+#'   ```R
+#'   input <- list(
+#'     list( ## algo 1: algos[[1]]
+#'       instrument = "inst1",
+#'       rule = list(
+#'         rule_variation = "rule_variation_1",
+#'         signal_generator = signal_generator_1,
+#'         variable_params = variable_params_1,
+#'         fixed_params = fixed_params_1,
+#'       )
+#'     ),
+#'     list( ## algo 2: algos[[2]]
+#'       instrument = "inst2",
+#'       rule = list(
+#'         rule_variation = "rule_variation_1",
+#'         signal_generator = signal_generator_1,
+#'         variable_params = variable_params_1,
+#'         fixed_params = fixed_params_1,
+#'       )
+#'     )
+#'     list( ## algo 3: algos[[3]]
+#'       instrument = "inst1",
+#'       rule = list(
+#'         rule_variation = "rule_variation_2",
+#'         signal_generator = signal_generator_2,
+#'         variable_params = variable_params_2,
+#'         fixed_params = fixed_params_2,
+#'       )
+#'     ),
+#'     list( ## algo 4: algos[[4]]
+#'       instrument = "inst2",
+#'       rule = list(
+#'         rule_variation = "rule_variation_2",
+#'         signal_generator = signal_generator_2,
+#'         variable_params = variable_params_2,
+#'         fixed_params = fixed_params_2,
+#'       )
 #'     )
 #'   )
 #'   ```
 #'
 #' @param algos A nested list (see specification above)
 #'
-#' @return A list where each element is a list containing one element named
-#'   `instrument` containing one instrument as a character string and one list
-#'   named `rule` containing one signal rule function name as a character
-#'   string.
+#' @return A list where each element is a list containing:
+#'   -  `instrument` An instrument name. The instrument name is also assigned
+#'      to the corresponding data frame as a comment.
+#'   -  `rule` A list containing one rule variation list (see specification
+#'      above.)
 #'
 #' @examples
 expand_algos <- function(algos) {
@@ -259,18 +345,43 @@ expand_algos <- function(algos) {
     for(instrument in algos[[subset_ID]]$instruments) {
       for(rule in algos[[subset_ID]]$rules) {
         #if(length(rule) == 1) {
-          expanded_algos[[expanded_algos_ID]] <- list(
-            instrument = instrument,
-            rule = rule)
-          expanded_algos_ID = expanded_algos_ID + 1
+
+        ## Exclude rule name and function
+        fixed_params_names <- names(rule[-c(1, 2)])
+        fixed_params <- rule[-c(1, 2)]
+
+        signal_generator <- rule[[2]]
+
+        ## For now use variable param names as place holders, but data will be
+        ## assigned when the system is running.
+        variable_params <- {x = names(formals(signal_generator)); setdiff(x, fixed_params_names)} ## All params that are not fixed
+        names(variable_params) <- variable_params
+
+        expanded_algos[[expanded_algos_ID]] <- list(
+          instrument = instrument,
+          rule = list(
+            rule_variation = rule[[1]],
+            signal_generator = signal_generator,
+            variable_params = variable_params,
+            fixed_params = fixed_params
+          )
+        )
+
+        expanded_algos_ID = expanded_algos_ID + 1
         #} else {
-          #stop("Exactly one signal rule function name as a character string must be supplied for each algo.")
+          #stop("Exactly one signal signal generator name as a character string must be supplied for each algo.")
         #}
       }
     }
   }
   expanded_algos
 }
+
+
+
+
+
+
 
 # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 # fix§0034
@@ -422,37 +533,36 @@ get_num_rules_per_inst_from_parsed_algos <- function(parsed_algos) {
   num_rules
 }
 
-#' Get Rule Function Names By Parsed Algo
+#' Get Rule Variation Names By Parsed Algo
 #'
 #' @description
-#' Get list of rule function names by parsed algo.
+#' Get list of rule variation names by parsed algo.
 #'
 #' @param parsed_algos
 #'
-#' @return List of rule function names in the order they appear in the parsed
+#' @return List of rule variation names in the order they appear in the parsed
 #'   algos list
 #' @export
 #'
 #' @examples
-get_rule_function_names_by_parsed_algo <- function(parsed_algos) {
-  ## Collect all rule function names from expanded_algos
-  rule_function_names <- list()
+get_rule_variation_names_by_parsed_algo <- function(parsed_algos) {
+  ## Collect all rule variation names from expanded_algos
+  rule_variation_names <- list()
   for(i in seq_along(parsed_algos)) {
-    ## Changed this because each algo now only contains one rule function name.
-    # rule_function_names[[i]] <- lapply(
+    ## Changed this because each algo now only contains one rule variation name.
+    # rule_variation_names[[i]] <- lapply(
     #   parsed_algos[[i]]$rule,
     #   function(x) {x}
     # )
-    rule_function_names[[i]] <- parsed_algos[[i]]$rule
+    rule_variation_names[[i]] <- parsed_algos[[i]]$rule
   }
-  rule_function_names
+  rule_variation_names
 }
 
-#' Get Unique Rule Function Names By Parsed Algo
+#' Get Unique Rule Variation Names By Parsed Algo
 #'
 #' @description
-#' Get list of unique rule function names by parsed algo. These functions are
-#'   either signal rule functions or stop loss rule functions.
+#' Get list of unique rule variation names by parsed algo.
 #'
 #' @param parsed_algos List of expanded algos
 #'
@@ -460,10 +570,10 @@ get_rule_function_names_by_parsed_algo <- function(parsed_algos) {
 #' @export
 #'
 #' @examples
-get_unique_rule_function_names_by_parsed_algo <- function(parsed_algos) {
-  rule_function_names <- get_rule_function_names_by_parsed_algo(parsed_algos)
-  #unique(unlist(rule_function_names))
-  unique(rule_function_names)
+get_unique_rule_variation_names_by_parsed_algo <- function(parsed_algos) {
+  rule_variation_names <- get_rule_variation_names_by_parsed_algo(parsed_algos)
+  #unique(unlist(rule_variation_names))
+  unique(rule_variation_names)
 }
 
 #' Get Rule Names By Parsed Algo
@@ -473,14 +583,14 @@ get_unique_rule_function_names_by_parsed_algo <- function(parsed_algos) {
 #'   names in a list in the same order as they appear in the algos list.
 #'
 #' NOTE:
-#' Since each algo now only accepts exactly one rule function name, this in
-#'   effect does the same as `get_rule_function_names_by_parsed_algo()`, just in
+#' Since each algo now only accepts exactly one rule variation name, this in
+#'   effect does the same as `get_rule_variation_names_by_parsed_algo()`, just in
 #'   a more convoluted way. The rule name is now simply identical to the rule
 #'   function name (whereas earlier, a *rule* would be a list of an arbitrary
-#'   number of rule function names).
+#'   number of rule variation names).
 #'
 #' Rule names are the names of elements in the rule list for each algo, i.e. the
-#'   same as the rule function names.
+#'   same as the rule variation names.
 #'
 #' @param parsed_algos List of expanded algos.
 #'
@@ -488,23 +598,34 @@ get_unique_rule_function_names_by_parsed_algo <- function(parsed_algos) {
 #' @export
 #'
 #' @examples
+# get_rule_names_by_parsed_algo <- function(parsed_algos) {
+#   ## Collect all instrument names from expanded_algos
+#   rule_names <- list()
+#   for(i in seq_along(parsed_algos)) {
+#     rule_names[[i]] <- ""
+#     ## Append each name string to the previous one and separate by comma
+#     for(j in seq_along(parsed_algos[[i]]$rule)) {
+#       rule_names[[i]] <- paste(rule_names[[i]], names(parsed_algos[[i]]$rule[[j]]), sep = ",")
+#     }
+#
+#     ## Remove leading comma
+#     rule_names[[i]] <- substring(rule_names[[i]], 2)
+#     ## Add square brackets (no need)
+#     #rule_names[i] <- paste0("[",rule_names[i], "]")
+#   }
+#
+#   ## Make list of only rule names
+#   rule_names
+# }
+
 get_rule_names_by_parsed_algo <- function(parsed_algos) {
   ## Collect all instrument names from expanded_algos
-  rule_names <- list()
-  for(i in seq_along(parsed_algos)) {
-    rule_names[[i]] <- ""
-    ## Append each name string to the previous one and separate by comma
-    for(j in seq_along(parsed_algos[[i]]$rule)) {
-      rule_names[[i]] <- paste(rule_names[[i]], names(parsed_algos[[i]]$rule[[j]]), sep = ",")
+  rule_names <- lapply(
+    parsed_algos,
+    function(parsed_algo) {
+      parsed_algo$rule[[1]]
     }
-    ## Remove leading comma
-    rule_names[[i]] <- substring(rule_names[[i]], 2)
-    ## Add square brackets (no need)
-    #rule_names[i] <- paste0("[",rule_names[i], "]")
-  }
-
-  ## Make list of only rule names
-  rule_names
+  )
 }
 
 #' Get Unique Rule Names From Expanded Algos List
@@ -515,13 +636,13 @@ get_rule_names_by_parsed_algo <- function(parsed_algos) {
 #'
 #' NOTE:
 #' This in effect does the same as
-#'   `get_unique_rule_function_names_by_parsed_algo()`. This is because
+#'   `get_unique_rule_variation_names_by_parsed_algo()`. This is because
 #'   `get_rule_names_by_parsed_algo()` in effect does the same as
-#'   `get_rule_function_names_by_parsed_algo()`. See help file for
+#'   `get_rule_variation_names_by_parsed_algo()`. See help file for
 #'   `get_rule_names_by_parsed_algo()`.
 #'
 #' To get the names of all unique signal and stop loss rules, use
-#'   `get_unique_rule_function_names_by_parsed_algo()`.
+#'   `get_unique_rule_variation_names_by_parsed_algo()`.
 #'
 #' @param parsed_algos List of expanded algos.
 #'

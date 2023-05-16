@@ -18,5 +18,5 @@ Older to newer. The last observation is time t.}
 A single price value
 }
 \description{
-Highest price since entry of a current open position.
+Highest price since entry of a current (time t) open position.
 }

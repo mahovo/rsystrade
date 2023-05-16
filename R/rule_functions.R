@@ -16,11 +16,11 @@
 #' `ma_fast` and `ma_slow` inputs are typically single steps of moving averages,
 #'   but can be vectors.
 #'
-#' On a side note, `mac_rule()` doesn't check that `ma_fast` and `ma_slow`
+#' On a side note, `r_mac()` doesn't check that `ma_fast` and `ma_slow`
 #'   inputs are in fact calculated as a moving averages. Any number or vector
 #'   will work.
 #'
-#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#' @param price A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer. The last observation is time t.
 #' @param ma_fast A number. Fast _moving average_. Vector or single numeric.
 #' @param ma_slow A number. Slow _moving average_. Vector or single numeric.
@@ -31,7 +31,7 @@
 #' @param gap A positive integer. Gap size in same unit as the parameters above
 #'   (typically days).
 #' @param strict Boolean. If `strict=TRUE`, `n_slow` must be smaller than the
-#'   number of prices in the `prices` vector, and `n_slow` must be greater than
+#'   number of prices in the `price` vector, and `n_slow` must be greater than
 #'   `n_fast`.
 #' @param binary If `TRUE`: Binary mode. If `FALSE`: Proportional signal.
 #' In binary mode returns
@@ -48,9 +48,9 @@
 #' @export
 #'
 #' @example
-mac_rule <- function(
-    prices,
+r_mac <- function(
     t = NA,
+    price,
     ma_fast = NA,
     ma_slow = NA,
     n_fast = 20L,
@@ -59,7 +59,7 @@ mac_rule <- function(
     strict = TRUE,
     binary = FALSE) {
 
-  if(is.na(t)) {t = length(prices)} ## Set t to last item if no t is provided
+  if(is.na(t)) {t = length(price)} ## Set t to last item if no t is provided
 
   ## If ma_fast or ma_slow is NA, calculate both values
   if((!is.na(ma_fast)) * (!is.na(ma_slow)) == 0) {
@@ -70,16 +70,16 @@ mac_rule <- function(
       warning("n_fast is equal to n_slow.")
     }
     if(strict == TRUE) {
-      stopifnot(length(prices) > n_slow + 1)
+      stopifnot(length(price) > n_slow + 1)
       stopifnot(n_slow > n_fast)
     }
     ma_fast <- f_moving_average(
-      prices,
+      price,
       t,
       n_fast
     )
     ma_slow <- f_moving_average(
-      prices,
+      price,
       t,
       n_slow
     )
@@ -142,9 +142,9 @@ mac_rule <- function(
 #' @export
 #'
 #' @examples
-stop_loss_rule <- function(
+r_stop_loss <- function(
+    t,
     prices,
-    t = NA,
     instrument_risk, # at time t-1
     stop_loss_fraction,
     t_last_position_entry, # at time t-1

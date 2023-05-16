@@ -10,6 +10,6 @@ get_inst_names_by_parsed_algo(parsed_algos)
 \item{parsed_algos}{List of expanded algos.}
 }
 \description{
-The instrument name from each parsed algo and place the names in a list in
-the same order as they appear in the algos list.
+Get the instrument name from each parsed algo and place the names in a list
+in the same order as they appear in the algos list.
 }

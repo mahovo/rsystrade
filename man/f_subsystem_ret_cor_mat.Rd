@@ -4,7 +4,7 @@
 \alias{f_subsystem_ret_cor_mat}
 \title{Subsystem Returns Correlation Matrix}
 \usage{
-f_subsystem_ret_cor_mat(subsystem_returns, method = "Pearson")
+f_subsystem_ret_cor_mat(subsystem_returns, method = "Pearson", min_cor)
 }
 \arguments{
 \item{subsystem_returns}{Dataframe where each columns is a vector of

@@ -13,12 +13,16 @@ get_rule_names_by_parsed_algo(parsed_algos)
 List of character strings.
 }
 \description{
-Gets the rule name as a character string from each parsed algo and place the
-names in a list in the same order as they appear in the algos list. Each
-rule is a combination of one signal rule and optionally one stop loss rule.
+Gets the rule name as a character string from each parsed algo and places the
+names in a list in the same order as they appear in the algos list.
 
-To get the names of all signal and stop loss rules, use
-\code{get_rule_function_names_by_parsed_algo()}.
+NOTE:
+Since each algo now only accepts exactly one rule variation name, this in
+effect does the same as \code{get_rule_variation_names_by_parsed_algo()}, just in
+a more convoluted way. The rule name is now simply identical to the rule
+function name (whereas earlier, a \emph{rule} would be a list of an arbitrary
+number of rule variation names).
 
-Rule names are the names of elements in the rule list for each algo.
+Rule names are the names of elements in the rule list for each algo, i.e. the
+same as the rule variation names.
 }

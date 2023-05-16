@@ -6,7 +6,6 @@
 \usage{
 update_position_table_row(
   inst_data,
-  rule_functions,
   position_table,
   raw_combined_signal,
   signal_div_mult,

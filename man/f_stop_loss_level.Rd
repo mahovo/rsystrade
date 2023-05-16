@@ -4,7 +4,7 @@
 \alias{f_stop_loss_level}
 \title{Stop loss level}
 \usage{
-f_stop_loss_level(hwm, lwm, stop_loss_gap, direction = 0, rnd = TRUE)
+f_stop_loss_level(hwm, lwm, stop_loss_gap, direction = 0, rnd = FALSE)
 }
 \arguments{
 \item{hwm}{High Water Mark.}

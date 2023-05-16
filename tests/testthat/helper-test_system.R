@@ -7,15 +7,15 @@ make_test_algos <- function(
       list( ## We might name this "subset1"
         instruments = list("testdata3"),
         rules = list(
-            signal_generator_1,
-            signal_generator_2
+            rule1 = signal_generator_1,
+            rule2 = signal_generator_2
           )
       ),
       list( ## We might name this "subset2"
         instruments = list("testdata4"),
         rules = list(
-          signal_generator_1,
-          signal_generator_2
+          rule1 = signal_generator_1,
+          rule2 = signal_generator_2
         )
       )
   )
@@ -65,7 +65,8 @@ make_test_system <- function() {
 
   algos <- make_test_algos(
     list(
-      mac_rule,
+      "mac_2_4",
+      r_mac,
       ma_fast = NA,
       ma_slow = NA,
       n_fast = 2L,
@@ -75,7 +76,8 @@ make_test_system <- function() {
       binary = FALSE
     ),
     list(
-      mac_rule,
+      "mac_3_9",
+      r_mac,
       ma_fast = NA,
       ma_slow = NA,
       n_fast = 3L,

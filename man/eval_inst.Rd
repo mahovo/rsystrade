@@ -7,7 +7,7 @@
 eval_inst(instrument_name)
 }
 \arguments{
-\item{rule_name}{Instrument data set name as a character string.}
+\item{instrument_name}{Instrument data set name as a character string.}
 }
 \value{
 Data frame

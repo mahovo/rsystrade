@@ -4,7 +4,7 @@
 \alias{f_ewa_cor}
 \title{Exponential Wrighted Correlation}
 \usage{
-f_ewa_cor(x, y, lookback)
+f_ewa_cor(x, y, lookback, min_cor_mat)
 }
 \arguments{
 \item{x}{Vector}

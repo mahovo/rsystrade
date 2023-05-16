@@ -75,26 +75,17 @@ If present, the stop loss rule is applied in the positions stage.
   algos <- list(
     list(
       instrument = <instrument_name>,
-      algo = list(
-        <signal_rule_function>,
-        <stop_loss_rule_function>
-      )
+      rule_function = <rule_function_name>
     ),
     list(
       instrument = <instrument_name>,
-      algo = list(
-        <signal_rule_function>,
-        <stop_loss_rule_function>
-      )
+      rule_function = <rule_function_name>
     ),
     ...,
     list(
       instrument = <instrument_name>,
-      algo = list(
-        <signal_rule_function>,
-        <stop_loss_rule_function>
-      )
-    ),
+      rule_function = <rule_function_name>
+    )
   ),
   signal_tables <- list(
     data.frame(),

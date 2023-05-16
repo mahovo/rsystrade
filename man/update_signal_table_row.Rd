@@ -5,24 +5,24 @@
 \title{Update Signal Table Row}
 \usage{
 update_signal_table_row(
+  t,
   inst_data,
   algo,
-  rule_function,
   signal_table,
   signal_weight,
   signal_normalization_factor,
-  t,
+  position_table,
   config
 )
 }
 \arguments{
+\item{t}{Time index.}
+
 \item{algo}{Algo list for a single expanded algo.}
 
 \item{signal_table}{Signal table data frame.}
 
 \item{signal_weight}{Signal weight.}
-
-\item{t}{Time index.}
 
 \item{config}{List of trade system configuration values.}
 }

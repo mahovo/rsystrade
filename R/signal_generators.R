@@ -1,13 +1,10 @@
-s_mac_25_100 <- function(
-    prices,
+
+s_mac_stoploss <- function(
+    t = t,
+    price = price,
     signal_table,
     position_table,
-    t,
-    config
-  ) {
-  mac_rule(
-    prices,
-    t = t,
+    config,
     ma_fast = NA,
     ma_slow = NA,
     n_fast = 25L,
@@ -15,21 +12,12 @@ s_mac_25_100 <- function(
     gap = 0,
     strict = TRUE,
     binary = FALSE
-  )
-}
-
-s_mac_25_100_stoploss <- function(
-    prices,
-    signal_table,
-    position_table,
-    t,
-    config
 ) {
 
   combine_rules <- function() {
-    mac_signal <- mac_rule(
-      prices,
+    mac_signal <- r_mac(
       t = t,
+      price = price,
       ma_fast = NA,
       ma_slow = NA,
       n_fast = 25L,
@@ -39,7 +27,7 @@ s_mac_25_100_stoploss <- function(
       binary = FALSE
     )
 
-    stop_loss_signal <- stop_loss_rule(
+    stop_loss_signal <- r_stop_loss(
       prices,
       t = NA,
       position_table$instrument_risk[t - 1],

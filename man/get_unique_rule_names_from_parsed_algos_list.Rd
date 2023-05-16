@@ -16,6 +16,13 @@ List of character strings.
 Get the unique rule names from an expanded algos list. Each rule is a
 combination of one signal rule and optionally one stop loss rule.
 
+NOTE:
+This in effect does the same as
+\code{get_unique_rule_variation_names_by_parsed_algo()}. This is because
+\code{get_rule_names_by_parsed_algo()} in effect does the same as
+\code{get_rule_variation_names_by_parsed_algo()}. See help file for
+\code{get_rule_names_by_parsed_algo()}.
+
 To get the names of all unique signal and stop loss rules, use
-\code{get_unique_rule_function_names_by_parsed_algo()}.
+\code{get_unique_rule_variation_names_by_parsed_algo()}.
 }
