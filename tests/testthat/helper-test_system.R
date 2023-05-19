@@ -22,11 +22,12 @@ make_test_algos <- function(
 }
 
 make_test_system <- function() {
+  #n = 20
   min_periods <- 10L
 
   ## *** Generate instrument data ***
 
-  #times <- timeDate::as.timeDate(seq(from = as.Date("2000-01-01"), by = "day", length.out = n))
+  # #times <- timeDate::as.timeDate(seq(from = as.Date("2000-01-01"), by = "day", length.out = n))
   # times <- 1:20
   #
   # prices1 <- 100 + c(0, 1, 2, 3, 4, 5, 4, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5)/100
@@ -60,8 +61,8 @@ make_test_system <- function() {
   # )
   # names(df2) <- c("time", "price")
   # names(df2)
-  # write.csv(df1, testthat::test_path("fixtures/", "testdata3.csv"))
-  # write.csv(df2, testthat::test_path("fixtures/", "testdata4.csv"))
+  # write.csv(df1, testthat::test_path("fixtures/", "testdata3.csv"), row.names=FALSE)
+  # write.csv(df2, testthat::test_path("fixtures/", "testdata4.csv"), row.names=FALSE)
 
   algos <- make_test_algos(
     list(

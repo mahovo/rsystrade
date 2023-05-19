@@ -1056,6 +1056,7 @@ load_instrument_data_sets <- function(
   }
   names(unique_instrument_data_sets) <- get_unique_inst_names_from_parsed_algos_list(parsed_algos)
   unique_instrument_data_sets
+
 }
 
 #' Load Rule Functions
@@ -1206,10 +1207,7 @@ calculate_signal_weights <- function(algos, method = "equal") {
 #'   factor is the _required leverage target_.
 #'
 #' `update_signal_normalization_factors()` calculates the normalization factors
-#'   and updates the `normalization_factor` in each algo list.
-#'
-#' `normalization_factors()` calculates the normalization_factors for all
-#'   signals based on the algos list.
+#'   and updates the `signal_normalization_factors` list.
 #'
 #' @param parsed_algos Parsed algos list from trade system.
 #' @param signal_tables Signal tables list from trade system.
@@ -1272,7 +1270,9 @@ update_signal_normalization_factors <- function(
     args = list(equal_norm_factor = 1)
   ) {
     n <- get_num_rules_from_parsed_algos_list(parsed_algos)
-    as.list(rep(args$equal_norm_factor, n))
+    factors <- as.list(rep(args$equal_norm_factor, n))
+    names(factors) <- get_unique_rule_names_from_parsed_algos_list(parsed_algos)
+    factors
   }
 
   pool_traded <- function(
@@ -1283,7 +1283,7 @@ update_signal_normalization_factors <- function(
     ## list
     rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
 
-    ## Get all unique rule names in a list
+    ## Get all unique rule variation names in a list
     all_unique_rule_names <- get_unique_rule_names_from_parsed_algos_list(parsed_algos)
 
     ## For each unique rule name, get the IDs of that rule in the
@@ -1297,11 +1297,11 @@ update_signal_normalization_factors <- function(
     ## We are assuming that algos are in the same order as signal tables
     raw_signals_list <- list()
     for(rule in unlist(all_unique_rule_names)) {
-      ll <- lapply(
+      all_raw_signals <- lapply(
         signal_tables[unlist(IDs_grouped_by_rule_names[rule])],
         function(x) {x$raw_signal}
       )
-      df <- data.frame(ll)
+      df <- data.frame(all_raw_signals)
       names(df) <- NULL
       raw_signals_list[[rule]] <- df
     }
@@ -1331,11 +1331,12 @@ update_signal_normalization_factors <- function(
 
   median_pool_all <- function(
     parsed_algos, ## parsed (expanded) algos
-    data_sets, ## instrument data sets
+    data_sets, ## data frames
     args = list(min_periods_median_pool_all = 250)
   ) {
 
     ## Get number of rows from first data set.
+    ## Brave assuming that all data sets have same number of rows!
     num_rows <- nrow(data_sets[[1]])
     num_data_sets <- length(data_sets)
     min_periods <- args$min_periods_median_pool_all
@@ -1350,77 +1351,113 @@ update_signal_normalization_factors <- function(
     ## Get all unique rule names in a list
     all_unique_rule_names <-get_unique_rule_names_from_parsed_algos_list(parsed_algos)
 
+    ## Get instrument name for each algo in the order they appear in the algos list
+    inst_names_by_algo <-  get_inst_names_by_parsed_algo(parsed_algos)
+
+    ## Get all unique instrument names in a list
+    all_unique_inst_names <- get_unique_inst_names_from_parsed_algos_list(parsed_algos)
+
+    instruments <- lapply(all_unique_inst_names,
+                              function(x) {
+                                #ID = which(x == rule_names_by_algo)[1]
+                                #This should be equivalent:
+                                ID = match(x, inst_names_by_algo)
+                                ## Get functions at each ID in algos list
+                                parsed_algos[[ID]]$instrument
+                                # c(
+                                #  parsed_algos[[ID]]$rule[1],
+                                #  parsed_algos[[ID]]$rule[2]
+                                # )
+                              }
+    )
+
+
     ## For each unique rule name, get the first ID of that rule in the
     ## rule_names_by_algo list
-    rule_functions <- lapply(all_unique_rule_names,
+    rule_variations <- lapply(all_unique_rule_names,
                              function(x) {
                                #ID = which(x == rule_names_by_algo)[1]
                                #This should be equivalent:
                                ID = match(x, rule_names_by_algo)
                                ## Get functions at each ID in algos list
-                               ## Exit rule should be 0 or 1. The combined
-                               ## rule is the product of entry and exit rule.
-                               ## (Exit rule is optional, i.e constant 1 if
-                               ## omitted.)
-                               c(
-                                 parsed_algos[[ID]]$rule[1],
-                                 parsed_algos[[ID]]$rule[2]
-                               )
+                               parsed_algos[[ID]]$rule
+                               # c(
+                               #  parsed_algos[[ID]]$rule[1],
+                               #  parsed_algos[[ID]]$rule[2]
+                               # )
                              }
     )
 
     ## Make list of algos for simulation
     sim_algos <- list()
     k <- 1
-    for(i in seq_along(rule_functions)) {
-      for(j in seq_along(data_sets)) {
+    for(i in seq_along(rule_variations)) {
+      for(j in seq_along(instruments)) {
         sim_algos[[k]] <- list(
-          "data" = data_sets[[j]],
-          "rule" = list(
-            rule_functions[[i]][[1]], ## Entry rule
-            rule_functions[[i]][[2]]  ## Exit rule
-          )
+          #"data" = data_sets[[j]],
+          instrument = instruments[[j]],
+          rule = rule_variations[[i]]
+          #list(
+            #rule_functions[[i]][[1]],
+            #rule_functions[[i]]#[[2]]
+          #)
         )
         k <- k + 1
       }
     }
 
+
     ## For each unique rule, apply that rule to all instruments.
+    ## (sim_algos contains one algo per unique rule.)
+    ## One raw signals data frame for each rule.
+    ## In each raw signals data frame one column for each instrument.
     ## Each column in raw_signals_df is a signal vector.
-    ## One data frame for each rule.
-    ## In each data frame, one column for each instrument.
-    raw_signals_df <- data.frame()
-    for(i in seq_along(sim_algos)) {
-      for(t in (min_periods + 1):num_rows) {
+    # raw_signals_df <- data.frame()
+    # for(i in seq_along(sim_algos)) {
+    #   for(t in (min_periods + 1):num_rows) {
+    #     raw_signals_df[i, t] <- generate_signal(
+    #       variable_param_vals = get_variable_param_vals(
+    #         t = t,
+    #         inst_data = data_sets[[i]],
+    #         algo = sim_algos[[i]]
+    #       ),
+    #       #prices, ## For now only price data is allowed as input for rules
+    #       algo = sim_algos[[i]]#,
+    #       #rule_function
+    #       #trade_system$signal,
+    #     )
+    #     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+    #
+    #   }
+    #
+    # }
 
-        # TODO
-        # Should handle situation with no exit rule.
-
-        # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-        # fix§0039
-        # No good here:
-        # trade_system$signal_tables
-        # trade_system$position_tables
-        #
-        #
-        # raw_signals_df[i, t] <- apply_rule(
-        #   sim_algos[[i]],
-        #   trade_system$signal_tables[[i]],
-        #   trade_system$position_tables[[i]],
-        #   t
-        # )
-
-        raw_signals_df[i, t] <- generate_signal(
-          prices, ## For now only price data is allowed as input for rules
-          sim_algos[[i]],
-          rule_function
-          #trade_system$signal,
-        )
-        # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-
+    raw_signals_dfs <- list()
+    for(i in seq_along(rule_variations)) {
+      raw_signals_df <- data.frame()
+      for(j in seq_along(instruments)){
+        for(t in (min_periods + 1):num_rows) {
+          ID <- length(instruments) * (i - 1) + j
+          raw_signals_df[t, j] <- generate_signal(
+            variable_param_vals = get_variable_param_vals(
+              t = t,
+              inst_data = data_sets[[j]],
+              algo = sim_algos[[ID]]
+            ),
+            #prices, ## For now only price data is allowed as input for rules
+            algo = sim_algos[[ID]]#,
+            #rule_function
+            #trade_system$signal,
+          )
+        }
       }
+      raw_signals_dfs[[i]] <- raw_signals_df
     }
 
+
+
+    ## Each raw_signals data frame contains columns of signal vectors for one
+    ## rule applied to all instruments, one column for each instrument.
     ## Calculate cross section medians across all instruments for each
     ## rule.
     ## Columns are vectors of cross section medians across all instruments for
@@ -1428,20 +1465,26 @@ update_signal_normalization_factors <- function(
     ## Each column in cs_medians corresponds to a rule.
     ## Rows are observations (oldest to newest, so higher row numbers mean newer).
     cs_medians <- data.frame()
-    for(i in seq_along(data_sets)) {
-      for(j in 1:(num_rows - min_periods)) {
-
-        cs_medians[j, i] <- stats::median(unlist(raw_signals_df[j, ])) ## Row median
+    for(i in seq_along(raw_signals_dfs)) {
+      for(j in (min_periods + 1):num_rows) {
+        k <- j - min_periods
+        cs_medians[k, i] <- stats::median(unlist(raw_signals_dfs[[i]][j, ])) ## Row median
       }
     }
+
 
     ## Take mean absolute value of each vector of medians
     mav_for_each_rule <- lapply(
       cs_medians,
-      function(x) {unlist(mean(abs(x)))}
+      #function(x) {unlist(mean(abs(x)))}
+      function(x) {mean(abs(x))}
     )
 
-    target / unlist(mav_for_each_rule)
+    factors <- as.list(target / unlist(mav_for_each_rule, use.names = FALSE))
+    #target / mav_for_each_rule
+
+    names(factors) <- unlist(get_unique_rule_names_from_parsed_algos_list(parsed_algos))
+    factors
   }
 
   pool_class <-  function() {
@@ -1466,6 +1509,27 @@ update_signal_normalization_factors <- function(
     "pool_class" = pool_class()
   )
 }
+
+
+#' Get Values Of Variable Paramaters
+#'
+#' @param t
+#' @param inst_data Instrument data set as data frame
+#' @param algo Algo
+#'
+#' @return Named list of parameter values
+#' @export
+#'
+#' @examples
+get_variable_param_vals <- function(t, inst_data, algo) {
+  c(
+    ## t must be the first variable param
+    list(t = t),
+    ## Exclude t, which we get as the system is running
+    inst_data[names(algo$rule$variable_params[-1])]
+  )
+}
+
 
 #' Generate Trade Signal From Rule
 #'
@@ -1525,20 +1589,6 @@ update_signal_normalization_factors <- function(
 #
 #   raw_signal
 # }
-
-
-
-get_variable_param_vals <- function(t, inst_data, algo) {
-  c(
-    ## t must be the first variable param
-    list(t = t),
-    ## Exclude t, which we get as the system is running
-    inst_data[names(algo$rule$variable_params[-1])]
-  )
-}
-
-
-
 generate_signal <- function(
     variable_param_vals, ## list. The first param must be t
     #signal_table,

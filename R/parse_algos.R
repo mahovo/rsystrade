@@ -346,7 +346,7 @@ expand_algos <- function(algos) {
       for(rule in algos[[subset_ID]]$rules) {
         #if(length(rule) == 1) {
 
-        ## Exclude rule name and function
+        ## Exclude rule name and signal generator function
         fixed_params_names <- names(rule[-c(1, 2)])
         fixed_params <- rule[-c(1, 2)]
 
