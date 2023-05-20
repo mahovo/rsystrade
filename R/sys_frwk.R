@@ -13,7 +13,6 @@
 #'   * `init_capital`
 #'   * `system_risk_target`
 #'   * `risk_window_length`
-#'   * `stop_loss_fraction`
 #'   * `min_periods`
 #'   * `min_signal`
 #'   * `max_signal`
@@ -36,7 +35,8 @@
 #' @param system_risk_target System risk target as decimal fraction (percent
 #'   divided by 100).
 #' @param risk_window_length Risk window length.
-#' @param stop_loss_fraction Stop loss fraction.
+#' @param position_modifiers Named list of position modifier functions. Names
+#'   should be the names of the corresponding instruments.
 #' @param min_periods Minimum number of periods (rows) in the data sets.
 #'   Defaults to 1.
 #' @param min_signal Minimum signal value.
@@ -111,7 +111,7 @@ make_system <- function(
     init_capital = 100000,
     system_risk_target = 0.12,
     risk_window_length = 25,
-    stop_loss_fraction = 0.5,
+    position_modifiers = list(),
     min_periods = 1,
     min_signal = -2,
     max_signal = 2,
@@ -122,7 +122,6 @@ make_system <- function(
       init_capital = init_capital,
       system_risk_target = system_risk_target,
       risk_window_length = risk_window_length,
-      stop_loss_fraction = stop_loss_fraction,
       min_periods = min_periods,
       min_signal = min_signal,
       max_signal = max_signal,
@@ -239,6 +238,20 @@ make_system <- function(
   }
   names(position_tables) <- inst_names
 
+  ## Initialize list of position modifiers.
+  ## User may provide a named list where the names are instrument names and
+  ## values are position modifier functions.
+  ## parse_position_modifiers() creates a named list. Each element corresponds
+  ## to an instrument, in the order instruments occur in the inst_data list.
+  ## The name of each element is the name of the instrument.
+  ## User provided position modifier functions will be assigned to the
+  ## appropriate elemet in the list.
+  ## Any position modifier function for which the name doesn't match any
+  ## instrument in the system, will be ignored.
+  ## If no position modifier function is assigned to an instrument, the position
+  ## of that instrument will not be modified.
+  position_modifiers <- parse_position_modifiers(position_modifiers, inst_names)
+
   ## Totals for entire system
   system_account_table <- data.frame(
 
@@ -280,6 +293,7 @@ make_system <- function(
     signal_normalization_factors = signal_normalization_factors,
     signal_tables = signal_tables,
     position_tables = position_tables,
+    position_modifiers = position_modifiers,
     system_account_table = system_account_table,
     # signal_cor_mat = signal_cor_mat,
     config = config
@@ -547,6 +561,7 @@ update_system <- function(
       #trade_system$rule_functions,
       #signal_tables[[i]], ## Current signal_table (not yet in system)
       trade_system$position_tables[[i]], ## position_table
+      trade_system$position_modifiers[[i]],
       raw_combined_signals[[i]],
       signal_div_mult_vect[i], ## SDM value
       instrument_weights[i],
@@ -682,9 +697,10 @@ update_signal_table_row <- function(
 #'
 #' Update the position table accordingly.
 #'
-#' @param algo Single algo from the expanded algos list.
+#' @param inst_data Instrument data table.
 #' @param signal_table Signal table.
 #' @param position_table Position table.
+#' @param position_modifier Position modifier function.
 #' @param raw_combined_signal Raw combined signal value.
 #' @param signal_div_mult Signal diversification multiplier.
 #' @param subsystem_ret_cor_mat Subsystem returns correlation matrix.
@@ -702,6 +718,7 @@ update_position_table_row <- function(
   #rule_functions,
   #signal_table,
   position_table,
+  position_modifier,
   raw_combined_signal,
   signal_div_mult,
   instrument_weight,
@@ -755,155 +772,133 @@ update_position_table_row <- function(
     #   inst_div_mult
     # )
 
-    # ST, p. 133
-    rescaled_combined_signal <- raw_combined_signal * inst_div_mult
+  # ST, p. 133
+  rescaled_combined_signal <- raw_combined_signal * inst_div_mult
 
-    clamped_combined_signal <- clamp_signal(
-      rescaled_combined_signal,
-      min_signal = config$min_signal,
-      max_signal = config$max_signal
-    )
+  clamped_combined_signal <- clamp_signal(
+    rescaled_combined_signal,
+    min_signal = config$min_signal,
+    max_signal = config$max_signal
+  )
 
-    required_leverage_factor <- f_required_leverage_factor(
-      instrument_risk_target,
-      instrument_risk
-    )
+  required_leverage_factor <- f_required_leverage_factor(
+    instrument_risk_target,
+    instrument_risk
+  )
 
-    subsystem_position <- calculate_subsystem_position(
-      clamped_combined_signal,
-      required_leverage_factor
-    )
+  subsystem_position <- calculate_subsystem_position(
+    clamped_combined_signal,
+    required_leverage_factor
+  )
 
-    if(latest_trade_direction == direction) { ## No change in direction
-      enter_or_exit <- "---"
-      trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
-      t_last_position_entry <- position_table$t_last_position_entry[t - 1]
-    } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
-      enter_or_exit <- "enter"
-      t_last_position_entry <- t
-      trade_on <- TRUE
-    } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
-      enter_or_exit <- "exit"
-      trade_on <- FALSE
-      t_last_position_entry <- "---"
-    } else if(latest_trade_direction * direction == -1) { ## If changing direction
-      enter_or_exit <- "reverse"
-      trade_on <- TRUE
-      t_last_position_entry <- t
-    } else {
-      enter_or_exit <- NA
-      t_last_position_entry <- NA
-      trade_on <- NA
-    }
-
-    ## Stop loss is not calculated here anymore.
-    ## Instead stop loss should be included in the signal generator function.
-
-    ## stop_loss acts as a gate.
-    ## If stop_loss == 1, the signal is allowed to pass through unchanged.
-    ## If stop_loss == 0, the signal is changed to 0.
-    #stop_loss <- 1
-    #stop_loss_gap <- NA
-
-    # if(trade_on == TRUE) {
-    #   ## apply stop loss rule
-    #   if(length(algo$rule) == 2) {
-    #     stop_loss <- rule_functions[[ algo$rule[[2]] ]](
-    #       prices,
-    #       t,
-    #       instrument_risk,
-    #       config$stop_loss_fraction,
-    #       t_last_position_entry,
-    #       direction,
-    #       rnd = false
-    #     )
-    #
-    #     ## for now the stop loss rule must return a list of a stop loss signal
-    #     ## and a stop loss gap. gop extracted for book keeping.
-    #     ## extract separate variables
-    #     stop_loss_gap <- stop_loss$stop_loss_gap
-    #     stop_loss <- stop_loss$stop_loss
-    #
-    #     subsystem_position <- subsystem_position * stop_loss
-    #   }
-    # }
+  if(latest_trade_direction == direction) { ## No change in direction
+    enter_or_exit <- "---"
+    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
+  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
+    enter_or_exit <- "enter"
+    t_last_position_entry <- t
+    trade_on <- TRUE
+  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
+    enter_or_exit <- "exit"
+    trade_on <- FALSE
+    t_last_position_entry <- "---"
+  } else if(latest_trade_direction * direction == -1) { ## If changing direction
+    enter_or_exit <- "reverse"
+    trade_on <- TRUE
+    t_last_position_entry <- t
+  } else {
+    enter_or_exit <- NA
+    t_last_position_entry <- NA
+    trade_on <- NA
+  }
 
 
-    ## Notional exposure in account currency
-    notional_exposure <- f_notional_exposure(
-      clamped_combined_signal,
-      system_account_table$capital[t - 1],
-      required_leverage_factor,
-      instrument_weight
-    )
-
-    ## position_size_units
-    # position_size_units <- f_position_size_units(
-    #   price,
-    #   risk_target,
-    #   system_account_table$capital[t - 1],
-    #   instrument_risk
-    # )
-    target_position_size_units <- f_target_position_size_units(
-      notional_exposure,
-      prices[t] #,
-      # TODO
-      # Uncomment when implementing fx rates:
-      #fx_rate # default 1
-    )
 
 
-    ## Actual traded position in rounded number of contracts
-    position_size_units <- f_position_units(target_position_size_units)
+  ## Notional exposure in account currency
+  notional_exposure <- f_notional_exposure(
+    clamped_combined_signal,
+    system_account_table$capital[t - 1],
+    required_leverage_factor,
+    instrument_weight
+  )
 
-    ## Actual position size in units account currency
-    position_size_ccy <- f_position_size_ccy(
-      prices[t],
-      position_size_units
-    )
+  ## position_size_units
+  # position_size_units <- f_position_size_units(
+  #   price,
+  #   risk_target,
+  #   system_account_table$capital[t - 1],
+  #   instrument_risk
+  # )
+  target_position_size_units <- f_target_position_size_units(
+    notional_exposure,
+    prices[t] #,
+    # TODO
+    # Uncomment when implementing fx rates:
+    #fx_rate # default 1
+  )
 
-    ## Starter System: No position adjustment.
-    #prev_position_size_units <- trades_data$position_size_units[t - 1]
-    #prev_position_size_ccy <- trades_data$position_size_ccy[t - 1]
 
-    #trade_amount_units <- (position_size_units - prev_position_size_units) * direction
-    #trade_amount_ccy <- (position_size_ccy - prev_position_size_ccy) * direction
+  ## Actual traded position in rounded number of contracts
+  position_size_units <- f_position_units(target_position_size_units)
+
+  ## Actual position size in units account currency
+  position_size_ccy <- f_position_size_ccy(
+    prices[t],
+    position_size_units
+  )
+
+  modified_position_size_ccy <- modify_position(
+    t,
+    inst_data,
+    position_modifier,
+    position_size_ccy,
+    ...
+  )
+
+  ## Starter System: No position adjustment.
+  #prev_position_size_units <- trades_data$position_size_units[t - 1]
+  #prev_position_size_ccy <- trades_data$position_size_ccy[t - 1]
+
+  #trade_amount_units <- (position_size_units - prev_position_size_units) * direction
+  #trade_amount_ccy <- (position_size_ccy - prev_position_size_ccy) * direction
 
 
-    ## Simple System:
-    ## When entering a trade, amount of cash and capital should always be
-    ## the same, as we only trade one instrument, and always exit the trade
-    ## before entering a new.
-    ## Only list amount borrowed.
-    ## Don't list negative amount when leverage is <1,
-    ## ie. position_size_ccy[t] < cash[t - 1].
+  ## Simple System:
+  ## When entering a trade, amount of cash and capital should always be
+  ## the same, as we only trade one instrument, and always exit the trade
+  ## before entering a new.
+  ## Only list amount borrowed.
+  ## Don't list negative amount when leverage is <1,
+  ## ie. position_size_ccy[t] < cash[t - 1].
 
-    ## When long trade has just been entered:
-    ## cash[t] = cash[t - 1] - position_size_ccy[t] + borrowed_cash[t]
-    ##
-    #### borrowed_cash[t] = max[0, position_size_ccy[t] - cash[t - 1]]
-    #### borrowed_asset[t] = 0
-    #### capital[t] = cash[t] + position_size_ccy[t] - borrowed_cash[t]
+  ## When long trade has just been entered:
+  ## cash[t] = cash[t - 1] - position_size_ccy[t] + borrowed_cash[t]
+  ##
+  #### borrowed_cash[t] = max[0, position_size_ccy[t] - cash[t - 1]]
+  #### borrowed_asset[t] = 0
+  #### capital[t] = cash[t] + position_size_ccy[t] - borrowed_cash[t]
 
-    ## When short trade has just been entered:
-    ## cash[t] = cash[t - 1] + borrowed_asset[t]
-    ## borrowed_cash[t] = 0
-    ## borrowed_asset[t] = position_size_ccy[t]
-    ## capital[t] = cash[t - 1]
+  ## When short trade has just been entered:
+  ## cash[t] = cash[t - 1] + borrowed_asset[t]
+  ## borrowed_cash[t] = 0
+  ## borrowed_asset[t] = position_size_ccy[t]
+  ## capital[t] = cash[t - 1]
 
-    instrument_return <- f_price_returns(prices, t)
+  instrument_return <- f_price_returns(prices, t)
 
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-    # fix§0040
-    # Calculate `subsystem_pandl`
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-    ## Update P&L for subsystem
-    subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # fix§0040
+  # Calculate `subsystem_pandl`
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  ## Update P&L for subsystem
+  subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
 
-    # borrowed_asset,
-    borrowed_asset_ccy <- position_size_ccy * (direction < 0) ## 0 if long
+  # borrowed_asset,
+  borrowed_asset_ccy <- position_size_ccy * (direction < 0) ## 0 if long
 
-    position_change_ccy <- f_position_change_ccy(position_table, position_size_ccy, t)
+  position_change_ccy <- f_position_change_ccy(position_table, position_size_ccy, t)
 
   #} else { ## latest_trade_direction == direction: no change (don't enter
     ## trade)
@@ -1797,6 +1792,26 @@ calculate_subsystem_position <- function(
     required_leverage_factor) {
   combined_signal * required_leverage_factor
 }
+
+
+modify_position <- function(
+    t,
+    inst_data,
+    position_modifier,
+    position_size_ccy,
+    ...) {
+  inst_name <- comment(inst_data)
+  if(!is.na(position_modifier)){
+    params <- NA ## TODO <- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    do.call(
+      position_modifier,
+      params
+    )
+  } else {
+    modified_position_size_ccy <- position_size_ccy
+  }
+}
+
 
 #' Execute Trade
 #'

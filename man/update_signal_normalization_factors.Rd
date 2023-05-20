@@ -71,8 +71,5 @@ Each raw signal is scaled by a normalization factor. This normalization
 factor is the \emph{required leverage target}.
 
 \code{update_signal_normalization_factors()} calculates the normalization factors
-and updates the \code{normalization_factor} in each algo list.
-
-\code{normalization_factors()} calculates the normalization_factors for all
-signals based on the algos list.
+and updates the \code{signal_normalization_factors} list.
 }

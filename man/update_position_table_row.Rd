@@ -7,6 +7,7 @@
 update_position_table_row(
   inst_data,
   position_table,
+  position_modifier,
   raw_combined_signal,
   signal_div_mult,
   instrument_weight,
@@ -19,7 +20,11 @@ update_position_table_row(
 )
 }
 \arguments{
+\item{inst_data}{Instrument data table.}
+
 \item{position_table}{Position table.}
+
+\item{position_modifier}{Position modifier function.}
 
 \item{raw_combined_signal}{Raw combined signal value.}
 
@@ -32,8 +37,6 @@ update_position_table_row(
 \item{t}{Time index.}
 
 \item{config}{Configuration list.}
-
-\item{algo}{Single algo from the expanded algos list.}
 
 \item{signal_table}{Signal table.}
 }

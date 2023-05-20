@@ -9,7 +9,7 @@ make_system(
   init_capital = 1e+05,
   system_risk_target = 0.12,
   risk_window_length = 25,
-  stop_loss_fraction = 0.5,
+  position_modifiers = list(),
   min_periods = 1,
   min_signal = -2,
   max_signal = 2,
@@ -27,7 +27,8 @@ divided by 100).}
 
 \item{risk_window_length}{Risk window length.}
 
-\item{stop_loss_fraction}{Stop loss fraction.}
+\item{position_modifiers}{Named list of position modifier functions. Names
+should be the names of the corresponding instruments.}
 
 \item{min_periods}{Minimum number of periods (rows) in the data sets.
 Defaults to 1.}
@@ -109,7 +110,6 @@ If present, the stop loss rule is applied in the positions stage.
 \item \code{init_capital}
 \item \code{system_risk_target}
 \item \code{risk_window_length}
-\item \code{stop_loss_fraction}
 \item \code{min_periods}
 \item \code{min_signal}
 \item \code{max_signal}

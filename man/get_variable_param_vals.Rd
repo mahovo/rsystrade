@@ -2,38 +2,18 @@
 % Please edit documentation in R/sys_frwk.R
 \name{get_variable_param_vals}
 \alias{get_variable_param_vals}
-\title{Generate Trade Signal From Rule}
+\title{Get Values Of Variable Paramaters}
 \usage{
 get_variable_param_vals(t, inst_data, algo)
 }
 \arguments{
-\item{t}{}
+\item{inst_data}{Instrument data set as data frame}
 
-\item{algo}{Single algo from the expanded algos list.}
-
-\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
-Older to newer. The last observation is time t.}
-
-\item{signal_table}{Signal table. Last row is time t-1.}
-
-\item{position_table}{Position table. Last row is time t-1.}
+\item{algo}{Algo}
 }
 \value{
-Single signal value
+Named list of parameter values
 }
 \description{
-Apply a single signal rule to a single instrument.
-
-The \code{algo} list contains a rule list and data for a single instrument. The
-rule list contains one signal generating rule function and optionally one
-stop loss rule function.
-\code{generate_signal()} applies the signal rule and produces a trade signal.
-
-A positive signal value indicates a long position.
-A negative signal indicates a short position.
-A signal of value 0 indicates no position.
-
-NOTE
-For now \code{generate_signal()} only accepts a price vector as input. The last
-observation is time $t$ ("now").
+Get Values Of Variable Paramaters
 }

@@ -111,7 +111,7 @@ r_mac <- function(
 
 
 
-#' Stop loss rule
+#' Stop Loss Rule
 #'
 #' @description
 #' Return 0 if price level breached stop loss threshold. Return 1 if stop loss

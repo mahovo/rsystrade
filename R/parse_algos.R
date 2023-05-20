@@ -347,6 +347,8 @@ expand_algos <- function(algos) {
         #if(length(rule) == 1) {
 
         ## Exclude rule name and signal generator function
+        ## Note: Variable params are not provided by user, i.e. do not appear
+        ## in rule list.
         fixed_params_names <- names(rule[-c(1, 2)])
         fixed_params <- rule[-c(1, 2)]
 

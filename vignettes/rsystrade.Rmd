@@ -52,6 +52,7 @@ A system consists of
 -   Any number of *algos*. An *algo* in this context is a distinct combination of a *trade rule function* and data for an *instrument* (typically price data). (See Algos section below)
 -   A signal table for each algo. The `signal` table contains the *signal* calculated by the algo, and some data produced by intermediate steps in the algo. A *signal* is the trade signal used to determine whether to enter, exit or modify a position.  
 -   A position table for each subsystem/instrument. All the different algos that affect a single instrument are combined to make up a single subsystem for that instrument. The *position* table contains the value of the resulting position for the subsystem as well as different data produced by intermediate steps.  
+-   A position modifier.  A position modifier function is analogous to a signal generating function, except that is applied in `update_position_table_row()` and takes a position size in account currency as input and outputs a modified position. An example of a position modifier could be a stop loss function. In addition to position size, the position modifier may take inputs from variables which are available in the env of `update_position_table_row()`, as well as those columns in the instrument data frame which are associated with variable params in a signal generating rule.  
 -   A system_account table containing aggregate data for the entire system.
 
 When you create a new system, a list is created which contains the entire system. You create a new system with `make_system()`.
