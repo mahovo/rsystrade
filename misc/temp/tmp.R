@@ -2658,6 +2658,40 @@ pos_mod_list <- make_position_modifiers_list(
 
 
 
-##
+## Save secondary rule output to signal table ----
+
+sig_tbl <- list(
+  df = data.frame(a = 1:10, b = 1:10 * 10)
+)
+
+#sig_tbl$df[[11] <- list(a = 11, b = 110, c = 1100)
+#Error: unexpected assignment in "sig_tbl$df[[11] <-"
+
+## This fails. So we need to define the additional column (c) with
+## make_system(). This is tricky, because we need to know the names of the
+## output list from the fule function.
+## Alternative: Backfill when ever we provide additional output to the data
+## frame.
+
+new_row <- list(a = 11, b = 110, c = 1100, d = 11000)
+new_cols <- new_row[
+  setdiff(
+    names(new_row),
+    colnames(sig_tbl$df)
+  )
+]
+n_new_cols <- length(new_cols)
+n_rows <- nrow(sig_tbl$df)
+#new_cols <- data.frame(new_cols)
+new_rows <- rep(
+  list(
+    rep(NA, n_rows)
+  ),
+  n_new_cols
+)
+names(new_rows) <- names(new_cols)
+#new_table <- data.frame(new_table)
+new_sig_tbl <- cbind(sig_tbl$df, new_rows)
+rbind(new_sig_tbl, new_row)
 
 

@@ -467,8 +467,9 @@ update_system <- function(
 
   ## Update new row in each signal_table
   signal_tables <- trade_system$signal_tables
+
   for(i in seq_along(trade_system$algos)) {
-    signal_tables[[i]][t, ] <- update_signal_table_row(
+    new_row <- update_signal_table_row(
       t = t,
       inst_data = trade_system$inst_data[ trade_system$algos[[i]]$instrument ][[1]],
       algo = trade_system$algos[[i]],
@@ -479,6 +480,24 @@ update_system <- function(
       position_table = trade_system$position_tables[[i]],
       config = trade_system$config
     )
+
+    ## Additional output from rules will be added to signal tables append
+    ## additional columns.
+    ## The first time a rule produces additional output, the appropriate new
+    ## columns will be appended to the signal table. Previous rows will be
+    ## backfilled with NAs.
+    ## (This code assumes, that if the length of signal list is not equal to
+    ## the number of columns in the signal table, it must be because there is
+    ## additional output (">"). The "<" case should not be possible.)
+#if(t == 11) {browser()}
+    if(length(new_row) == ncol(signal_tables[[i]])) {
+      signal_tables[[i]][t, ] <- new_row
+    } else {
+      signal_tables[[i]] <- backfill_signal_table(
+        signal_table = signal_tables[[i]],
+        new_row = new_row
+      )
+    }
   }
 
 
@@ -676,12 +695,18 @@ update_signal_table_row <- function(
     config$max_signal
   )
 
-  list(time_t,
-    price_t,
-    raw_signal,
-    normalized_signal,
-    clamped_signal,
-    signal_weight
+  standard_columns <- list(
+    time = time_t,
+    price = price_t,
+    raw_signal = raw_signal,
+    normalized_signal = normalized_signal,
+    clamped_signal = clamped_signal,
+    signal_weight = signal_weight
+  )
+
+  c(
+    standard_columns,
+    secondary_rule_output
   )
 }
 
@@ -1646,6 +1671,46 @@ generate_signal <- function(
   )
 
   raw_signal
+}
+
+
+#' Backfill Signal Table With NAs
+#'
+#' @param signal_table
+#' @param new_row
+#'
+#' @return
+#' @export
+#'
+#' @examples
+backfill_signal_table <- function(
+    signal_table,
+    new_row
+) {
+  ## Create named list of only additional output
+  new_cols <- new_row[
+    setdiff(
+      names(new_row), ## Exclude t
+      colnames(signal_table)
+    )
+  ]
+  n_new_cols <- length(new_cols)
+  n_rows <- nrow(signal_table)
+  ## backfill each element in the list with NAs
+  backfilled_new_cols <- rep(
+    list(
+      rep(NA, n_rows)
+    ),
+    n_new_cols
+  )
+  names(backfilled_new_cols) <- names(new_cols)
+  # c(
+  #   colnames(signal_table),
+  #   names(new_cols)
+  # )
+  new_sig_tbl <- cbind(signal_table, backfilled_new_cols)
+
+  rbind(new_sig_tbl, new_row)
 }
 
 
