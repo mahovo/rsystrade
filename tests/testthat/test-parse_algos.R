@@ -1,23 +1,46 @@
 test_that("expand_algos() works", {
 
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
   my_test_expanded_algos <- expand_algos(algos)
 
-  ## Write expected expanded algos to file
+  # ## Write expected expanded algos to file
   # saveRDS(my_test_expanded_algos, file = test_path(
   #   "fixtures/",
   #   "my_expected_expanded_algos.rds"),
@@ -32,23 +55,49 @@ test_that("expand_algos() works", {
 
   expect_equal(
     my_test_expanded_algos,
-    my_expected_expanded_algos)
+    my_expected_expanded_algos
+  )
 })
 
+
+
 test_that("get_unique_inst_paths_from_expanded_algos_list() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
@@ -59,8 +108,8 @@ test_that("get_unique_inst_paths_from_expanded_algos_list() works", {
     instrument_data_folder_path = testthat::test_path("fixtures/")
   )
 
-  ## Write expected output to file
-  # my_expected_unique_inst_paths <- my_test_unique_inst_paths
+  # ## Write expected output to file
+  my_expected_unique_inst_paths <- my_test_unique_inst_paths
   # my_expected_unique_inst_paths <- list(
   #   "fixtures/testdata1.csv",
   #   "fixtures/testdata2.csv",
@@ -76,6 +125,7 @@ test_that("get_unique_inst_paths_from_expanded_algos_list() works", {
   #   compress = FALSE
   # )
 
+
   my_expected_unique_inst_paths <- readRDS(
     test_path("fixtures",
               "my_expected_unique_inst_paths.rds"
@@ -84,23 +134,49 @@ test_that("get_unique_inst_paths_from_expanded_algos_list() works", {
 
   expect_equal(
     my_test_unique_inst_paths,
-    my_expected_unique_inst_paths)
+    my_expected_unique_inst_paths
+  )
 })
 
+
+
 test_that("get_inst_names_by_parsed_algo() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
@@ -110,7 +186,7 @@ test_that("get_inst_names_by_parsed_algo() works", {
     parsed_algos = my_test_expanded_algos
   )
 
-  ## Write expected output to file
+  # ## Write expected output to file
   # my_expected_inst_names <- my_test_inst_names
   # saveRDS(
   #   my_expected_inst_names,
@@ -132,20 +208,45 @@ test_that("get_inst_names_by_parsed_algo() works", {
     my_expected_inst_names)
 })
 
+
+
 test_that("get_unique_inst_names_from_parsed_algos_list() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
@@ -155,7 +256,7 @@ test_that("get_unique_inst_names_from_parsed_algos_list() works", {
     parsed_algos = my_test_expanded_algos
   )
 
-  ## Write expected output to file
+  # ## Write expected output to file
   # my_expected_unique_inst_names <- my_test_unique_inst_names
   # saveRDS(
   #   my_expected_unique_inst_names,
@@ -177,20 +278,45 @@ test_that("get_unique_inst_names_from_parsed_algos_list() works", {
     my_expected_unique_inst_names)
 })
 
+
+
 test_that("get_num_inst_from_parsed_algos_list() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
@@ -227,20 +353,45 @@ test_that("get_num_inst_from_parsed_algos_list() works", {
 #   expect_warning(my_test_num_inst)
 # })
 
+
+
 test_that("get_num_rules_per_inst_from_parsed_algos() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
@@ -264,94 +415,45 @@ test_that("get_num_rules_per_inst_from_parsed_algos() works", {
   )
 })
 
+
+
 test_that("get_rule_function_names_by_parsed_algo() works", {
 
-  algos <- list(
-    list( ## We might name this "subset1"
-      instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
-    ),
-    list( ## We might name this "subset2"
-      instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
-    ),
-    list( ## We might name this "subset3"
-      instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
-    )
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
   )
-
-  my_test_expanded_algos <- expand_algos(algos)
-
-  my_test_rule_function_names <- get_rule_function_names_by_parsed_algo(
-    parsed_algos = my_test_expanded_algos
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
   )
-
-  my_expected_rule_function_names <- list(
-    "rule1",
-    "rule2",
-    "rule1",
-    "rule2",
-    "rule1",
-    "rule2",
-    "rule1",
-    "rule2"
-  )
-
-  expect_equal(
-    my_test_rule_function_names,
-    my_expected_rule_function_names
-  )
-})
-
-test_that("get_unique_rule_function_names_by_parsed_algo() works", {
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
-    )
-  )
-
-  my_test_expanded_algos <- expand_algos(algos)
-
-  my_test_unique_rule_function_names <- get_unique_rule_function_names_by_parsed_algo(
-    parsed_algos = my_test_expanded_algos
-  )
-
-  my_expected_unique_rule_function_names <- list(
-    "rule1",
-    "rule2"
-  )
-
-  expect_equal(
-    my_test_unique_rule_function_names,
-    my_expected_unique_rule_function_names
-  )
-})
-
-test_that("get_rule_names_by_parsed_algo() works", {
-
-  algos <- list(
-    list( ## We might name this "subset1"
-      instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
-    ),
-    list( ## We might name this "subset2"
-      instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
-    ),
-    list( ## We might name this "subset3"
-      instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
@@ -362,14 +464,14 @@ test_that("get_rule_names_by_parsed_algo() works", {
   )
 
   my_expected_rule_function_names <- list(
-    "rule1",
-    "rule2",
-    "rule1",
-    "rule2",
-    "rule1",
-    "rule2",
-    "rule1",
-    "rule2"
+    "mac_2_4",
+    "mac_3_9",
+    "mac_2_4",
+    "mac_3_9",
+    "mac_2_4",
+    "mac_3_9",
+    "mac_2_4",
+    "mac_3_9"
   )
 
   expect_equal(
@@ -378,20 +480,45 @@ test_that("get_rule_names_by_parsed_algo() works", {
   )
 })
 
+
+
 test_that("get_unique_rule_names_from_parsed_algos_list() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
@@ -402,8 +529,8 @@ test_that("get_unique_rule_names_from_parsed_algos_list() works", {
   )
 
   my_expected_unique_rule_function_names <- list(
-    "rule1",
-    "rule2"
+    "mac_2_4",
+    "mac_3_9"
   )
 
   expect_equal(
@@ -412,20 +539,169 @@ test_that("get_unique_rule_names_from_parsed_algos_list() works", {
   )
 })
 
-test_that("get_num_rules_from_parsed_algos_list() works", {
+
+
+test_that("get_rule_names_by_parsed_algo() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
+    )
+  )
+
+  my_test_expanded_algos <- expand_algos(algos)
+
+  my_test_rule_function_names <- get_rule_names_by_parsed_algo(
+    parsed_algos = my_test_expanded_algos
+  )
+
+  my_expected_rule_function_names <- list(
+    "mac_2_4",
+    "mac_3_9",
+    "mac_2_4",
+    "mac_3_9",
+    "mac_2_4",
+    "mac_3_9",
+    "mac_2_4",
+    "mac_3_9"
+  )
+
+  expect_equal(
+    my_test_rule_function_names,
+    my_expected_rule_function_names
+  )
+})
+
+
+
+test_that("get_unique_rule_names_from_parsed_algos_list() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+
+  algos <- list(
+    list( ## We might name this "subset1"
+      instruments = list("testdata1"),
+      rules = list(rule1, rule2)
+    ),
+    list( ## We might name this "subset2"
+      instruments = list("testdata2"),
+      rules = list(rule1, rule2)
+    ),
+    list( ## We might name this "subset3"
+      instruments = list("testdata3", "testdata4"),
+      rules = list(rule1, rule2)
+    )
+  )
+
+  my_test_expanded_algos <- expand_algos(algos)
+
+  my_test_unique_rule_function_names <- get_unique_rule_names_from_parsed_algos_list(
+    parsed_algos = my_test_expanded_algos
+  )
+
+  my_expected_unique_rule_function_names <- list(
+    "mac_2_4",
+    "mac_3_9"
+  )
+
+  expect_equal(
+    my_test_unique_rule_function_names,
+    my_expected_unique_rule_function_names
+  )
+})
+
+
+
+test_that("get_num_rules_from_parsed_algos_list() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+
+  algos <- list(
+    list( ## We might name this "subset1"
+      instruments = list("testdata1"),
+      rules = list(rule1, rule2)
+    ),
+    list( ## We might name this "subset2"
+      instruments = list("testdata2"),
+      rules = list(rule1, rule2)
+    ),
+    list( ## We might name this "subset3"
+      instruments = list("testdata3", "testdata4"),
+      rules = list(rule1, rule2)
     )
   )
 
@@ -443,27 +719,52 @@ test_that("get_num_rules_from_parsed_algos_list() works", {
   )
 })
 
+
+
 test_that("get_signal_normalization_factors_by_algos() works", {
+
+  rule1 <- list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+  rule2 <- list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
 
   algos <- list(
     list( ## We might name this "subset1"
       instruments = list("testdata1"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset2"
       instruments = list("testdata2"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     ),
     list( ## We might name this "subset3"
       instruments = list("testdata3", "testdata4"),
-      rules = list("rule1", "rule2")
+      rules = list(rule1, rule2)
     )
   )
 
   my_test_expanded_algos <- expand_algos(algos)
 
   my_test_signal_normalization_factors <- get_signal_normalization_factors_by_algos(
-    signal_normalization_factors = list(rule1 = 1, rule2 = 1),
+    signal_normalization_factors = list("mac_2_4" = 1, "mac_3_9" = 1),
     parsed_algos = my_test_expanded_algos
   )
 

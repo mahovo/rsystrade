@@ -2292,7 +2292,372 @@ g <- function(y) {
 
 g()
 
-## h lives in the global env, not the env of g!
+## Dealing with sd when previous returns don't change
 
+x1 <- rnorm(4, 1, 0.0001)
+x2 <- rnorm(4, 1, 0.0001)
+x3 <- rep(0, 4)
+x4 <- x2 <- rnorm(4, 1, 0.0001)
+corrr_mattt <- stats::cor(
+  matrix(
+    c(x1, x2, x3, x4),
+    nrow = 4
+  )
+)
+
+corrr_mattt[is.na(corrr_mattt)] <- 0
+
+
+## Structure of algo$signal_generators ----
+
+f <- function(x) {x^2}
+a = 1
+b = 2
+c = 3
+ll <- list(x1 = f, x2 = f, x3 = f)
+ll[[2]]
+params <- list(
+  a = 4,
+  b = 5,
+  c = 6
+)
+ll$x2(params$b)
+
+
+## The reference is a copy.
+## In practice this is insignificant in terms of performance.
+## The convenience of doing something like this makes it worth while.
+
+lobstr::obj_size(f)
+#3.13 kB
+lobstr::obj_size(ll[[1]])
+#3.13 kB
+
+## Also, when repeating same function with different params, we save memory.
+## This is much less than 3 x 3.13 kB:
+lobstr::obj_size(ll)
+#3.51 kB
+
+ff <- function(x, y) {x + y}
+
+algo <- list(
+  rule_function = list(
+    rule_1 = ff,
+    rule_2 = ff
+  ),
+  params = list(
+    params_1 = list(x = 4, y = 8),
+    params_2 = list(x = 5, y = 10)
+  )
+)
+
+do.call(algo$rule_function$rule_2, algo$params$params_2)
+
+## Function factory implementation ----
+
+fff <- function(
+    price,
+    some_other_param_1,
+    some_other_param_2
+  ) {price + some_other_param_1 + some_other_param_2}
+
+algo <- list(
+  rule_function = list(
+    rule_1 = list(
+      fff1 = fff,
+      some_other_param_1 = 2,
+      some_other_param_2 = 3
+    ),
+    rule_2 = list(
+      fff2 = fff,
+      some_other_param_1 = 4,
+      some_other_param_2 = 5
+    )
+  )
+)
+
+fixed_params_1 <- names(algo$rule_function$rule_1[-1])
+fixed_params_2 <- names(algo$rule_function$rule_2[-1])
+
+fixed_param_vals_1 <- algo$rule_function$rule_1[-1]
+fixed_param_vals_2 <- algo$rule_function$rule_2[-1]
+
+variable_param_names <- {x = names(formals(fff)); setdiff(x, fixed_params_1)} ## All params that are not fixed
+variable_params <- list(variable_param_names) ## Place holder
+names(variable_params) <- variable_param_names
+
+## Function factory combining variable param, such as price, with fixed params,
+## such as ma_fast and ma_slow.
+fff_fact <- function(price) {
+  do.call(
+    fff,
+    c(
+      variable_params[[variable_param_names]] <- price, ## assign variable param
+      fixed_param_vals_1 ## fixed params
+      )
+  )
+}
+
+fff_fact(10)
+
+
+## Function factory implementation v2: More general ----
+
+
+fff <- function(
+    price,
+    some_other_param_1,
+    some_other_param_2
+) {price + some_other_param_1 + some_other_param_2}
+
+algos <- list(
+  list(
+    rule_function = list(
+      rule_1 = list(
+        fff1 = fff,
+        some_other_param_1 = 2,
+        some_other_param_2 = 3
+      )
+    )
+  ),
+  list(
+    rule_function = list(
+      rule_2 = list(
+        fff2 = fff,
+        some_other_param_1 = 4,
+        some_other_param_2 = 5
+      )
+    )
+  )
+)
+
+fixed_params_by_algo <- lapply(
+  algos,
+  function(algo) {names(algo$rule_function[[1]][-1])}
+)
+
+fixed_param_vals_by_algo <- lapply(
+  algos,
+  function(algo) {algo$rule_function[[1]][-1]}
+)
+
+variable_param_names <- {x = names(formals(fff)); setdiff(x, fixed_params_1)} ## All params that are not fixed
+variable_params <- list(variable_param_names) ## Place holder
+names(variable_params) <- variable_param_names
+
+## Function factory combining variable param, such as price, with fixed params,
+## such as ma_fast and ma_slow.
+fff_fact <- function(
+    variable_param_vals
+  ) {
+  lapply(
+    fixed_param_vals_by_algo,
+    function(fixed_param_vals) {
+      do.call(
+        fff,
+        c(
+          variable_params[[variable_param_names]] <- variable_param_vals, ## assign variable params
+          fixed_param_vals ## fixed params
+        )
+      )
+    }
+  )
+}
+
+fff_fact(10)[[2]]
+
+## generate_signal() ----
+
+algos <- list(
+  list(
+    rule_function = list(
+      rule_1 = list(
+        fff1 = fff,
+        some_other_param_1 = 2,
+        some_other_param_2 = 3
+      )
+    )
+  ),
+  list(
+    rule_function = list(
+      rule_2 = list(
+        fff2 = fff,
+        some_other_param_1 = 4,
+        some_other_param_2 = 5
+      )
+    )
+  )
+)
+
+parsed_algos <- parsed_algo(algos)
+
+generate_signal_test <- function(
+    variable_param_vals,
+    signal_table,
+    position_table,
+    algo, ## Single parsed algo from the algos list
+    t,
+    config
+    #signal_table, ## signal table for the instrument
+) {
+
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # fix§0014:
+  # Get the needed variables from the trade system.
+  # Pass the calculated variables back to trade system.
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+
+  fixed_params_by_algo <- names(algo$rule[-1])
+  fixed_param_vals_by_algo <- algo$rule[-1]
+
+  signal_generator_function <- algo$rule[[1]]
+  variable_param_names <- {x = names(formals(signal_generator_function)); setdiff(x, fixed_params_by_algo)} ## All params that are not fixed
+  variable_params <- list(variable_param_names) ## Place holder
+  names(variable_params) <- variable_param_names
+
+  raw_signal <- do.call(
+    signal_generator_function,
+    c(
+      variable_params[[variable_param_names]] <- variable_param_vals, ## assign variable params
+      fixed_param_vals_by_algo ## fixed params
+    )
+  )
+
+  raw_signal
+}
+
+
+##
+
+f <- function(x, y) {x^2 + y}
+
+algos <- list(
+  list(
+    instrument = "inst",
+    rule = list(
+      rule_variation = "rule_var_1",
+      signal_generator = f,
+      variable_params = list(x = "x"),
+      fixed_params = list(y = 3)
+    )
+  ),
+  list(
+    instrument = "inst",
+    rule = list(
+      rule_variation = "rule_var_2",
+      signal_generator = f,
+      variable_params = list(x = "x"),
+      fixed_params = list(y = 4)
+    )
+  )
+)
+
+
+for(i in seq_along(algos)) {
+  signal_generator <- algos[[i]]$rule$signal
+}
+
+
+
+## Structure for modify_position() ----
+
+## Position modifying function, such as s_stop_loss, can use any variable
+## calculated previously in update_position_row()
+
+f <- function(x, g, ...) {
+  x^2
+  h(...)
+}
+g <- function(y) {sqrt(y)}
+h <- function(func, ...) {func(...)}
+
+f(4, func = g, y = 25)
+
+
+
+## parse_position_modifiers ----
+f1 <- function(x) {x^2}
+f2 <- function(x) {x^3}
+inst_names <- c("a", "b")
+position_modifiers <- list(a = f1, b = f2)
+
+parse_position_modifiers(
+  position_modifiers,
+  inst_names
+)
+
+parse_position_modifiers(
+  inst_names = inst_names
+)
+
+## parse_position_modifiers with params ----
+
+f1 <- function(x1, y1) {x1^2 + y1}
+f2 <- function(x2, y2) {x2^3 + y2}
+inst_names <- c("inst1", "inst2")
+
+## Input list
+
+## make_position_modifiers_list() is supposed to ignore "inst3", because we only
+## have two instruments inour inst_names list
+position_modifiers <- list(
+  list(
+    instruments = list("inst1", "inst2", "inst3"),
+    modifier = list(
+      "f1",
+      f1,
+      y1 = 10
+    )
+  )
+)
+
+position_modifiers_error <- list(
+  list(
+    instruments = list("inst1", "inst2"),
+    modifier_function = "f1",
+    y1 = 10
+  ),
+  list(
+    instruments = list("inst1", "inst2"),
+    modifier_function = "f2",
+    y2 = 100
+  )
+)
+
+## Output list format
+# position_modifiers <- list(
+#   inst1 = list(
+#     modifier_name = "f1",
+#     modifier_function = f1,
+#     variable_params = list(
+#       x1 = "x1"
+#     ),
+#     fixed_params = list(
+#       y1 = 10
+#     )
+#   ),
+#   inst2 = list(
+#     modifier_name = "f1",
+#     modifier_function = f1,
+#     variable_params = list(
+#       x1 = "x1"
+#     ),
+#     fixed_params = list(
+#       y1 = 10
+#     )
+#   )
+# )
+
+
+pos_mod_list <- make_position_modifiers_list(
+  position_modifiers = position_modifiers,
+  inst_names = inst_names
+)
+
+
+
+
+
+##
 
 

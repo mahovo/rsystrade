@@ -250,7 +250,7 @@ make_system <- function(
   ## instrument in the system, will be ignored.
   ## If no position modifier function is assigned to an instrument, the position
   ## of that instrument will not be modified.
-  position_modifiers <- parse_position_modifiers(position_modifiers, inst_names)
+  position_modifiers <- make_position_modifiers_list(position_modifiers, inst_names)
 
   ## Totals for entire system
   system_account_table <- data.frame(
@@ -285,6 +285,7 @@ make_system <- function(
 
   names(signal_normalization_factors) <- unlist(get_unique_rule_names_from_parsed_algos_list(parsed_algos))
 
+  ## Generate initial system list
   list(
     inst_data = inst_data,
     #rule_functions = rule_functions,
@@ -610,6 +611,7 @@ update_system <- function(
     signal_normalization_factors = trade_system$signal_normalization_factors,
     signal_tables = signal_tables,
     position_tables = position_tables,
+    position_modifiers = trade_system$position_modifiers,
     system_account_table = system_account_table,
     # signal_cor_mat = signal_cor_mat,
     config = trade_system$config
@@ -850,11 +852,13 @@ update_position_table_row <- function(
   )
 
   modified_position_size_ccy <- modify_position(
-    t,
-    inst_data,
-    position_modifier,
-    position_size_ccy,
-    ...
+    variable_param_vals = get_pos_mod_var_param_vals(
+      t,
+      inst_data,
+      position_modifier
+    ),
+    position_modifier = position_modifier,
+    position_size_ccy = position_size_ccy
   )
 
   ## Starter System: No position adjustment.
@@ -1526,6 +1530,29 @@ get_variable_param_vals <- function(t, inst_data, algo) {
 }
 
 
+#' Get Position Modification Variable Parameter Values
+#'
+#' @param t
+#' @param inst_data
+#' @param position_modifier
+#'
+#' @return
+#' @export
+#'
+#' @examples
+get_pos_mod_var_param_vals <- function(
+    t,
+    inst_data,
+    position_modifier) {
+  c(
+    ## t must be the first variable param
+    list(t = t),
+    ## Exclude t and position_size_ccy, which we get as the system is running
+    inst_data[names(position_modifier$variable_params[-c(1, 2)])]
+  )
+}
+
+
 #' Generate Trade Signal From Rule
 #'
 #' @description
@@ -1794,15 +1821,50 @@ calculate_subsystem_position <- function(
 }
 
 
+
+#' Modify Position
+#'
+#' @description
+#'
+#'
+#' @param variable_param_vals
+#' @param position_modifier
+#' @param position_size_ccy
+#'
+#' @return
+#' @export
+#'
+#' @examples
 modify_position <- function(
-    t,
-    inst_data,
+    variable_param_vals,
     position_modifier,
-    position_size_ccy,
-    ...) {
-  inst_name <- comment(inst_data)
+    position_size_ccy) {
+
   if(!is.na(position_modifier)){
-    params <- NA ## TODO <- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if(names(variable_param_vals[1]) != "t") {
+      stop("The first variable parameter must be t.")
+    }
+    if(names(variable_param_vals[2]) != "position_size_ccy") {
+      stop("The second variable parameter must be position_size_ccy.")
+    }
+
+    ## Pass values from instrument data to variable params
+    variable_params <- variable_param_vals
+    ## Assign the variable names from algo to appropriate values
+    names(variable_params) <- names(position_modifier$variable_params)
+
+    params <- c(
+      variable_params, ## assign variable params
+      position_modifier$fixed_params ## fixed params
+    )
+
+    raw_signal <- do.call(
+      position_modifier$modifier_function,
+      params
+    )
+
+    raw_signal
+
     do.call(
       position_modifier,
       params

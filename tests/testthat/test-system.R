@@ -4,6 +4,9 @@
 ## It doesn't test if the numbers are correct!!!
 ## In fact the numbers look wrong...
 
+## *** IMPORTANT ***
+## This tests a system with no position modifiers.
+
 ## *** NOTE ***
 ## Rule functions need to be loaded into the package env.
 ## This is done in helper-test_system.R

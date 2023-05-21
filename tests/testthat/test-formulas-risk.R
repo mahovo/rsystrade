@@ -1,11 +1,11 @@
-test_that("method = \"equal\" inupdate_signal_normalization_factors() works", {
+test_that("method = \"equal\" in update_signal_normalization_factors() works", {
 
   ## Make testsystem ----
 
   set.seed(1)
   #my_test_system <- make_test_system()
   #saveRDS(my_test_system, file = test_path("fixtures/", "my_test_system.rds"), compress = FALSE)
-  my_test_system <- readRDS(test_path("fixtures", "my_test_system.rds"))
+  my_test_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 
   ## Generate output for test ----
   my_test_norm_fact_equal <- update_signal_normalization_factors(
@@ -20,18 +20,18 @@ test_that("method = \"equal\" inupdate_signal_normalization_factors() works", {
   ## Compare ----
   expect_equal(
     my_test_norm_fact_equal,
-    list(0.12345, 0.12345)
+    list(mac_2_4 = 0.12345, mac_3_9 = 0.12345)
   )
 
 })
 
-test_that("method = \"pool_traded\" inupdate_signal_normalization_factors() works", {
+test_that("method = \"pool_traded\" in update_signal_normalization_factors() works", {
 
   ## Make testsystem ----
   set.seed(1)
   #my_test_system <- make_test_system()
   #saveRDS(my_test_system, file = test_path("fixtures/", "my_test_system.rds"), compress = FALSE)
-  my_test_system <- readRDS(test_path("fixtures", "my_test_system.rds"))
+  my_test_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 
   ## Generate output for test ----
   my_test_norm_fact_pool_traded <- update_signal_normalization_factors(
@@ -41,7 +41,7 @@ test_that("method = \"pool_traded\" inupdate_signal_normalization_factors() work
     target = 1,
     method = "pool_traded"
   )
-  #saveRDS(my_test_norm_fact_pool_traded, file = test_path("fixtures/", "my_expected_norm_fact_pool_traded.rds"), compress = FALSE)
+  # saveRDS(my_test_norm_fact_pool_traded, file = test_path("fixtures/", "my_expected_norm_fact_pool_traded.rds"), compress = FALSE)
   my_expected_norm_fact_pool_traded <- readRDS(test_path("fixtures", "my_expected_norm_fact_pool_traded.rds"))
 
   ## Compare ----
