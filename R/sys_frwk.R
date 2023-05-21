@@ -230,7 +230,7 @@ make_system <- function(
       t_last_position_entry = rep(0, min_periods),
       trade_on = rep(FALSE, min_periods),
       ## Fill with small random values to avoid zero-sd
-      instrument_returns = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      instrument_return = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       borrowed_asset_ccy = numeric(min_periods),
       position_change_ccy = numeric(min_periods)
@@ -469,7 +469,7 @@ update_system <- function(
   signal_tables <- trade_system$signal_tables
 
   for(i in seq_along(trade_system$algos)) {
-    new_row <- update_signal_table_row(
+    new_signal_row <- update_signal_table_row(
       t = t,
       inst_data = trade_system$inst_data[ trade_system$algos[[i]]$instrument ][[1]],
       algo = trade_system$algos[[i]],
@@ -489,13 +489,13 @@ update_system <- function(
     ## (This code assumes, that if the length of signal list is not equal to
     ## the number of columns in the signal table, it must be because there is
     ## additional output (">"). The "<" case should not be possible.)
-#if(t == 11) {browser()}
-    if(length(new_row) == ncol(signal_tables[[i]])) {
-      signal_tables[[i]][t, ] <- new_row
+
+    if(length(new_signal_row) == ncol(signal_tables[[i]])) {
+      signal_tables[[i]][t, ] <- new_signal_row
     } else {
-      signal_tables[[i]] <- backfill_signal_table(
-        signal_table = signal_tables[[i]],
-        new_row = new_row
+      signal_tables[[i]] <- backfill_table(
+        table = signal_tables[[i]],
+        new_row = new_signal_row
       )
     }
   }
@@ -575,24 +575,34 @@ update_system <- function(
   position_tables <- trade_system$position_tables
 
   for(i in seq_along(position_tables)) {
-    position_tables[[i]][t, ] <- update_position_table_row(
-      trade_system$inst_data[[i]],
+    new_position_row <- update_position_table_row(
+      t = t,
+      inst_data = trade_system$inst_data[[i]],
       #trade_system$algos[[i]], ## algo
       #trade_system$rule_functions,
       #signal_tables[[i]], ## Current signal_table (not yet in system)
-      trade_system$position_tables[[i]], ## position_table
-      trade_system$position_modifiers[[i]],
-      raw_combined_signals[[i]],
-      signal_div_mult_vect[i], ## SDM value
-      instrument_weights[i],
-      inst_div_mult,
-      instrument_risk_target,
-      subsystem_ret_cor_mat,
-      trade_system$system_account_table,
-      t,
+      position_table = trade_system$position_tables[[i]], ## position_table
+      position_modifier = trade_system$position_modifiers[[i]],
+      raw_combined_signal = raw_combined_signals[[i]],
+      signal_div_mult = signal_div_mult_vect[i], ## SDM value
+      instrument_weight = instrument_weights[i],
+      inst_div_mult = inst_div_mult,
+      instrument_risk_target = instrument_risk_target,
+      subsystem_ret_cor_mat = subsystem_ret_cor_mat,
+      system_account_table = trade_system$system_account_table,
       config = trade_system$config
     )
+    if(length(new_position_row) == ncol(position_tables[[i]])) {
+      position_tables[[i]][t, ] <- new_position_row
+    } else {
+      position_tables[[i]] <- backfill_table(
+        table = position_tables[[i]],
+        new_row = new_position_row
+      )
+    }
   }
+
+
 
   system_account_table <- trade_system$system_account_table
 
@@ -741,6 +751,7 @@ update_signal_table_row <- function(
 #' @examples
 update_position_table_row <- function(
   #algo,
+  t,
   inst_data,
   #rule_functions,
   #signal_table,
@@ -753,7 +764,6 @@ update_position_table_row <- function(
   instrument_risk_target,
   subsystem_ret_cor_mat,
   system_account_table,
-  t,
   config
 ) {
 
@@ -840,9 +850,6 @@ update_position_table_row <- function(
     trade_on <- NA
   }
 
-
-
-
   ## Notional exposure in account currency
   notional_exposure <- f_notional_exposure(
     clamped_combined_signal,
@@ -876,15 +883,18 @@ update_position_table_row <- function(
     position_size_units
   )
 
-  modified_position_size_ccy <- modify_position(
+  position_modifier_output <- modify_position(
     variable_param_vals = get_pos_mod_var_param_vals(
       t,
+      position_size_ccy,
       inst_data,
       position_modifier
     ),
     position_modifier = position_modifier,
     position_size_ccy = position_size_ccy
   )
+
+  modified_position_size_ccy <- position_modifier_output[[1]]
 
   ## Starter System: No position adjustment.
   #prev_position_size_units <- trades_data$position_size_units[t - 1]
@@ -925,9 +935,13 @@ update_position_table_row <- function(
   subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
 
   # borrowed_asset,
-  borrowed_asset_ccy <- position_size_ccy * (direction < 0) ## 0 if long
+  borrowed_asset_ccy <- modified_position_size_ccy * (direction < 0) ## 0 if long
 
-  position_change_ccy <- f_position_change_ccy(position_table, position_size_ccy, t)
+  position_change_ccy <- f_position_change_ccy(
+    position_table,
+    modified_position_size_ccy,
+    t
+  )
 
   #} else { ## latest_trade_direction == direction: no change (don't enter
     ## trade)
@@ -959,35 +973,42 @@ update_position_table_row <- function(
     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   #} ## closure of "if(latest_trade_direction != direction) {"
 
-  ## Return updated row in position_tables for time t
-  list(
-    inst_data$time[t],
-    prices[t],
-    instrument_risk,
-    instrument_risk_target,
-    raw_combined_signal,
-    rescaled_combined_signal,
-    clamped_combined_signal,
-    required_leverage_factor,
-    signal_div_mult,
-    instrument_weight,
-    inst_div_mult,
-    notional_exposure,
-    target_position_size_units,
-    position_size_units,
-    position_size_ccy,
-    direction,
-    #stop_loss,
-    #stop_loss_gap,
-    subsystem_position,
-    enter_or_exit,
-    t_last_position_entry,
-    trade_on,
-    instrument_return,
-    subsystem_pandl,
-    borrowed_asset_ccy,
-    position_change_ccy
+
+  standard_columns <- list(
+    time = inst_data$time[t],
+    price = prices[t],
+    instrument_risk = instrument_risk,
+    instrument_risk_target = instrument_risk_target,
+    raw_combined_signal = raw_combined_signal,
+    rescaled_combined_signal = rescaled_combined_signal,
+    clamped_raw_combined_signal = clamped_combined_signal,
+    required_leverage_factor = required_leverage_factor,
+    signal_div_mult = signal_div_mult,
+    instrument_weight = instrument_weight,
+    inst_div_mult = inst_div_mult,
+    notional_exposure = notional_exposure,
+    target_position_size_units = target_position_size_units,
+    position_size_units = position_size_units,
+    position_size_ccy = position_size_ccy,
+    direction = direction,
+    subsystem_position = subsystem_position,
+    enter_or_exit = enter_or_exit,
+    t_last_position_entry = t_last_position_entry,
+    trade_on = trade_on,
+    instrument_return = instrument_return,
+    subsystem_pandl = subsystem_pandl,
+    borrowed_asset_ccy = borrowed_asset_ccy,
+    position_change_ccy = position_change_ccy
   )
+
+  c(
+    standard_columns,
+    position_modifier_output
+  )
+
+
+  ## Return updated row in position_tables for time t
+
 }
 
 ## capital =
@@ -1567,11 +1588,12 @@ get_variable_param_vals <- function(t, inst_data, algo) {
 #' @examples
 get_pos_mod_var_param_vals <- function(
     t,
+    position_size_ccy,
     inst_data,
     position_modifier) {
   c(
     ## t must be the first variable param
-    list(t = t),
+    list(t = t, position_size_ccy = position_size_ccy),
     ## Exclude t and position_size_ccy, which we get as the system is running
     inst_data[names(position_modifier$variable_params[-c(1, 2)])]
   )
@@ -1674,28 +1696,39 @@ generate_signal <- function(
 }
 
 
-#' Backfill Signal Table With NAs
+#' Backfill Table With NAs
 #'
-#' @param signal_table
-#' @param new_row
+#' @description
+#' When a list of values is returned by a signal generator or a position
+#'   modifier, and the list contains more elements than there are cloumns in
+#'   the corresponding signal/position table, new columns are appended to the
+#'   table and previous rows are backfilled with NAs in those columns.
 #'
-#' @return
+#' This situation occurs when a signal generator outputs values in addition to
+#'   the trade signal, or when a position modifier outputs values in addition to
+#'   the modified position.
+#'
+#' @param signal_table Signal table
+#' @param new_row New row containing elements beyond the columns in the signal
+#'   table
+#'
+#' @return A named list
 #' @export
 #'
 #' @examples
-backfill_signal_table <- function(
-    signal_table,
+backfill_table <- function(
+    table,
     new_row
 ) {
   ## Create named list of only additional output
   new_cols <- new_row[
     setdiff(
       names(new_row), ## Exclude t
-      colnames(signal_table)
+      colnames(table)
     )
   ]
   n_new_cols <- length(new_cols)
-  n_rows <- nrow(signal_table)
+  n_rows <- nrow(table)
   ## backfill each element in the list with NAs
   backfilled_new_cols <- rep(
     list(
@@ -1704,15 +1737,10 @@ backfill_signal_table <- function(
     n_new_cols
   )
   names(backfilled_new_cols) <- names(new_cols)
-  # c(
-  #   colnames(signal_table),
-  #   names(new_cols)
-  # )
-  new_sig_tbl <- cbind(signal_table, backfilled_new_cols)
+  new_sig_tbl <- cbind(table, backfilled_new_cols)
 
   rbind(new_sig_tbl, new_row)
 }
-
 
 get_signal_weight <- function() {
   warning("get_signal_weight() not implemented yet.")
@@ -1905,7 +1933,17 @@ modify_position <- function(
     position_modifier,
     position_size_ccy) {
 
-  if(!is.na(position_modifier)){
+  ## Modify position if modifier list contains no NAs
+  test_pos_mod <- function(position_modifier) {
+   if(length(position_modifier) == 1) {
+      !is.na(position_modifier[[1]])
+    } else {
+      !anyNA(position_modifier)
+    }
+  }
+
+  ## test_pos_mod() is TRUE if no elements in position_modifier is NA
+  if(test_pos_mod(position_modifier)){
     if(names(variable_param_vals[1]) != "t") {
       stop("The first variable parameter must be t.")
     }
@@ -1923,19 +1961,15 @@ modify_position <- function(
       position_modifier$fixed_params ## fixed params
     )
 
-    raw_signal <- do.call(
+    position_modifier_output <- do.call(
       position_modifier$modifier_function,
       params
     )
 
-    raw_signal
-
-    do.call(
-      position_modifier,
-      params
-    )
+    position_modifier_output
   } else {
     modified_position_size_ccy <- position_size_ccy
+    list(modified_position_size_ccy = modified_position_size_ccy)
   }
 }
 
