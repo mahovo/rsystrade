@@ -63,59 +63,59 @@ test_that("generate_signal() works", {
 
 test_that("update_signal_normalization_factors() works", {
 
-my_test_system <- make_test_system()
+  my_test_system <- make_test_system()
 
-my_test_signal_normalization_factors_1 <- update_signal_normalization_factors(
-  my_test_system$algos,
-  my_test_system$signal_tables,
-  my_test_system$inst_data,
-  target = 1,
-  method = "equal",
-  args = list(equal_norm_factor = 1)
-)
+  my_test_signal_normalization_factors_1 <- update_signal_normalization_factors(
+    my_test_system$algos,
+    my_test_system$signal_tables,
+    my_test_system$inst_data,
+    target = 1,
+    method = "equal",
+    args = list(equal_norm_factor = 1)
+  )
 
-my_test_signal_normalization_factors_2 <- update_signal_normalization_factors(
-  my_test_system$algos,
-  my_test_system$signal_tables,
-  my_test_system$inst_data,
-  target = 1,
-  method = "pool_traded"
-)
+  my_test_signal_normalization_factors_2 <- update_signal_normalization_factors(
+    my_test_system$algos,
+    my_test_system$signal_tables,
+    my_test_system$inst_data,
+    target = 1,
+    method = "pool_traded"
+  )
 
-my_test_signal_normalization_factors_3 <- update_signal_normalization_factors(
-  my_test_system$algos,
-  my_test_system$signal_tables,
-  my_test_system$inst_data,
-  target = 1,
-  method = "median_pool_all",
-  args = list(min_periods_median_pool_all = 15)
-)
+  my_test_signal_normalization_factors_3 <- update_signal_normalization_factors(
+    my_test_system$algos,
+    my_test_system$signal_tables,
+    my_test_system$inst_data,
+    target = 1,
+    method = "median_pool_all",
+    args = list(min_periods_median_pool_all = 15)
+  )
 
-my_test_signal_normalization_factors <- list(
-  my_test_signal_normalization_factors_1,
-  my_test_signal_normalization_factors_2,
-  my_test_signal_normalization_factors_3
-)
+  my_test_signal_normalization_factors <- list(
+    my_test_signal_normalization_factors_1,
+    my_test_signal_normalization_factors_2,
+    my_test_signal_normalization_factors_3
+  )
 
-# my_expected_signal_normalization_factors <- list(
-#   my_test_signal_normalization_factors_1,
-#   my_test_signal_normalization_factors_2,
-#   my_test_signal_normalization_factors_3
-# )
+  # my_expected_signal_normalization_factors <- list(
+  #   my_test_signal_normalization_factors_1,
+  #   my_test_signal_normalization_factors_2,
+  #   my_test_signal_normalization_factors_3
+  # )
 
-# saveRDS(
-#   my_expected_signal_normalization_factors,
-#   file=test_path("fixtures/", "my_expected_signal_normalization_factors.RData")
-# )
+  # saveRDS(
+  #   my_expected_signal_normalization_factors,
+  #   file=test_path("fixtures/", "my_expected_signal_normalization_factors.RData")
+  # )
 
 
-my_expected_signal_normalization_factors <- readRDS(test_path("fixtures", "my_expected_signal_normalization_factors.RData"))
+  my_expected_signal_normalization_factors <- readRDS(test_path("fixtures", "my_expected_signal_normalization_factors.RData"))
 
-  ## Test ----
-expect_equal(
-  my_test_signal_normalization_factors,
-  my_expected_signal_normalization_factors
-)
+    ## Test ----
+  expect_equal(
+    my_test_signal_normalization_factors,
+    my_expected_signal_normalization_factors
+  )
 })
 
 
@@ -173,7 +173,7 @@ test_that("modify_position() works", {
 
   pos_mods <- list(
     list(
-      instruments = list("inst1", "inst2", "inst3"),
+      instruments = list("testdata3", "testdata4"),
       modifier = list(
         "pos_mod_test_function",
         pos_mod_test_function,

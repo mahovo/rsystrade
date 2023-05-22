@@ -5,7 +5,7 @@
 #'   position_size_ccy if stop loss threshold was not breached.
 #'
 #' @param t Time index.
-#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#' @param price A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer.
 #' @param instrument_risk Instrument risk at time t-1.
 #' @param stop_loss_fraction Stop loss fraction.
@@ -23,7 +23,7 @@
 #' @examples
 # p_stop_loss <- function(
     # t,
-    # prices,
+    # price,
     # instrument_risk, # at time t-1
     # stop_loss_fraction,
     # t_last_position_entry, # at time t-1
@@ -33,25 +33,22 @@
 p_stop_loss <- function(
     t,
     position_size_ccy,
-    prices,
+    price,
     instrument_risk, # at time t-1
-    stop_loss_fraction,
     t_last_position_entry, # at time t-1
     direction, # at time t-1
+    stop_loss_fraction = 0.5,
     rnd = FALSE
   ) {
 
-  ## We can't do this, because it takes input from row t -1, not row t:
-  #position_size_ccy * r_stop_loss()
-
-  price_unit_vol <- f_price_unit_vol(prices[t], instrument_risk)
+  price_unit_vol <- f_price_unit_vol(price[t], instrument_risk)
   stop_loss_gap <- f_stop_loss_gap(price_unit_vol, stop_loss_fraction)
 
-  ## Exit position if stop loss level was breached yesterday [LT, p. 138].
+  ## Exit position if stop loss level was breached today [LT, p. 138].
   ## Exit position even if price has recovered. [LT, p. 141]
   stop_loss_level <- f_stop_loss_level(
-    f_high_water_mark(prices, t - 1, t_last_position_entry),
-    f_low_water_mark(prices, t - 1, t_last_position_entry),
+    f_high_water_mark(price, t, t_last_position_entry),
+    f_low_water_mark(price, t, t_last_position_entry),
     stop_loss_gap = stop_loss_gap,
     direction = direction,
     rnd  = rnd
@@ -60,20 +57,20 @@ p_stop_loss <- function(
   signal <- 1 ## bypass by default
   stop_loss <- "---"
   if(direction == 1) { ## If long
-    if(prices[t] < stop_loss_level) { ## Exit position if...
+    if(price[t] < stop_loss_level) { ## Exit position if...
       signal <- 0 ## Exit
       stop_loss <- "stop_loss"
     }
   } else if(direction == -1) { ## If short
-    if(prices[t] > stop_loss_level) { ## Exit position if...
+    if(price[t] > stop_loss_level) { ## Exit position if...
       signal <- 0 ## Exit
       stop_loss <- "stop_loss"
     }
   } #else {signal <- 0} ## Should be redundant...
-  position_size_ccy <- position_size_ccy * signal
+  modified_position_size_ccy <- position_size_ccy * signal
 
   list(
-    position_size_ccy = position_size_ccy,
+    modified_position_size_ccy = modified_position_size_ccy,
     stop_loss_gap = stop_loss_gap,
     stop_loss = stop_loss
   )

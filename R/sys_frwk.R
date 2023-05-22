@@ -885,10 +885,11 @@ update_position_table_row <- function(
 
   position_modifier_output <- modify_position(
     variable_param_vals = get_pos_mod_var_param_vals(
-      t,
-      position_size_ccy,
-      inst_data,
-      position_modifier
+      t = t,
+      position_size_ccy = position_size_ccy,
+      inst_data = inst_data,
+      position_modifier = position_modifier,
+      pos_table_vars = as.list(environment())
     ),
     position_modifier = position_modifier,
     position_size_ccy = position_size_ccy
@@ -1578,11 +1579,13 @@ get_variable_param_vals <- function(t, inst_data, algo) {
 
 #' Get Position Modification Variable Parameter Values
 #'
-#' @param t
-#' @param inst_data
-#' @param position_modifier
+#' @param t Time index
+#' @param position_size_ccy Position size in currency
+#' @param inst_data Instrument data frame
+#' @param position_modifier Position modifier
+#' @param pos_table_vars Variables passed from update_position_table_row()
 #'
-#' @return
+#' @return Named list
 #' @export
 #'
 #' @examples
@@ -1590,12 +1593,55 @@ get_pos_mod_var_param_vals <- function(
     t,
     position_size_ccy,
     inst_data,
-    position_modifier) {
+    position_modifier,
+    pos_table_vars) {
+
+  ## If a variable param in position_modifier exists as a column in the
+  ## instrument data, get the data from that column. Otherwise the param
+  ## must match a variable assigned inside update_posisition_table_row()
+  ## before modify_position().
+
+  ## Get the variable params which match data columns
+  pos_mod_params_in_data <- intersect(
+    names(position_modifier$variable_params[-c(1, 2)]),
+    colnames(inst_data)
+  )
+
+  ## Get the variable param names which don't match any data columns
+  pos_mod_param_names_not_in_data <- setdiff(
+    names(position_modifier$variable_params[-c(1, 2)]),
+    colnames(inst_data)
+  )
+
+  ## Create variables from the param names
+  load_pos_mod_params_not_in_data <- function(
+      pos_mod_param_names_not_in_data,
+      pos_table_vars
+    ) {
+    vars <- lapply(
+      pos_mod_param_names_not_in_data,
+      function(x) {eval(parse(text = paste0("pos_table_vars$", x)))}
+    )
+    names(vars) <- pos_mod_param_names_not_in_data
+    vars
+  }
+
+  pos_mod_params_not_in_data <- load_pos_mod_params_not_in_data(
+    pos_mod_param_names_not_in_data,
+    pos_table_vars
+  )
+
   c(
     ## t must be the first variable param
+    ## position_size_ccy must be the second variable param
     list(t = t, position_size_ccy = position_size_ccy),
-    ## Exclude t and position_size_ccy, which we get as the system is running
-    inst_data[names(position_modifier$variable_params[-c(1, 2)])]
+    ## t and position_size_ccy, which we get as the system is running, are
+    ## excluded
+    inst_data[pos_mod_params_in_data],
+    #inst_data[names(position_modifier$variable_params[-c(1, 2)])]
+    ## Variable params which don't correspond to columns in the instrument
+    ## data frame, must be available inside update_position_table_row()
+    pos_mod_params_not_in_data
   )
 }
 
@@ -1931,7 +1977,9 @@ calculate_subsystem_position <- function(
 modify_position <- function(
     variable_param_vals,
     position_modifier,
-    position_size_ccy) {
+    position_size_ccy,
+    ...
+  ) {
 
   ## Modify position if modifier list contains no NAs
   test_pos_mod <- function(position_modifier) {
@@ -1954,6 +2002,7 @@ modify_position <- function(
     ## Pass values from instrument data to variable params
     variable_params <- variable_param_vals
     ## Assign the variable names from algo to appropriate values
+
     names(variable_params) <- names(position_modifier$variable_params)
 
     params <- c(

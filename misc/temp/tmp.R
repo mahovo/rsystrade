@@ -2574,6 +2574,21 @@ h <- function(func, ...) {func(...)}
 f(4, func = g, y = 25)
 
 
+##
+
+f <- function() {
+  x = 2
+  y = 3
+  f_vars <- as.list(environment())
+
+  g <- function(x, y) {
+    x + y
+  }
+  do.call(g, f_vars)
+}
+f()
+
+
 
 ## parse_position_modifiers ----
 f1 <- function(x) {x^2}
@@ -2695,3 +2710,108 @@ new_sig_tbl <- cbind(sig_tbl$df, new_rows)
 rbind(new_sig_tbl, new_row)
 
 
+## Test stop loss system with user provided position modifier ----
+
+p_stop_loss_test <- function(
+    t,
+    position_size_ccy,
+    price,
+    instrument_risk, # at time t-1
+    t_last_position_entry, # at time t-1
+    direction, # at time t-1
+    stop_loss_fraction = 0.5,
+    rnd = FALSE
+) {
+
+  price_unit_vol <- f_price_unit_vol(price[t], instrument_risk)
+  stop_loss_gap <- f_stop_loss_gap(price_unit_vol, stop_loss_fraction)
+
+  ## Exit position if stop loss level was breached today [LT, p. 138].
+  ## Exit position even if price has recovered. [LT, p. 141]
+  stop_loss_level <- f_stop_loss_level(
+    f_high_water_mark(price, t, t_last_position_entry),
+    f_low_water_mark(price, t, t_last_position_entry),
+    stop_loss_gap = stop_loss_gap,
+    direction = direction,
+    rnd  = rnd
+  )
+
+  signal <- 1 ## bypass by default
+  stop_loss <- "---"
+  if(direction == 1) { ## If long
+    if(price[t] < stop_loss_level) { ## Exit position if...
+      signal <- 0 ## Exit
+      stop_loss <- "stop_loss"
+    }
+  } else if(direction == -1) { ## If short
+    if(price[t] > stop_loss_level) { ## Exit position if...
+      signal <- 0 ## Exit
+      stop_loss <- "stop_loss"
+    }
+  } #else {signal <- 0} ## Should be redundant...
+  modified_position_size_ccy <- position_size_ccy * signal
+
+  list(
+    modified_position_size_ccy = modified_position_size_ccy,
+    stop_loss_gap = stop_loss_gap,
+    stop_loss = stop_loss
+  )
+}
+
+min_periods = 10
+
+algos <- make_test_algos(
+  list(
+    "mac_2_4",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 2L,
+    n_slow = 4L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  ),
+  list(
+    "mac_3_9",
+    r_mac,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 3L,
+    n_slow = 9L,
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE
+  )
+)
+
+my_test_system <- make_system(
+  algos = algos,
+  init_capital = 1000000,
+  system_risk_target = 0.12,
+  risk_window_length = 5,
+  position_modifiers = list(),
+  min_periods = min_periods,
+  mode = "sim",
+  instrument_data_folder_path = testthat::test_path("fixtures/")
+)
+
+pos_mods <- list(
+  list(
+    instruments = list("testdata3", "testdata4"),
+    modifier = list(
+      "p_stop_loss_test",
+      p_stop_loss_test,
+      stop_loss_fraction = 0.5,
+      rnd = FALSE
+    )
+  )
+)
+my_test_system$position_modifiers <- parse_position_modifiers(pos_mods)
+
+my_test_system <- run_system(
+  my_test_system,
+  min_periods = min_periods,
+  mode = "sim",
+  instrument_data_folder_path = testthat::test_path("fixtures/")
+)

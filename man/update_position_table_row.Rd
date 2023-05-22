@@ -5,6 +5,7 @@
 \title{Update Position Table Row}
 \usage{
 update_position_table_row(
+  t,
   inst_data,
   position_table,
   position_modifier,
@@ -15,11 +16,12 @@ update_position_table_row(
   instrument_risk_target,
   subsystem_ret_cor_mat,
   system_account_table,
-  t,
   config
 )
 }
 \arguments{
+\item{t}{Time index.}
+
 \item{inst_data}{Instrument data table.}
 
 \item{position_table}{Position table.}
@@ -33,8 +35,6 @@ update_position_table_row(
 \item{subsystem_ret_cor_mat}{Subsystem returns correlation matrix.}
 
 \item{system_account_table}{System account table.}
-
-\item{t}{Time index.}
 
 \item{config}{Configuration list.}
 

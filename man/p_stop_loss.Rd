@@ -7,26 +7,26 @@
 p_stop_loss(
   t,
   position_size_ccy,
-  prices,
+  price,
   instrument_risk,
-  stop_loss_fraction,
   t_last_position_entry,
   direction,
+  stop_loss_fraction = 0.5,
   rnd = FALSE
 )
 }
 \arguments{
 \item{t}{Time index.}
 
-\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+\item{price}{A vector of prices in currency. Oldest first. Top to bottom:
 Older to newer.}
 
 \item{instrument_risk}{Instrument risk at time t-1.}
 
-\item{stop_loss_fraction}{Stop loss fraction.}
-
 \item{direction}{Was current trade long or short at time t-1? 1 for long, -1
 for short.}
+
+\item{stop_loss_fraction}{Stop loss fraction.}
 
 \item{rnd}{If TRUE, add small random amount to stop loss level. Negative if
 short.}
