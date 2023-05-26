@@ -130,7 +130,7 @@ f_leverage_factor <- function(cash = NA, invested = NA, borrowed = NA) {
 #' Calculate the target position size in units of contracts.
 #'
 #' @param notional_exposure Notional exposure.
-#' @param price Single price observation.
+#' @param price Single price observation in currency of account.
 #' @param fx_rate FX rate.
 #'
 #' @return Number
@@ -151,8 +151,8 @@ f_target_position_size_units <- function(
 #' @description
 #' Calculate position size in price units of the account currency.
 #'
-#' @param price Price in currency of account
-#' @param position_size_units Position size in units
+#' @param price Price in currency of account.
+#' @param position_size_units Position size in units.
 #'
 #' @return Amount in price units of account currency
 #' @export

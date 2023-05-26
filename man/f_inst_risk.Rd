@@ -7,8 +7,8 @@
 f_inst_risk(prices, t, window_length = 25)
 }
 \arguments{
-\item{prices}{A time series of prices in currency. Newest first.
-Top to bottom: Newer to older.}
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer. The last observation is time t.}
 
 \item{t}{Time index.}
 

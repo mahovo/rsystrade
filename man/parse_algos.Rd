@@ -15,73 +15,73 @@ parse_algos(algos, mode = "sim")
 A list where each element is a list containing:
 \itemize{
 \item \code{instrument} An instrument name. The instrument name is also assigned
-to the data frame as a comment.
-\item \code{rule} A list containing one signal rule name as a character string and
-optionally one stop loss rule name as a character string.
+to the corresponding data frame as a comment.
+\item \code{rule} A list containing one rule variation list (see specification
+above.)
 }
 }
 \description{
 Loads data and rules into the system by parsing a list of algos.
 
-An algo is composed of one instrument (data) and one rule (functions).
+An algo is composed of one instrument (data) and one rule variation.
 
 Data sets must be csv files in a single folder. The system configuration must
 include a path to the data folder. Data sets are referenced by their file
 names (excluding extension) as character strings.
 
-A "rule" is a combination of one signal generating rule and one optional stop
-loss rule. The stop loss rule is optional.
+A rule variation is a function that produces a trade signal. A
+\emph{rule variation} is produced by a \emph{signal generator}, which may implement
+several rules to produce one signal. The typical use case for multiple
+rules in one \emph{signal generator} would by one rule generating an actual trade
+signal, and one rule triggering a position to be closed, e.g. a stop
+loss rule. (See vignette: \code{vignette(package = "rsystrade")})
 
 \code{parse_algos()} takes a nested list of algo specifications and expands it to
-a list of all possible permutations of instrument names and rules. Finally
-formats the list so that each element is a list containing one instrument
-name and one list named \code{rule} containing one signal generating rule name
-and one optional stop loss rule name.
-
-\code{make_system()} loads the unique data sets specified in the parsed algos into
-a sublist named \code{inst_data}.
+a list of all possible permutations of instrument names and rules. It then
+finally formats the list so that each element is a list containing one
+element named \code{instrument} containing an instrument name, and one element
+simply named \code{rule} containing
+\itemize{
+\item one rule variation name
+\item one signal generator function, given as a function name which may be
+a character string or a variable to which the function is assigned.
+Note that the function name should not be followed by parentheses.
+\item One list of variable parameters. The first of these must always be \code{t},
+which is provided by the system as it runs. Additional variable params,
+such as \code{price} will get their values from the instrument data sets.
+\item One list of fixed parameters. These are parameters to the signal
+generator function which are assigned a value.
+}
 
 Note: In the input sublists we have \code{rules} (plural, indicating one or
 more), in the output sublists we have \code{rule} (singular).
 
-Each rule in the \code{rules} list for each algo should be a function name
-provided as a character string. E.g.
-
-\if{html}{\out{<div class="sourceCode">}}\preformatted{trade_system$algos[[1]]$rules[[1]] <- list(
-    "MAC(20,80)",
-    "stoploss"
-)
-}\if{html}{\out{</div>}}
-
-With \code{get_rule_names_by_parsed_algo()} we can parse the name of rule 1
-(entry rule 1 and exit rule 1 combined) as \code{"[MA(20,80), stoploss]"}.
-
-If for instance a moving average crossover rule is defined in the function
-\code{mac(data, fast, slow)}, a (25, 100) variation should be provided to the
-system as \code{entry_rule_1 <- function(x) {mac(data, 16, 64)}}. (The name
-\code{entry_rule_1} is arbitrary.)
-
 In the the \code{algos} list, instruments must be provided as a path to a csv
-file. Rules must be provided as functions. (For now. Eventually the way
-the \code{algos} list is parsed will depend on the mode, which can be specified
-as \code{sim} for \emph{simulation mode} or \code{live} for \emph{live mode}.)
+file. (For now. Eventually the way the \code{algos} list is parsed will depends
+on the mode, which can be specified as \code{sim} for \emph{simulation mode} or
+\code{live} for \emph{live mode}.) Rule variations must be provided as character
+string. The \emph{signal generator} name must match the name of a function which
+is loaded into the environment in which the system list is stored. In other
+words: You must define the signal generators in the same environment as the
+one where you call \code{make_system()} (typically the global environment).
+\emph{Signal generator} functions included in the rsystrade package are loaded
+into the package env, which will also work.
+
+\code{make_system()} loads the unique data sets specified in the parsed algos into
+a sublist named \code{inst_data}.
 
 The \code{algos} parameter is a nested list in one in the following forms.
-Pairs of one instrument and one rule:
+Pairs of one instrument and one signal generator:
 
 \if{html}{\out{<div class="sourceCode R">}}\preformatted{algos <- list(
   list( ## algo 1: algos[[1]]
     instruments = list("instr1"),
     rules = list(rule1)
-  ),
-  list( ## algo 2: algos[[2]]
-    instruments = list("instr2"),
-    rules = list(rule2)
   )
 )
 }\if{html}{\out{</div>}}
 
-Or we can apply the same rule to multiple instruments:
+Or we can apply the same signal generator to multiple instruments:
 
 \if{html}{\out{<div class="sourceCode R">}}\preformatted{algos <- list(
   list( ## algo 1: algos[[1]]
@@ -101,29 +101,73 @@ Or multiple rules to a single instrument.:
 )
 }\if{html}{\out{</div>}}
 
-In these examples \code{rule1} is the name of a list containing one signal
-rule name and optionally one stop loss rule name . \code{rule2} is the name of
-another list containing one signal rule name and one optional stop loss rule
-name. Signal and stop loss rule names are supplied as character strings.
+In these examples \code{rule1} represents a rule variation. \code{rule2} represents
+another rule variation. An example of a rule variation might look like
+this:
+
+\if{html}{\out{<div class="sourceCode R">}}\preformatted{list(
+  "mac_2_4",
+  r_mac,
+  ma_fast = NA,
+  ma_slow = NA,
+  n_fast = 2L,
+  n_slow = 4L,
+  gap = 0,
+  strict = TRUE,
+  binary = FALSE
+)
+}\if{html}{\out{</div>}}
+
+In this example \code{r_mac} is the name of a function which takes \code{t} as the
+first parameter and \code{price} as the second. These are the \emph{variable}
+\emph{parameters}, which get input from the system. The remaining \emph{fixed}
+\emph{parameters} are specified in the remaining elements in the \emph{rule}
+\emph{variation list}.
+
+\code{r_mac} is the name of a \emph{rule function}. We may use \emph{rule functions} directly,
+provided that the interface conforms to the standardized interface of a
+\emph{signal generator}. Alternatively we may use a \emph{signal generator}, the name of
+which should be prefixed by \code{s_}. We may combine several \emph{rule functions}
+in one \emph{signal generator}.
 
 Subsets are then expanded to all possible permutations:
 
 \if{html}{\out{<div class="sourceCode R">}}\preformatted{input <- list(
   list( ## algo 1: algos[[1]]
-    instrument = "<inst_1_name>",
-    rule = "<rule_1_name>"
+    instrument = "inst1",
+    rule = list(
+      rule_variation = "rule_variation_1",
+      signal_generator = signal_generator_1,
+      variable_params = variable_params_1,
+      fixed_params = fixed_params_1,
+    )
   ),
   list( ## algo 2: algos[[2]]
-    instrument = "<inst_2_name",
-    rule = "<rule_1_name>"
+    instrument = "inst2",
+    rule = list(
+      rule_variation = "rule_variation_1",
+      signal_generator = signal_generator_1,
+      variable_params = variable_params_1,
+      fixed_params = fixed_params_1,
+    )
   )
   list( ## algo 3: algos[[3]]
-    instrument = "<inst_1_name>",
-    rule = "<rule_2_name>"
+    instrument = "inst1",
+    rule = list(
+      rule_variation = "rule_variation_2",
+      signal_generator = signal_generator_2,
+      variable_params = variable_params_2,
+      fixed_params = fixed_params_2,
+    )
   ),
   list( ## algo 4: algos[[4]]
-    instrument = "<inst_2_name>",
-    rule = "<rule_2_name>"
+    instrument = "inst2",
+    rule = list(
+      rule_variation = "rule_variation_2",
+      signal_generator = signal_generator_2,
+      variable_params = variable_params_2,
+      fixed_params = fixed_params_2,
+    )
   )
 )
 }\if{html}{\out{</div>}}

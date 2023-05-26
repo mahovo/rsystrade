@@ -5,9 +5,10 @@
 \title{Update Position Table Row}
 \usage{
 update_position_table_row(
+  t,
   inst_data,
-  rule_functions,
   position_table,
+  position_modifier,
   raw_combined_signal,
   signal_div_mult,
   instrument_weight,
@@ -15,12 +16,17 @@ update_position_table_row(
   instrument_risk_target,
   subsystem_ret_cor_mat,
   system_account_table,
-  t,
   config
 )
 }
 \arguments{
+\item{t}{Time index.}
+
+\item{inst_data}{Instrument data table.}
+
 \item{position_table}{Position table.}
+
+\item{position_modifier}{Position modifier function.}
 
 \item{raw_combined_signal}{Raw combined signal value.}
 
@@ -30,11 +36,7 @@ update_position_table_row(
 
 \item{system_account_table}{System account table.}
 
-\item{t}{Time index.}
-
 \item{config}{Configuration list.}
-
-\item{algo}{Single algo from the expanded algos list.}
 
 \item{signal_table}{Signal table.}
 }

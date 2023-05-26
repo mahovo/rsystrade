@@ -14,5 +14,5 @@ update_time(inst_data, algo, t)
 \item{t}{Time index.}
 }
 \description{
-Get latest time from data in \code{algo} list.
+Get latest time from data frame in \code{algo} list.
 }

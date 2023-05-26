@@ -9,14 +9,14 @@ f_ewa(x, lookback = NA)
 \arguments{
 \item{x}{vector}
 
-\item{lookback}{Lookback window length. If no \code{lookback} is provided, the
-entire \eqn{x} vector will be used.}
+\item{lookback}{Lookback window length as positive integer. If no \code{lookback}
+is provided, the entire \eqn{x} vector will be used.}
 }
 \value{
 Single exponentially weighted average value
 }
 \description{
-Calculate EWA of vector \eqn{x} at time \eqn{t} based on a lookback window. If the
-length of the lookback window is \eqn{L}, the range of the lookback window is
-\eqn{[t-L, t-1]}.
+Calculate EWA of vector \eqn{x} at time \eqn{t} based on a lookback window.
+If the length of the lookback window is \eqn{L}, the range of the lookback
+window is \eqn{[t-L, t-1]}.
 }

@@ -27,8 +27,8 @@
 #' window length will be set to the length of the price vector, and a warning
 #' will be given. The function will not fail or abort in this case.
 #'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param t Time index.
 #' @param window_length Window length.
 #'
@@ -63,7 +63,8 @@ f_moving_average <- function(prices, t = NA, window_length) {
 #' N (length of price vector) smaller than or equal to n is accepted.
 #' This will not be the desired moving average, but will also not fail.
 #'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom: Newer to older.
+#' @param prices A vector of prices in currency. Newest first. Top to bottom:
+#'   Newer to older.
 #' @param n Moving Average lookback period.
 #'
 #' @returns A vector of prices.
@@ -72,6 +73,10 @@ f_moving_average <- function(prices, t = NA, window_length) {
 #' @example
 #'
 f_ma_vector <- function(prices, n) {
+
+  if(!is.integer(n)) {stop("window_length must be an integer (e.g. 16L).")}
+  if(!(n > 0L)) {stop("window_length must be positive.")}
+
   N <- length(prices)
 
   #stopifnot(N >= n)
@@ -112,10 +117,16 @@ f_stop_loss_level <- function(
     lwm,
     stop_loss_gap,
     direction = 0,
-    rnd = TRUE) {
+    rnd = FALSE) {
+
+  RND_MIN <- 0.01
+  RND_MAX <- 0.03
+
+  rnd_val <- stats::runif(1, RND_MIN, RND_MAX)
+
   if(direction == 1){ ## If long
-    hwm - stop_loss_gap + stats::runif(1, 0.01, 0.03) * rnd
-  } else {lwm + stop_loss_gap - stats::runif(1, 0.01, 0.03) * rnd}
+    hwm - stop_loss_gap + rnd_val * rnd
+  } else {lwm + stop_loss_gap - rnd_val * rnd}
 }
 
 ## LT F23

@@ -7,12 +7,36 @@
 # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 #' Make Trade System
 #'
+#' @description
+#' `config` contains
+#'
+#'   * `init_capital`
+#'   * `system_risk_target`
+#'   * `risk_window_length`
+#'   * `min_periods`
+#'   * `min_signal`
+#'   * `max_signal`
+#'   * `min_cor` Default is `0`.
+#'   * `max_sdm` Default is `2.5`.
+#'   * `same_direction_trade_allowed` Default is `FALSE`.
+#'   * `instrument_data_folder_path`
+#'   * `signal_weight_calculation_method` Default is `"equal"`.
+#'   * `inst_weight_calculation_method` Default is `"equal"`.
+#'   * `target_normalization_factor` Default is `1`,
+#'   * `signal_normalization_factors_method` Default is `"equal"`.
+#'   * `signal_normalization_factors_args` A list of additional arguments for
+#'     each method in `update_signal_normalization_factors()`.
+#'     * Additional argument for method `"equal"` is `equal_norm_factor`.
+#'     * Additional argument for method `"median_pool_all"` is
+#'       `min_periods_median_pool_all`.
+#'
 #' @param algos A list of algos.
 #' @param init_capital Initial capital.
 #' @param system_risk_target System risk target as decimal fraction (percent
 #'   divided by 100).
 #' @param risk_window_length Risk window length.
-#' @param stop_loss_fraction Stop loss fraction.
+#' @param position_modifiers Named list of position modifier functions. Names
+#'   should be the names of the corresponding instruments.
 #' @param min_periods Minimum number of periods (rows) in the data sets.
 #'   Defaults to 1.
 #' @param min_signal Minimum signal value.
@@ -30,10 +54,13 @@
 #'      comment(inst_data[[1]])
 #'      [1] "instrument1"
 #'      ```
+#'    * a list of rule functions.
+#'    * a matrix of correlations between subsystem returns.
 #'    * a list of parsed algos, which in turn contains an instrument name and a
 #'      list of two trade rule functions: One trade signal generating rule and
 #'      one optional stop loss rule.
-#'      If present, the exit rule is applied in the positions stage.
+#'      If present, the stop loss rule is applied in the positions stage.
+#'    * a list of signal normalization factors
 #'    * a list `signal_tables`, each containing a data frame.
 #'    * a list `position_table`, each containing a data frame.
 #'    * a dataframe `system_account_table`.
@@ -49,26 +76,17 @@
 #'      algos <- list(
 #'        list(
 #'          instrument = <instrument_name>,
-#'          algo = list(
-#'            <signal_rule_function>,
-#'            <stop_loss_rule_function>
-#'          )
+#'          rule_function = <rule_function_name>
 #'        ),
 #'        list(
 #'          instrument = <instrument_name>,
-#'          algo = list(
-#'            <signal_rule_function>,
-#'            <stop_loss_rule_function>
-#'          )
+#'          rule_function = <rule_function_name>
 #'        ),
 #'        ...,
 #'        list(
 #'          instrument = <instrument_name>,
-#'          algo = list(
-#'            <signal_rule_function>,
-#'            <stop_loss_rule_function>
-#'          )
-#'        ),
+#'          rule_function = <rule_function_name>
+#'        )
 #'      ),
 #'      signal_tables <- list(
 #'        data.frame(),
@@ -93,7 +111,7 @@ make_system <- function(
     init_capital = 100000,
     system_risk_target = 0.12,
     risk_window_length = 25,
-    stop_loss_fraction = 0.5,
+    position_modifiers = list(),
     min_periods = 1,
     min_signal = -2,
     max_signal = 2,
@@ -104,18 +122,24 @@ make_system <- function(
       init_capital = init_capital,
       system_risk_target = system_risk_target,
       risk_window_length = risk_window_length,
-      stop_loss_fraction = stop_loss_fraction,
       min_periods = min_periods,
       min_signal = min_signal,
       max_signal = max_signal,
+      correlation_method = "Pearson",
       min_cor = 0,
       max_sdm = 2.5,
       same_direction_trade_allowed = FALSE,
       instrument_data_folder_path = instrument_data_folder_path,
       signal_weight_calculation_method = "equal",
       inst_weight_calculation_method = "equal",
-      normalization_target = 1,
-      signal_normalization_factors_method = "equal"
+      normalization_factor_target = 1,
+      signal_normalization_factors_method = "equal",
+      ## A list of additional arguments for each method in
+      ## update_signal_normalization_factors()
+      signal_normalization_factors_args = list(
+        equal = list(equal_norm_factor = 1),
+        median_pool_all = list(min_periods_median_pool_all = 250)
+      )
     )
   ##////////////////////
   ## Initialize system
@@ -142,19 +166,18 @@ make_system <- function(
     parsed_algos = parsed_algos,
     instrument_data_folder_path = instrument_data_folder_path
   )
-  names(inst_data) <- unlist(get_unique_inst_names_from_parsed_algos_list(parsed_algos))
+  inst_names <- unlist(get_unique_inst_names_from_parsed_algos_list(parsed_algos))
+  names(inst_data) <- inst_names
 
   ## The way to access a data set:
   ## inst_data[[parsed_algos[[i]]$instrument]]
   ## For instance, get prices:
   ## inst_data[[parsed_algos[[i]]$instrument]]$price
 
-  rule_functions <-load_rule_functions(parsed_algos)
-  names(rule_functions) <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
-
-  ## The way to access a specific rule function:
-  ## rule_functions[[ parsed_algos[[i]]$rule[[1]] ]] # Signal rule
-  ## rule_functions[[ parsed_algos[[i]]$rule[[2]] ]] # Stop loss rule
+  ## We don't need to load rule functions anymore, as they are stored in each
+  ## parsed algo
+  #rule_functions <-load_rule_functions(parsed_algos)
+  #names(rule_functions) <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
 
   ## Get number of signals
   num_signals <- length(parsed_algos)
@@ -169,9 +192,9 @@ make_system <- function(
       time = inst_data[[ parsed_algos[[i]]$instrument ]]$time[1:min_periods],
       price = inst_data[[ parsed_algos[[i]]$instrument ]]$price[1:min_periods],
       ## Fill with small random values to avoid zero-sd
-      raw_signal = rnorm(min_periods, 0, 0.001), #nnumeric(min_periods), #rep(NA, min_periods),
-      normalized_signal = rnorm(min_periods, 0, 0.001), #nnumeric(min_periods), #rep(NA, min_periods),
-      clamped_signal = rnorm(min_periods, 0, 0.001), #nnumeric(min_periods), #rep(NA, min_periods),
+      raw_signal = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      normalized_signal = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      clamped_signal = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       signal_weight = numeric(min_periods) #rep(NA, min_periods)
     )
   }
@@ -200,19 +223,34 @@ make_system <- function(
       position_size_units = numeric(min_periods),
       position_size_ccy = numeric(min_periods),
       direction = numeric(min_periods),
-      stop_loss = numeric(min_periods),
-      stop_loss_gap = numeric(min_periods),
+      #stop_loss = numeric(min_periods),
+      #stop_loss_gap = numeric(min_periods),
       subsystem_position = numeric(min_periods),
       enter_or_exit = rep("---", min_periods),
       t_last_position_entry = rep(0, min_periods),
       trade_on = rep(FALSE, min_periods),
       ## Fill with small random values to avoid zero-sd
-      instrument_returns = rnorm(min_periods, 0, 0.001),
-      subsystem_pandl = rnorm(min_periods, 0, 0.001), #numeric(min_periods),
+      instrument_return = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       borrowed_asset_ccy = numeric(min_periods),
       position_change_ccy = numeric(min_periods)
     )
   }
+  names(position_tables) <- inst_names
+
+  ## Initialize list of position modifiers.
+  ## User may provide a named list where the names are instrument names and
+  ## values are position modifier functions.
+  ## parse_position_modifiers() creates a named list. Each element corresponds
+  ## to an instrument, in the order instruments occur in the inst_data list.
+  ## The name of each element is the name of the instrument.
+  ## User provided position modifier functions will be assigned to the
+  ## appropriate elemet in the list.
+  ## Any position modifier function for which the name doesn't match any
+  ## instrument in the system, will be ignored.
+  ## If no position modifier function is assigned to an instrument, the position
+  ## of that instrument will not be modified.
+  position_modifiers <- make_position_modifiers_list(position_modifiers, inst_names)
 
   ## Totals for entire system
   system_account_table <- data.frame(
@@ -237,21 +275,26 @@ make_system <- function(
   signal_normalization_factors <- update_signal_normalization_factors(
     parsed_algos,
     signal_tables,
-    instrument_data_sets,
-    target = 1,
+    inst_data,
+    target = config$normalization_factor_target,
     method = config$signal_normalization_factors_method,
-    equal_norm_factor = 1
+    ## Get any additional arguments from config.
+    ## Looks up method in config, then gets the associated argument values.
+    args = config$signal_normalization_factors_args[[config$signal_normalization_factors_method]]
   )
+
   names(signal_normalization_factors) <- unlist(get_unique_rule_names_from_parsed_algos_list(parsed_algos))
 
+  ## Generate initial system list
   list(
     inst_data = inst_data,
-    rule_functions = rule_functions,
+    #rule_functions = rule_functions,
     subsystem_ret_cor_mat = subsystem_ret_cor_mat,
     algos = parsed_algos,
     signal_normalization_factors = signal_normalization_factors,
     signal_tables = signal_tables,
     position_tables = position_tables,
+    position_modifiers = position_modifiers,
     system_account_table = system_account_table,
     # signal_cor_mat = signal_cor_mat,
     config = config
@@ -305,22 +348,18 @@ update_system <- function(
   ##   algos <- list(
   ##     list( ## algo 1: algos[[1]]
   ##       instrument = "<inst_1_name>",
-  ##       data = <data_frame>,
   ##       rule = rule1
   ##     ),
   ##     list( ## algo 2: algos[[2]]
   ##       instrument = "<inst_2_name>",
-  ##       data = <data_frame>,
   ##       rule = rule1
   ##     )
   ##     list( ## algo 3: algos[[3]]
   ##       instrument = "<inst_1_name>",
-  ##       data = <data_frame>,
   ##       rule = rule2
   ##     ),
   ##     list( ## algo 4: algos[[4]]
   ##       instrument = "<inst_2_name>",
-  ##       data = <data_frame>,
   ##       rule = rule2
   ##     )
   ##   )
@@ -423,26 +462,44 @@ update_system <- function(
   ## list
   sig_norm_fact_by_algos <- get_signal_normalization_factors_by_algos(
     trade_system$signal_normalization_factors,
-    parsed_algos
+    trade_system$algos
   )
 
   ## Update new row in each signal_table
   signal_tables <- trade_system$signal_tables
-  for(i in seq_along(trade_system$algos)) {
-    signal_tables[[i]][t, ] <- update_signal_table_row(
-      trade_system$inst_data[ trade_system$algos[[i]]$instrument ],
-      trade_system$algos[[i]],
 
-      #TODO
-      #change rule[[1]] when rule changed to only ever include 1 element
-      trade_system$rule_functions[ trade_system$algos[[i]]$rule[[1]] ],
-      trade_system$signal_tables[[i]],
-      signal_weights_all_algos[[i]],
-      sig_norm_fact_by_algos[[i]],
-      t,
-      trade_system$config
+  for(i in seq_along(trade_system$algos)) {
+    new_signal_row <- update_signal_table_row(
+      t = t,
+      inst_data = trade_system$inst_data[ trade_system$algos[[i]]$instrument ][[1]],
+      algo = trade_system$algos[[i]],
+      #trade_system$rule_functions[ trade_system$algos[[i]]$rule[[1]] ],
+      signal_table = trade_system$signal_tables[[i]],
+      signal_weight = signal_weights_all_algos[[i]],
+      signal_normalization_factor = sig_norm_fact_by_algos[[i]],
+      position_table = trade_system$position_tables[[i]],
+      config = trade_system$config
     )
+
+    ## Additional output from rules will be added to signal tables append
+    ## additional columns.
+    ## The first time a rule produces additional output, the appropriate new
+    ## columns will be appended to the signal table. Previous rows will be
+    ## backfilled with NAs.
+    ## (This code assumes, that if the length of signal list is not equal to
+    ## the number of columns in the signal table, it must be because there is
+    ## additional output (">"). The "<" case should not be possible.)
+
+    if(length(new_signal_row) == ncol(signal_tables[[i]])) {
+      signal_tables[[i]][t, ] <- new_signal_row
+    } else {
+      signal_tables[[i]] <- backfill_table(
+        table = signal_tables[[i]],
+        new_row = new_signal_row
+      )
+    }
   }
+
 
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   # fix§0004
@@ -482,7 +539,11 @@ update_system <- function(
   ## Correlations of subsystem returns.
   subsystem_ret_cor_win_len <- trade_system$config$subsystem_ret_cor_win_len
   subsystem_ret_cor_mat <-
-    f_subsystem_ret_cor_mat(subsystem_pandl_vectors)
+    f_subsystem_ret_cor_mat(
+      subsystem_pandl_vectors,
+      method = trade_system$config$correlation_method, #"Pearson"
+      min_cor = trade_system$config$min_cor
+    )
 
   ## Vector of weights
   instrument_weights <- calculate_equal_inst_weights(trade_system$algos)
@@ -514,23 +575,34 @@ update_system <- function(
   position_tables <- trade_system$position_tables
 
   for(i in seq_along(position_tables)) {
-    position_tables[[i]][t, ] <- update_position_table_row(
-      trade_system$inst_data[[i]],
+    new_position_row <- update_position_table_row(
+      t = t,
+      inst_data = trade_system$inst_data[[i]],
       #trade_system$algos[[i]], ## algo
-      trade_system$rule_functions,
+      #trade_system$rule_functions,
       #signal_tables[[i]], ## Current signal_table (not yet in system)
-      trade_system$position_tables[[i]], ## position_table
-      raw_combined_signals[[i]],
-      signal_div_mult_vect[i], ## SDM value
-      instrument_weights[i],
-      inst_div_mult,
-      instrument_risk_target,
-      subsystem_ret_cor_mat,
-      trade_system$system_account_table,
-      t,
+      position_table = trade_system$position_tables[[i]], ## position_table
+      position_modifier = trade_system$position_modifiers[[i]],
+      raw_combined_signal = raw_combined_signals[[i]],
+      signal_div_mult = signal_div_mult_vect[i], ## SDM value
+      instrument_weight = instrument_weights[i],
+      inst_div_mult = inst_div_mult,
+      instrument_risk_target = instrument_risk_target,
+      subsystem_ret_cor_mat = subsystem_ret_cor_mat,
+      system_account_table = trade_system$system_account_table,
       config = trade_system$config
     )
+    if(length(new_position_row) == ncol(position_tables[[i]])) {
+      position_tables[[i]][t, ] <- new_position_row
+    } else {
+      position_tables[[i]] <- backfill_table(
+        table = position_tables[[i]],
+        new_row = new_position_row
+      )
+    }
   }
+
+
 
   system_account_table <- trade_system$system_account_table
 
@@ -562,12 +634,13 @@ update_system <- function(
   ## Return updated trade system
   list(
     inst_data = trade_system$inst_data,
-    rule_functions = trade_system$rule_functions,
+    #rule_functions = trade_system$rule_functions,
     subsystem_ret_cor_mat = subsystem_ret_cor_mat,
     algos = trade_system$algos,
     signal_normalization_factors = trade_system$signal_normalization_factors,
     signal_tables = signal_tables,
     position_tables = position_tables,
+    position_modifiers = trade_system$position_modifiers,
     system_account_table = system_account_table,
     # signal_cor_mat = signal_cor_mat,
     config = trade_system$config
@@ -588,27 +661,38 @@ update_system <- function(
 #'
 #' @examples
 update_signal_table_row <- function(
+    t, ## Time index
     inst_data,
     algo,
-    rule_function,
+    #rule_function,
     signal_table,
     signal_weight, ## Weight is just passed to the output vector
     signal_normalization_factor,
-    t, ## Time index
+    position_table,
     config
   ) {
 
-  time_t <- update_time(inst_data, algo, t)
+  time_t <- inst_data$time[t] #update_time(inst_data, algo, t)
 
-  price_t <- update_price(inst_data, algo, t)
-  prices <- c(signal_table$price, price_t)
+  ## Only prices are currently supported as variable params.
+  ## This should be generalized.
+  prices <-  inst_data$price[1:t]
+  price_t <- prices[t]
 
-  raw_signal <- generate_signal(
-    prices, ## For now only price data is allowed as input for rules
-    algo,
-    rule_function
-    #trade_system$signal,
+  signal_list <- generate_signal(
+    variable_param_vals = get_variable_param_vals(t, inst_data, algo),
+    #signal_table = signal_table,
+    #position_table = position_table,
+    algo = algo#,
+    #t
+    #config = config
   )
+
+  ## Everything in signal list except signal
+  secondary_rule_output <- signal_list[-1]
+
+  ## Signal from signal list
+  raw_signal <- signal_list[[1]]
 
   normalized_signal <- f_normalize_signal(
     raw_signal,
@@ -621,12 +705,18 @@ update_signal_table_row <- function(
     config$max_signal
   )
 
-  list(time_t,
-    price_t,
-    raw_signal,
-    normalized_signal,
-    clamped_signal,
-    signal_weight
+  standard_columns <- list(
+    time = time_t,
+    price = price_t,
+    raw_signal = raw_signal,
+    normalized_signal = normalized_signal,
+    clamped_signal = clamped_signal,
+    signal_weight = signal_weight
+  )
+
+  c(
+    standard_columns,
+    secondary_rule_output
   )
 }
 
@@ -644,9 +734,10 @@ update_signal_table_row <- function(
 #'
 #' Update the position table accordingly.
 #'
-#' @param algo Single algo from the expanded algos list.
+#' @param inst_data Instrument data table.
 #' @param signal_table Signal table.
 #' @param position_table Position table.
+#' @param position_modifier Position modifier function.
 #' @param raw_combined_signal Raw combined signal value.
 #' @param signal_div_mult Signal diversification multiplier.
 #' @param subsystem_ret_cor_mat Subsystem returns correlation matrix.
@@ -660,10 +751,12 @@ update_signal_table_row <- function(
 #' @examples
 update_position_table_row <- function(
   #algo,
+  t,
   inst_data,
-  rule_functions,
+  #rule_functions,
   #signal_table,
   position_table,
+  position_modifier,
   raw_combined_signal,
   signal_div_mult,
   instrument_weight,
@@ -671,16 +764,10 @@ update_position_table_row <- function(
   instrument_risk_target,
   subsystem_ret_cor_mat,
   system_account_table,
-  t,
   config
 ) {
 
   prices <- inst_data$price[1:t]
-
-  ## Calculate trade direction from combined signal at time t
-  direction <- sign(raw_combined_signal)
-
-  latest_trade_direction <- position_table$direction[t - 1]
 
   instrument_risk <- f_inst_risk(
     #c(position_table$price[1:(t - 1)], price),
@@ -689,175 +776,126 @@ update_position_table_row <- function(
     window_length = config$risk_window_length
   )
 
-  #if(latest_trade_direction != direction) {
+  # ST, p. 133
+  rescaled_combined_signal <- raw_combined_signal * inst_div_mult
 
-  # TODO:
-  # Based on signal:
-  #   * If a trade is not on: Determine whether to enter a trade, and if so
-  #     in which direction.
-  #   * If a trade is on: Determine whether to exit the trade or to switch
-  #     direction.
-  #   * It is not allowed to enter a trade in the same direction as the
-  #     previous trade.
+  clamped_combined_signal <- clamp_signal(
+    rescaled_combined_signal,
+    min_signal = config$min_signal,
+    max_signal = config$max_signal
+  )
 
-    ## ** NOTE **
-    ## This is the same for all instruments...
-    ## Right...?
-    ## So: Calculate in update_system()
-    ## *** ** ***
-    # inst_div_mult <- f_inst_div_mult(
-    #   subsystem_ret_cor_mat,
-    #   instrument_weights
-    # )
-    #
-    # instrument_risk_target <- f_instrument_risk_target(
-    #   trade_system$config$system_risk_target,
-    #   inst_div_mult
-    # )
+  required_leverage_factor <- f_required_leverage_factor(
+    instrument_risk_target,
+    instrument_risk
+  )
 
-    # ST, p. 133
-    rescaled_combined_signal <- raw_combined_signal * inst_div_mult
+  subsystem_position <- calculate_subsystem_position(
+    clamped_combined_signal,
+    required_leverage_factor
+  )
 
-    clamped_combined_signal <- clamp_signal(
-      rescaled_combined_signal,
-      min_signal = config$min_signal,
-      max_signal = config$max_signal
-    )
+  ## Notional exposure in account currency
+  notional_exposure <- f_notional_exposure(
+    clamped_combined_signal,
+    system_account_table$capital[t - 1],
+    required_leverage_factor,
+    instrument_weight
+  )
 
-    required_leverage_factor <- f_required_leverage_factor(
-      instrument_risk_target,
-      instrument_risk
-    )
-
-    subsystem_position <- calculate_subsystem_position(
-      clamped_combined_signal,
-      required_leverage_factor
-    )
-
-    if(latest_trade_direction == direction) { ## No change in direction
-      enter_or_exit <- "---"
-      trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
-      t_last_position_entry <- position_table$t_last_position_entry[t - 1]
-    } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
-      enter_or_exit <- "enter"
-      t_last_position_entry <- t
-      trade_on <- TRUE
-    } else if(direction == 0 && abs(latest_trade_direction) == 1) { ## If closing an open position
-      enter_or_exit <- "exit"
-      trade_on <- FALSE
-      t_last_position_entry <- "---"
-    } else if(latest_trade_direction * direction == -1) { ## If changing direction
-      enter_or_exit <- "reverse"
-      trade_on <- TRUE
-      t_last_position_entry <- t
-    } else {
-      enter_or_exit <- NA
-      t_last_position_entry <- NA
-      trade_on <- NA
-    }
-
-    stop_loss <- 1
-    stop_loss_gap <- NA
-
-    # if(trade_on == TRUE) {
-    #   ## apply stop loss rule
-    #   if(length(algo$rule) == 2) {
-    #     stop_loss <- rule_functions[[ algo$rule[[2]] ]](
-    #       prices,
-    #       t,
-    #       instrument_risk,
-    #       config$stop_loss_fraction,
-    #       t_last_position_entry,
-    #       direction,
-    #       rnd = false
-    #     )
-    #
-    #     ## for now the stop loss rule must return a list of a stop loss signal
-    #     ## and a stop loss gap. gop extracted for book keeping.
-    #     ## extract separate variables
-    #     stop_loss_gap <- stop_loss$stop_loss_gap
-    #     stop_loss <- stop_loss$stop_loss
-    #
-    #     subsystem_position <- subsystem_position * stop_loss
-    #   }
-    # }
+  ## position_size_units
+  # position_size_units <- f_position_size_units(
+  #   price,
+  #   risk_target,
+  #   system_account_table$capital[t - 1],
+  #   instrument_risk
+  # )
+  target_position_size_units <- f_target_position_size_units(
+    notional_exposure,
+    prices[t] #,
+    # TODO
+    # Uncomment when implementing fx rates:
+    #fx_rate # default 1
+  )
 
 
-    ## Notional exposure in account currency
-    notional_exposure <- f_notional_exposure(
-      clamped_combined_signal,
-      system_account_table$capital[t - 1],
-      required_leverage_factor,
-      instrument_weight
-    )
+  ## Actual traded position in rounded number of contracts
+  position_size_units <- f_position_units(target_position_size_units)
 
-    ## position_size_units
-    # position_size_units <- f_position_size_units(
-    #   price,
-    #   risk_target,
-    #   system_account_table$capital[t - 1],
-    #   instrument_risk
-    # )
-    target_position_size_units <- f_target_position_size_units(
-      notional_exposure,
-      prices[t] #,
-      # TODO
-      # Uncomment when implementing fx rates:
-      #fx_rate # default 1
-    )
+  ## Actual position size in units account currency
+  position_size_ccy <- f_position_size_ccy(
+    prices[t],
+    position_size_units
+  )
 
+  t_last_position_entry <- position_table$t_last_position_entry[t - 1]
 
-    ## Actual traded position in rounded number of contracts
-    position_size_units <- f_position_units(target_position_size_units)
+  latest_trade_direction <- position_table$direction[t - 1]
 
-    ## Actual position size in units account currency
-    position_size_ccy <- f_position_size_ccy(
-      prices[t],
-      position_size_units
-    )
+  trade_on <- abs(latest_trade_direction)
 
-    ## Starter System: No position adjustment.
-    #prev_position_size_units <- trades_data$position_size_units[t - 1]
-    #prev_position_size_ccy <- trades_data$position_size_ccy[t - 1]
+  ## We calculate direction based on combined signal here, so that direction is
+  ## avaiable for any position modifiers.
+  direction <- sign(raw_combined_signal)
 
-    #trade_amount_units <- (position_size_units - prev_position_size_units) * direction
-    #trade_amount_ccy <- (position_size_ccy - prev_position_size_ccy) * direction
+  position_modifier_output <- modify_position(
+    variable_param_vals = get_pos_mod_var_param_vals(
+      t = t,
+      position_size_ccy = position_size_ccy,
+      inst_data = inst_data,
+      position_modifier = position_modifier,
+      pos_table_vars = as.list(environment())
+    ),
+    position_modifier = position_modifier,
+    position_size_ccy = position_size_ccy
+  )
 
+  modified_position_size_ccy <- position_modifier_output[[1]]
 
-    ## Simple System:
-    ## When entering a trade, amount of cash and capital should always be
-    ## the same, as we only trade one instrument, and always exit the trade
-    ## before entering a new.
-    ## Only list amount borrowed.
-    ## Don't list negative amount when leverage is <1,
-    ## ie. position_size_ccy[t] < cash[t - 1].
+  ## We calculate direction again based on modified position. E.g. if a position
+  ## modifier invoked a stop loss, the position this will change the direction
+  ## to 0.
+  direction <- sign(modified_position_size_ccy)
 
-    ## When long trade has just been entered:
-    ## cash[t] = cash[t - 1] - position_size_ccy[t] + borrowed_cash[t]
-    ##
-    #### borrowed_cash[t] = max[0, position_size_ccy[t] - cash[t - 1]]
-    #### borrowed_asset[t] = 0
-    #### capital[t] = cash[t] + position_size_ccy[t] - borrowed_cash[t]
+  if(latest_trade_direction == direction) { ## No change in direction
+    enter_or_exit <- "---"
+    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
+  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
+    enter_or_exit <- "enter"
+    t_last_position_entry <- t
+    trade_on <- TRUE
+  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
+    enter_or_exit <- "exit"
+    trade_on <- FALSE
+    t_last_position_entry <- "---"
+  } else if(latest_trade_direction * direction == -1) { ## If changing direction
+    enter_or_exit <- "reverse"
+    trade_on <- TRUE
+    t_last_position_entry <- t
+  } else {
+    enter_or_exit <- NA
+    t_last_position_entry <- NA
+    trade_on <- NA
+  }
 
-    ## When short trade has just been entered:
-    ## cash[t] = cash[t - 1] + borrowed_asset[t]
-    ## borrowed_cash[t] = 0
-    ## borrowed_asset[t] = position_size_ccy[t]
-    ## capital[t] = cash[t - 1]
+  instrument_return <- f_price_returns(prices, t)
 
-    instrument_return <- f_price_returns(prices, t)
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # fix§0040
+  # Calculate `subsystem_pandl`
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  ## Update P&L for subsystem
+  subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
 
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-    # fix§0040
-    # Calculate `subsystem_pandl`
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-    ## Update P&L for subsystem
-    subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
+  # borrowed_asset,
+  borrowed_asset_ccy <- modified_position_size_ccy * (direction < 0) ## 0 if long
 
-    # borrowed_asset,
-    borrowed_asset_ccy <- position_size_ccy * (direction < 0) ## 0 if long
-
-    position_change_ccy <- f_position_change_ccy(position_table, position_size_ccy, t)
+  position_change_ccy <- f_position_change_ccy(
+    position_table,
+    modified_position_size_ccy,
+    t
+  )
 
   #} else { ## latest_trade_direction == direction: no change (don't enter
     ## trade)
@@ -889,35 +927,42 @@ update_position_table_row <- function(
     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   #} ## closure of "if(latest_trade_direction != direction) {"
 
-  ## Return updated row in position_tables for time t
-  list(
-    inst_data$time[t],
-    prices[t],
-    instrument_risk,
-    instrument_risk_target,
-    raw_combined_signal,
-    rescaled_combined_signal,
-    clamped_combined_signal,
-    required_leverage_factor,
-    signal_div_mult,
-    instrument_weight,
-    inst_div_mult,
-    notional_exposure,
-    target_position_size_units,
-    position_size_units,
-    position_size_ccy,
-    direction,
-    stop_loss,
-    stop_loss_gap,
-    subsystem_position,
-    enter_or_exit,
-    t_last_position_entry,
-    trade_on,
-    instrument_return,
-    subsystem_pandl,
-    borrowed_asset_ccy,
-    position_change_ccy
+
+  standard_columns <- list(
+    time = inst_data$time[t],
+    price = prices[t],
+    instrument_risk = instrument_risk,
+    instrument_risk_target = instrument_risk_target,
+    raw_combined_signal = raw_combined_signal,
+    rescaled_combined_signal = rescaled_combined_signal,
+    clamped_raw_combined_signal = clamped_combined_signal,
+    required_leverage_factor = required_leverage_factor,
+    signal_div_mult = signal_div_mult,
+    instrument_weight = instrument_weight,
+    inst_div_mult = inst_div_mult,
+    notional_exposure = notional_exposure,
+    target_position_size_units = target_position_size_units,
+    position_size_units = position_size_units,
+    position_size_ccy = position_size_ccy,
+    direction = direction,
+    subsystem_position = subsystem_position,
+    enter_or_exit = enter_or_exit,
+    t_last_position_entry = t_last_position_entry,
+    trade_on = trade_on,
+    instrument_return = instrument_return,
+    subsystem_pandl = subsystem_pandl,
+    borrowed_asset_ccy = borrowed_asset_ccy,
+    position_change_ccy = position_change_ccy
   )
+
+  c(
+    standard_columns,
+    position_modifier_output
+  )
+
+
+  ## Return updated row in position_tables for time t
+
 }
 
 ## capital =
@@ -1010,14 +1055,19 @@ load_instrument_data_sets <- function(
   }
   names(unique_instrument_data_sets) <- get_unique_inst_names_from_parsed_algos_list(parsed_algos)
   unique_instrument_data_sets
+
 }
 
 #' Load Rule Functions
 #'
 #' @description
-#' Load rule functions as specified by function names as character strings in
-#'   parsed algos into a list. The functions must be loaded into the enclosing
-#'   (typically global) environment.
+#' DEPRECATED: This depends on a previous structure of parsed algos, where
+#'   rule functions were given by their name as a character string!
+#'
+#' Load rule functions into a list. Functions are specified as functions
+#'   assigned to variables or by function names as character strings in parsed
+#'   algos. The functions must be loaded into the enclosing (typically global)
+#'   or package environment.
 #'
 #' @param parsed_algos
 #'
@@ -1026,11 +1076,19 @@ load_instrument_data_sets <- function(
 #'
 #' @examples
 load_rule_functions <- function(parsed_algos) {
-  unique_rule_names <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
-  unique_rule_functions <- lapply(unique_rule_names,
-    function(x) {eval(parse(text = x))}
+  unique_rule_names <- get_unique_rule_variation_names_by_parsed_algo(parsed_algos)
+  unique_signal_generators <- lapply(
+    unique_rule_names,
+    function(x) {
+      if(is.character(x)) {
+        #eval(parse(text = x))
+        eval_function_from_string(x)
+      } else {
+        x
+      }
+    }
   )
-  unique_rule_functions
+  unique_signal_generators
 }
 
 #' Evaluate Instrument Data Set
@@ -1038,7 +1096,7 @@ load_rule_functions <- function(parsed_algos) {
 #' @description
 #' Evaluate an instrument data set given a name as a character string.
 #'
-#' @param rule_name Instrument data set name as a character string.
+#' @param instrument_name Instrument data set name as a character string.
 #'
 #' @return Data frame
 #' @export
@@ -1048,19 +1106,19 @@ eval_inst <- function(instrument_name) {
   eval(parse(text = instrument_name))
 }
 
-#' Evaluate Rule Function
+#' Evaluate Function From String
 #'
 #' @description
-#' Evaluate a rule function given a function name as a character string.
+#' Evaluate a function given a function name as a character string.
 #'
-#' @param rule_name Rule function name as a character string.
+#' @param function_name Function name as a character string.
 #'
 #' @return Function
 #' @export
 #'
 #' @examples
-eval_rule <- function(rule_name) {
-  eval(parse(text = rule_name))
+eval_function_from_string <- function(function_name) {
+  eval(parse(text = function_name))
 }
 
 #' Run Trade System
@@ -1141,6 +1199,405 @@ calculate_signal_weights <- function(algos, method = "equal") {
   weights
 }
 
+#' Update Signal Normalization Factors
+#'
+#' @description
+#' Each raw signal is scaled by a normalization factor. This normalization
+#'   factor is the _required leverage target_.
+#'
+#' `update_signal_normalization_factors()` calculates the normalization factors
+#'   and updates the `signal_normalization_factors` list.
+#'
+#' @param parsed_algos Parsed algos list from trade system.
+#' @param signal_tables Signal tables list from trade system.
+#' @param instrument_data_sets Instrument data sets list from trade system.
+#' @param target The target expected value of the signal scaled by the
+#'   normalization factor. Default is 1.
+#' @param method Method.
+#' * `"equal"` All rules use the same normalization factor, passed as
+#'   `target`.
+#' * `"pool_traded"` Calculate the normalization factor for each rule based on
+#'   actual past signals for that rule across all the instruments to which
+#'   the individual rule has been applied.
+#'   We are pooling all the instruments for each rule. We are not taking the
+#'   cross section median across instruments, as we do for `pool_all()`,
+#'   because the number of instruments per rule is likely to be small - taking
+#'   the median of two values doesn't make much sense.
+#' * `"pool_all"` Calculate the normalization factor for each rule based on
+#'   signals simulated by applying each rule to all available instruments and
+#'   pooling the resulting signals.
+#'   The normalization factor for each rule is the target divided by the mean
+#'   absolute value of the pooled signals.
+#'   Additional argument:
+#'   * `min_period`. A value of `250` (ca. 1 year of
+#'     daily data) might be a good starting point. It is up to the user to
+#'     provide data sets with enough data.
+#' * `"median_pool_all"` Calculate the normalization factor for each rule
+#'   based on signals simulated by applying each rule to all available
+#'   instruments.
+#'   The normalization factor for each rule is the target divided by the mean
+#'   absolute value of all cross section medians.
+#'   Additional argument:
+#'   * `min_period`. A value of `250` (ca. 1 year of
+#'     daily data) might be a good starting point. It is up to the user to
+#'     provide data sets with enough data.
+#' * `"pool_class"` Calculate the normalization factor for each rule based on
+#'   signals simulated by applying each rule to all available instruments in
+#'   a relevant asset class.
+#' @param ... Additional method specific arguments.
+#'
+#' @return Named list of normalization factors
+#' @export
+#'
+#' @examples
+update_signal_normalization_factors <- function(
+    parsed_algos,
+    signal_tables,
+    instrument_data_sets,
+    target = 1,
+    method = "equal",
+    ...) {
+
+  ## Check that a single valid method is provided.
+  valid_methods <- c("equal", "pool_traded", "pool_all", "median_pool_all", "pool_class")
+  if(length(method) != 1 || sum(method == valid_methods) != 1) {
+    stop("A single valid method must be provided to update_normalization_factors()")
+  }
+
+  equal <- function(
+    parsed_algos,
+    args = list(equal_norm_factor = 1)
+  ) {
+    n <- get_num_rules_from_parsed_algos_list(parsed_algos)
+    factors <- as.list(rep(args$equal_norm_factor, n))
+    names(factors) <- get_unique_rule_names_from_parsed_algos_list(parsed_algos)
+    factors
+  }
+
+  pool_traded <- function(
+    signal_tables,
+    parsed_algos
+  ) {
+    ## Get rule name for each algo in the order they appear in the parsed algos
+    ## list
+    rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
+
+    ## Get all unique rule variation names in a list
+    all_unique_rule_names <- get_unique_rule_names_from_parsed_algos_list(parsed_algos)
+
+    ## For each unique rule name, get the IDs of that rule in the
+    ## rule_names_by_algo list
+    IDs_grouped_by_rule_names <- split(
+      seq_along(rule_names_by_algo),
+      unlist(rule_names_by_algo)
+    )
+
+    ## For each unique rule name, get all signals produced by that rule.
+    ## We are assuming that algos are in the same order as signal tables
+    raw_signals_list <- list()
+    for(rule in unlist(all_unique_rule_names)) {
+      all_raw_signals <- lapply(
+        signal_tables[unlist(IDs_grouped_by_rule_names[rule])],
+        function(x) {x$raw_signal}
+      )
+      df <- data.frame(all_raw_signals)
+      names(df) <- NULL
+      raw_signals_list[[rule]] <- df
+    }
+
+    ## When we unlist the raw signal data frame, all the column vectors in that
+    ## data frame are concatenated to one vector. So in effect we are pooling all
+    ## the instruments for each rule. We are not taking the cross section median
+    ## across instruments, as we do for median_pool_all(), because the number of
+    ## instruments per rule is likely to be small - taking the median of two
+    ## values doesn't make much sense.
+    lapply(raw_signals_list,
+           function(raw_signal_vector) {
+             f_indiv_normalization_factor(
+               unlist(raw_signal_vector),
+               target = 1
+             )
+           }
+    )
+  }
+
+  # TODO
+  # Same as median_pool_all(), but instead of median(unlist(raw_signals_df[j, ]))
+  # do mean(abs(unlist(raw_signals_df))) for each rule.
+  pool_all <- function(signal_tables, parsed_algos) {
+    stop("pool_all() not implemented yet")
+  }
+
+  median_pool_all <- function(
+    parsed_algos, ## parsed (expanded) algos
+    data_sets, ## data frames
+    args = list(min_periods_median_pool_all = 250)
+  ) {
+
+    ## Get number of rows from first data set.
+    ## Brave assuming that all data sets have same number of rows!
+    num_rows <- nrow(data_sets[[1]])
+    num_data_sets <- length(data_sets)
+    min_periods <- args$min_periods_median_pool_all
+
+    if(num_rows < min_periods) {
+      stop("Not enough data to estimate normalization factor with pool_all().")
+    }
+
+    ## Get rule name for each algo in the order they appear in the algos list
+    rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
+
+    ## Get all unique rule names in a list
+    all_unique_rule_names <-get_unique_rule_names_from_parsed_algos_list(parsed_algos)
+
+    ## Get instrument name for each algo in the order they appear in the algos list
+    inst_names_by_algo <-  get_inst_names_by_parsed_algo(parsed_algos)
+
+    ## Get all unique instrument names in a list
+    all_unique_inst_names <- get_unique_inst_names_from_parsed_algos_list(parsed_algos)
+
+    instruments <- lapply(all_unique_inst_names,
+                              function(x) {
+                                #ID = which(x == rule_names_by_algo)[1]
+                                #This should be equivalent:
+                                ID = match(x, inst_names_by_algo)
+                                ## Get functions at each ID in algos list
+                                parsed_algos[[ID]]$instrument
+                                # c(
+                                #  parsed_algos[[ID]]$rule[1],
+                                #  parsed_algos[[ID]]$rule[2]
+                                # )
+                              }
+    )
+
+
+    ## For each unique rule name, get the first ID of that rule in the
+    ## rule_names_by_algo list
+    rule_variations <- lapply(all_unique_rule_names,
+                             function(x) {
+                               #ID = which(x == rule_names_by_algo)[1]
+                               #This should be equivalent:
+                               ID = match(x, rule_names_by_algo)
+                               ## Get functions at each ID in algos list
+                               parsed_algos[[ID]]$rule
+                               # c(
+                               #  parsed_algos[[ID]]$rule[1],
+                               #  parsed_algos[[ID]]$rule[2]
+                               # )
+                             }
+    )
+
+    ## Make list of algos for simulation
+    sim_algos <- list()
+    k <- 1
+    for(i in seq_along(rule_variations)) {
+      for(j in seq_along(instruments)) {
+        sim_algos[[k]] <- list(
+          #"data" = data_sets[[j]],
+          instrument = instruments[[j]],
+          rule = rule_variations[[i]]
+          #list(
+            #rule_functions[[i]][[1]],
+            #rule_functions[[i]]#[[2]]
+          #)
+        )
+        k <- k + 1
+      }
+    }
+
+
+    ## For each unique rule, apply that rule to all instruments.
+    ## (sim_algos contains one algo per unique rule.)
+    ## One raw signals data frame for each rule.
+    ## In each raw signals data frame one column for each instrument.
+    ## Each column in raw_signals_df is a signal vector.
+    # raw_signals_df <- data.frame()
+    # for(i in seq_along(sim_algos)) {
+    #   for(t in (min_periods + 1):num_rows) {
+    #     raw_signals_df[i, t] <- generate_signal(
+    #       variable_param_vals = get_variable_param_vals(
+    #         t = t,
+    #         inst_data = data_sets[[i]],
+    #         algo = sim_algos[[i]]
+    #       ),
+    #       #prices, ## For now only price data is allowed as input for rules
+    #       algo = sim_algos[[i]]#,
+    #       #rule_function
+    #       #trade_system$signal,
+    #     )
+    #     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+    #
+    #   }
+    #
+    # }
+
+    raw_signals_dfs <- list()
+    for(i in seq_along(rule_variations)) {
+      raw_signals_df <- data.frame()
+      for(j in seq_along(instruments)){
+        for(t in (min_periods + 1):num_rows) {
+          ID <- length(instruments) * (i - 1) + j
+          raw_signals_df[t, j] <- generate_signal(
+            variable_param_vals = get_variable_param_vals(
+              t = t,
+              inst_data = data_sets[[j]],
+              algo = sim_algos[[ID]]
+            ),
+            #prices, ## For now only price data is allowed as input for rules
+            algo = sim_algos[[ID]]#,
+            #rule_function
+            #trade_system$signal,
+          )
+        }
+      }
+      raw_signals_dfs[[i]] <- raw_signals_df
+    }
+
+
+
+    ## Each raw_signals data frame contains columns of signal vectors for one
+    ## rule applied to all instruments, one column for each instrument.
+    ## Calculate cross section medians across all instruments for each
+    ## rule.
+    ## Columns are vectors of cross section medians across all instruments for
+    ## each rule.
+    ## Each column in cs_medians corresponds to a rule.
+    ## Rows are observations (oldest to newest, so higher row numbers mean newer).
+    cs_medians <- data.frame()
+    for(i in seq_along(raw_signals_dfs)) {
+      for(j in (min_periods + 1):num_rows) {
+        k <- j - min_periods
+        cs_medians[k, i] <- stats::median(unlist(raw_signals_dfs[[i]][j, ])) ## Row median
+      }
+    }
+
+
+    ## Take mean absolute value of each vector of medians
+    mav_for_each_rule <- lapply(
+      cs_medians,
+      #function(x) {unlist(mean(abs(x)))}
+      function(x) {mean(abs(x))}
+    )
+
+    factors <- as.list(target / unlist(mav_for_each_rule, use.names = FALSE))
+    #target / mav_for_each_rule
+
+    names(factors) <- unlist(get_unique_rule_names_from_parsed_algos_list(parsed_algos))
+    factors
+  }
+
+  pool_class <-  function() {
+    "pool_class() not yet implemented."
+  }
+
+  switch(
+    method,
+    "equal" = equal(
+      parsed_algos,
+      ...),
+    "pool_traded" = pool_traded(
+      signal_tables,
+      parsed_algos),
+    "pool_all" = pool_all(
+      instrument_data_sets,
+      ...),
+    "median_pool_all" = median_pool_all(
+      parsed_algos,
+      instrument_data_sets,
+      ...),
+    "pool_class" = pool_class()
+  )
+}
+
+
+#' Get Values Of Variable Paramaters
+#'
+#' @param t
+#' @param inst_data Instrument data set as data frame
+#' @param algo Algo
+#'
+#' @return Named list of parameter values
+#' @export
+#'
+#' @examples
+get_variable_param_vals <- function(t, inst_data, algo) {
+  c(
+    ## t must be the first variable param
+    list(t = t),
+    ## Exclude t, which we get as the system is running
+    inst_data[names(algo$rule$variable_params[-1])]
+  )
+}
+
+
+#' Get Position Modification Variable Parameter Values
+#'
+#' @param t Time index
+#' @param position_size_ccy Position size in currency
+#' @param inst_data Instrument data frame
+#' @param position_modifier Position modifier
+#' @param pos_table_vars Variables passed from update_position_table_row()
+#'
+#' @return Named list
+#' @export
+#'
+#' @examples
+get_pos_mod_var_param_vals <- function(
+    t,
+    position_size_ccy,
+    inst_data,
+    position_modifier,
+    pos_table_vars) {
+
+  ## If a variable param in position_modifier exists as a column in the
+  ## instrument data, get the data from that column. Otherwise the param
+  ## must match a variable assigned inside update_posisition_table_row()
+  ## before modify_position().
+
+  ## Get the variable params which match data columns
+  pos_mod_params_in_data <- intersect(
+    names(position_modifier$variable_params[-c(1, 2)]),
+    colnames(inst_data)
+  )
+
+  ## Get the variable param names which don't match any data columns
+  pos_mod_param_names_not_in_data <- setdiff(
+    names(position_modifier$variable_params[-c(1, 2)]),
+    colnames(inst_data)
+  )
+
+  ## Create variables from the param names
+  load_pos_mod_params_not_in_data <- function(
+      pos_mod_param_names_not_in_data,
+      pos_table_vars
+    ) {
+    vars <- lapply(
+      pos_mod_param_names_not_in_data,
+      function(x) {eval(parse(text = paste0("pos_table_vars$", x)))}
+    )
+    names(vars) <- pos_mod_param_names_not_in_data
+    vars
+  }
+
+  pos_mod_params_not_in_data <- load_pos_mod_params_not_in_data(
+    pos_mod_param_names_not_in_data,
+    pos_table_vars
+  )
+
+  c(
+    ## t must be the first variable param
+    ## position_size_ccy must be the second variable param
+    list(t = t, position_size_ccy = position_size_ccy),
+    ## t and position_size_ccy, which we get as the system is running, are
+    ## excluded
+    inst_data[pos_mod_params_in_data],
+    #inst_data[names(position_modifier$variable_params[-c(1, 2)])]
+    ## Variable params which don't correspond to columns in the instrument
+    ## data frame, must be available inside update_position_table_row()
+    pos_mod_params_not_in_data
+  )
+}
+
 
 #' Generate Trade Signal From Rule
 #'
@@ -1160,19 +1617,58 @@ calculate_signal_weights <- function(algos, method = "equal") {
 #' For now `generate_signal()` only accepts a price vector as input. The last
 #'   observation is time $t$ ("now").
 #'
-#' @param prices Vector of prices. The last observation is time t.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
+#' @param signal_table Signal table. Last row is time t-1.
+#' @param position_table Position table. Last row is time t-1.
 #' @param algo Single algo from the expanded algos list.
+#' @param rule_function
+#' @param t
 #'
 #' @return Single signal value
 #' @export
 #'
 #' @examples
+# generate_signal <- function(
+#     prices,
+#     signal_table,
+#     position_table,
+#     algo, ## Single algo from the algos list
+#     rule_function, ## Rule function
+#     t,
+#     config
+#     #signal_table, ## signal table for the instrument
+# ) {
+#
+#   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+#   # fix§0014:
+#   # Get the needed variables from the trade system.
+#   # Pass the calculated variables back to trade system.
+#   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+#
+#   ## Signal rule
+#   raw_signal <- rule_function[[1]](
+#     prices,
+#     signal_table,
+#     position_table,
+#     t,
+#     config
+#   )
+#
+#   raw_signal
+# }
 generate_signal <- function(
-    prices, ## Vector of prices
-    algo, ## Single algo from the algos list
-    rule_function ## Rule function
+    variable_param_vals, ## list. The first param must be t
+    #signal_table,
+    #position_table,
+    algo#, ## Single parsed algo from the algos list
+    #config
     #signal_table, ## signal table for the instrument
-) {
+  ) {
+
+  if(names(variable_param_vals[1]) != "t") {
+    stop("The first variable parameter must be t.")
+  }
 
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   # fix§0014:
@@ -1180,140 +1676,70 @@ generate_signal <- function(
   # Pass the calculated variables back to trade system.
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
 
-  ## Signal rule
-  #raw_signal <- algo$rule[[1]](algo$data)
+  ## Pass values from instrument data to variable params
+  variable_params <- variable_param_vals
+  ## Assign the variable names from algo to appropriate values
+  names(variable_params) <- algo$rule$variable_param_names
 
-  #raw_signal <- rule_functions[[ algo$rule[[1]] ]](prices)
-  raw_signal <- rule_function[[1]](prices)
+  params <- c(
+    variable_params, ## assign variable params
+    algo$rule$fixed_params ## fixed params
+  )
 
-  # # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  # # fix§0027:
-  # # Move the rest of this if condition to update_position_table_row() after
-  # # `combine_signals() and update_account(), as appropriate.
-  # # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  # if(trade_on == FALSE) {
-  #   #if(latest_trade_direction == direction) {direction = 0}
-  #
-  #   if(direction != 0) {
-  #     update_position_table_row(
-  #       # price,
-  #       # direction,
-  #       # latest_trade_direction,
-  #       # system_account_table,
-  #       # risk_target,
-  #       # instrument_risk,
-  #       # position_size_ccy,
-  #       # t
-  #     )
-  #   } else { ## direction == 0: no position change (don't enter trade)
-  #     ## We don't have any trade on, and nothing changes
-  #     ## Still 0
-  #     position_size_units <- position_table$position_size_units[t - 1]
-  #     ## Still 0
-  #     position_size_ccy <- position_table$position_size_ccy[t - 1]
-  #
-  #     ## How much did we borrow when we entered the trade?
-  #     borrowed_cash <- system_account_table$borrowed_cash[t_trade_enter]
-  #     borrowed_asset <- system_account_table$borrowed_asset[t_trade_enter]
-  #
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <- system_account_table$capital[t - 1]
-  #
-  #
-  #     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  #     # fix§0016
-  #     # Calculate `cash` for entire trade system and move `cash` from
-  #     # `position_tables` to `system_account_table`.
-  #     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  #     account_value <- capital
-  #   }
-  # } else { ## If trade is on, check optional stop loss rule.
-  #
-  #   #inst_risk_at_entry <- trade_data$instrument_risk[t_trade_enter]
-  #   #price_at_entry <- trade_data$price[t_trade_enter]
-  #   #price_vol_at_entry <- price_unit_vol(inst_risk_at_entry, price_at_entry)
-  #
-  #
-  #   ## NOTE:
-  #   ## position_size_units will never be negative, as long as capital is not
-  #   ## allowed to reach 0 or below.
-  #   ## The break below takes care of that.
-  #
-  #   ## While long trade is on:
-  #   ## cash[t] = cash[t - 1]
-  #   ##
-  #   #### borrowed_cash[t] = borrowed_cash[t_trade_enter]
-  #   #### borrowed_asset[t] = 0
-  #   #### capital[t] = position_size_ccy[t] - borrowed_cash[t_trade_enter] + cash
-  #
-  #   ## While short trade is on:
-  #   ## cash[t] = cash[t - 1]
-  #   ## borrowed_cash[t] = 0
-  #   ## borrowed_asset[t] = position_size_units[t]
-  #   ## capital[t] = cash[t_trade_enter - 1] + (position_size_ccy[t] - position_size_ccy[t_trade_enter])
-  #
-  #   ## When long trade has just been exited:
-  #   ## cash[t] = cash[t - 1] + position_size_ccy[t] - borrowed_cash[t_trade_enter]
-  #   ## borrowed_cash[t] = 0
-  #   ## borrowed_asset[t] = 0
-  #   ## capital[t] = cash[t]
-  #
-  #   ## When short trade has just been exited:
-  #   ## cash[t] = cash[t - 1] - position_size_ccy[t]
-  #   ## borrowed_cash[t] = 0
-  #   ## borrowed_asset[t] = 0
-  #   ## capital[t] = cash[t]
-  #
-  #   position_size_units <- position_table$position_size_units[t - 1]
-  #   position_size_ccy <- position_size_units * price
-  #
-  #   ## (direction > 0) == 0 if short
-  #   borrowed_cash =
-  #     system_account_table$borrowed_cash[t_trade_enter] * (direction > 0)
-  #
-  #   ## (1 - (direction > 0)) == 1 if short
-  #   borrowed_asset = position_size_units * (1 - (direction > 0))
-  #
-  #   ## Stop loss rule
-  #   #raw_signal <- algo$rule[[2]](algo$data)
-  #
-  #   if(direction == 1) { ## If long
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <-
-  #       cash + position_size_ccy - system_account_table$borrowed_cash[t_trade_enter]
-  #     if(enter_or_exit == "EXIT") {
-  #       trade_on <- FALSE ## Exit trade
-  #       direction <- 0
-  #       cash <- system_account_table$cash[t - 1] + position_size_ccy -
-  #         system_account_table$borrowed_cash[t_trade_enter]
-  #       capital <- cash
-  #     }
-  #   } else if(direction == -1) { ## If short
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <- system_account_table$cash[t_trade_enter - 1] +
-  #       (position_table$position_size_ccy[t_trade_enter] - position_size_ccy)
-  #     if(enter_or_exit <- "EXIT") {
-  #       trade_on <- FALSE ## Exit trade
-  #       direction <- 0
-  #       cash <- system_account_table$cash[t - 1] - position_size_ccy
-  #       capital <- cash
-  #     }
-  #   } else { ## Should be redundant, since we know a trade is on, and a trade
-  #            ## will either be long or short...
-  #     cash <- system_account_table$cash[t - 1]
-  #     capital <- system_account_table$capital[t - 1]
-  #   }
-  # }
-  # list(
-  #   time = time,
-  #   price = price,
-  #   raw_signal = raw_signal,
-  #   normalized_signal
-  # )
+  raw_signal <- do.call(
+    algo$rule$signal_generator,
+    params
+  )
 
   raw_signal
 }
 
+
+#' Backfill Table With NAs
+#'
+#' @description
+#' When a list of values is returned by a signal generator or a position
+#'   modifier, and the list contains more elements than there are cloumns in
+#'   the corresponding signal/position table, new columns are appended to the
+#'   table and previous rows are backfilled with NAs in those columns.
+#'
+#' This situation occurs when a signal generator outputs values in addition to
+#'   the trade signal, or when a position modifier outputs values in addition to
+#'   the modified position.
+#'
+#' @param signal_table Signal table
+#' @param new_row New row containing elements beyond the columns in the signal
+#'   table
+#'
+#' @return A named list
+#' @export
+#'
+#' @examples
+backfill_table <- function(
+    table,
+    new_row
+) {
+  ## Create named list of only additional output
+  new_cols <- new_row[
+    setdiff(
+      names(new_row), ## Exclude t
+      colnames(table)
+    )
+  ]
+  n_new_cols <- length(new_cols)
+  n_rows <- nrow(table)
+  ## backfill each element in the list with NAs
+  backfilled_new_cols <- rep(
+    list(
+      rep(NA, n_rows)
+    ),
+    n_new_cols
+  )
+  names(backfilled_new_cols) <- names(new_cols)
+  new_sig_tbl <- cbind(table, backfilled_new_cols)
+
+  rbind(new_sig_tbl, new_row)
+}
 
 get_signal_weight <- function() {
   warning("get_signal_weight() not implemented yet.")
@@ -1352,7 +1778,7 @@ calculate_equal_signal_weights <- function(parsed_algos) {
   weights_by_instrument <- numeric(length(num_signals))
   for(i in seq_along(num_signals)) {
     if(!is.na(num_signals[[i]]) && num_signals[[i]] >= 1) {
-      weights_by_instrument[i] <- 1/num_signals[[i]]
+      weights_by_instrument[i] <- 1 / num_signals[[i]]
     } else {
       stop("At least one rule must be provided to the trade system.")
     }
@@ -1384,7 +1810,7 @@ calculate_equal_signal_weights <- function(parsed_algos) {
 #' @examples
 calculate_equal_inst_weights <- function(parsed_algos) {
   n <- get_num_inst_from_parsed_algos_list(parsed_algos)
-  rep(1/n, n)
+  rep(1 / n, n)
 }
 
 #' Combine Signals For Instrument Subsystem
@@ -1486,6 +1912,70 @@ calculate_subsystem_position <- function(
   combined_signal * required_leverage_factor
 }
 
+
+
+#' Modify Position
+#'
+#' @description
+#'
+#'
+#' @param variable_param_vals
+#' @param position_modifier
+#' @param position_size_ccy
+#'
+#' @return
+#' @export
+#'
+#' @examples
+modify_position <- function(
+    variable_param_vals,
+    position_modifier,
+    position_size_ccy,
+    ...
+  ) {
+
+  ## Modify position if modifier list contains no NAs
+  test_pos_mod <- function(position_modifier) {
+   if(length(position_modifier) == 1) {
+      !is.na(position_modifier[[1]])
+    } else {
+      !anyNA(position_modifier)
+    }
+  }
+
+  ## test_pos_mod() is TRUE if no elements in position_modifier is NA
+  if(test_pos_mod(position_modifier)){
+    if(names(variable_param_vals[1]) != "t") {
+      stop("The first variable parameter must be t.")
+    }
+    if(names(variable_param_vals[2]) != "position_size_ccy") {
+      stop("The second variable parameter must be position_size_ccy.")
+    }
+
+    ## Pass values from instrument data to variable params
+    variable_params <- variable_param_vals
+    ## Assign the variable names from algo to appropriate values
+
+    names(variable_params) <- names(position_modifier$variable_params)
+
+    params <- c(
+      variable_params, ## assign variable params
+      position_modifier$fixed_params ## fixed params
+    )
+
+    position_modifier_output <- do.call(
+      position_modifier$modifier_function,
+      params
+    )
+
+    position_modifier_output
+  } else {
+    modified_position_size_ccy <- position_size_ccy
+    list(modified_position_size_ccy = modified_position_size_ccy)
+  }
+}
+
+
 #' Execute Trade
 #'
 #' @return
@@ -1579,7 +2069,7 @@ save_tables <- function() {
 #' Update Price
 #'
 #' @description
-#' Get latest price from data set in trade system list according to algo.
+#' Get latest price from data frame in trade system list according to algo.
 #'
 #' @param inst_data List of unique data frames.
 #' @param algo Algo list for a single expanded algo.
@@ -1594,7 +2084,7 @@ update_price <- function(inst_data, algo, t) {
 
 #' Update time
 #'
-#' Get latest time from data in `algo` list.
+#' Get latest time from data frame in `algo` list.
 #'
 #' @param inst_data List of unique data frames.
 #' @param algo Algo list for a single expanded algo.

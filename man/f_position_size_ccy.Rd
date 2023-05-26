@@ -7,9 +7,9 @@
 f_position_size_ccy(price, position_size_units)
 }
 \arguments{
-\item{price}{Price in currency of account}
+\item{price}{Price in currency of account.}
 
-\item{position_size_units}{Position size in units}
+\item{position_size_units}{Position size in units.}
 }
 \value{
 Amount in price units of account currency

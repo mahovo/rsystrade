@@ -7,7 +7,8 @@
 f_ma_vector(prices, n)
 }
 \arguments{
-\item{prices}{A vector of prices in currency. Newest first. Top to bottom: Newer to older.}
+\item{prices}{A vector of prices in currency. Newest first. Top to bottom:
+Newer to older.}
 
 \item{n}{Moving Average lookback period.}
 }

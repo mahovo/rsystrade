@@ -154,7 +154,8 @@ f_subsystem_pandl <- function(position_table, instrument_return, t) {
 #' Calculate price returns.
 #'
 #' @param prices A price vector containing at least the two prices we need for
-#'   calculating returns.
+#'   calculating returns. Oldest first. Top to bottom: Older to newer. The last
+#'   observation is time t.
 #' @param t Time index ("now")
 #'
 #' @return A single number in price units.
@@ -171,7 +172,8 @@ f_price_returns <- function(prices, t) {
 #' Calculate percentage returns.
 #'
 #' @param prices A price vector containing at least the two prices we need for
-#'   calculating returns.
+#'   calculating returns. Oldest first. Top to bottom: Older to newer. The last
+#'   observation is time t.
 #'
 #' @return Percentage as decimal fraction
 #' @export

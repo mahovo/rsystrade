@@ -17,5 +17,5 @@ update_price(inst_data, algo, t)
 Single price
 }
 \description{
-Get latest price from data set in trade system list according to algo.
+Get latest price from data frame in trade system list according to algo.
 }

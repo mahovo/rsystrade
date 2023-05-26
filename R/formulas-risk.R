@@ -35,7 +35,7 @@ f_required_leverage_factor <- function(
     instrument_risk_target,
     instrument_risk
     ) {
-  instrument_risk_target/instrument_risk
+  instrument_risk_target / instrument_risk
 }
 
 
@@ -114,13 +114,25 @@ f_signal_cor_mat <- function(
 #' @examples
 f_subsystem_ret_cor_mat <- function(
     subsystem_returns,
-    method = "Pearson"
+    method = "Pearson",
+    min_cor
     ) {
-  switch(
+  cor_mat <- switch(
     method,
-    "Pearson" = stats::cor(subsystem_returns),
+    "Pearson" = f_signal_cor_mat(subsystem_returns), #stats::cor(subsystem_returns),
     "ewa" = f_ewa_cor(subsystem_returns)
   )
+
+  ## Check if any correlation is NA
+  if(sum(is.na(cor_mat)) > 0) {
+    warning("NAs in correlation matrix have been replaced by min_cor value. NAs in a correlation matrix are common when previous returns are identical, resulting in standard deviations of zero.
+Replacing NAs in correlation matrix by min_cor value is supposed to fix this problem.")
+
+    ## Replace missing values (divide-by-zero NA's) with minimum correlation
+    cor_mat[is.na(cor_mat)] <- min_cor
+  }
+
+  cor_mat
 }
 
 
@@ -135,7 +147,7 @@ f_subsystem_ret_cor_mat <- function(
 #' @export
 #'
 #' @examples
-f_ewa_cor <- function(x, y, lookback) {
+f_ewa_cor <- function(x, y, lookback, min_cor_mat) {
   L <- lookback
   x_window <- utils::tail(x, L)
   y_window <- utils::tail(y, L)
@@ -254,6 +266,10 @@ f_price_volatility_ewma <- function(
     last_ewma, ## EWMA at time t - 1
     window_length = 25
     ) {
+
+  if(!is.integer(window_length)) {stop("window_length must be an integer (e.g. 25L).")}
+  if(!(window_length > 0L)) {stop("window_length must be positive.")}
+
   a = 2 / (1 + window_length)
   a * current_price + (1 - a) * last_ewma
 }
@@ -299,12 +315,13 @@ f_inst_div_mult <- function(
     instrument_weights,
     min_cor = 0,
     max_idm = 2.5) {
+
   H <- inst_ret_cor_mat
   w <- instrument_weights
 
   clamped_H <- clamp_matrix_lower(H, min_cor)
   clamp_signal_upper(
-    1/sqrt(crossprod(t(w %*% clamped_H),  w)),
+    1 / sqrt(crossprod(t(w %*% clamped_H),  w)),
     max_signal = max_idm
   )
 }
@@ -345,7 +362,7 @@ f_sig_div_mult <- function(
 
   clamped_H <- clamp_matrix_lower(H, min_cor)
   clamp_signal_upper(
-    1/sqrt(crossprod(t(w %*% clamped_H),  w)),
+    1 / sqrt(crossprod(t(w %*% clamped_H),  w)),
     max_signal = max_sdm
   )
 }
@@ -389,257 +406,6 @@ f_normalize_signal <- function(raw_signal_value, signal_normalization_factor) {
   raw_signal_value * signal_normalization_factor
 }
 
-#' Update Signal Normalization Factors
-#'
-#' @description
-#' Each raw signal is scaled by a normalization factor. This normalization
-#'   factor is the _required leverage target_.
-#'
-#' `update_signal_normalization_factors()` calculates the normalization factors
-#'   and updates the `normalization_factor` in each algo list.
-#'
-#' `normalization_factors()` calculates the normalization_factors for all
-#'   signals based on the algos list.
-#'
-#' @param parsed_algos Parsed algos list from trade system.
-#' @param signal_tables Signal tables list from trade system.
-#' @param instrument_data_sets Instrument data sets list from trade system.
-#' @param target The target expected value of the signal scaled by the
-#'   normalization factor.
-#' @param method Method.
-#' * `"equal"` All rules use the same normalization factor, passed as
-#'   `value`.
-#' * `"pool_traded"` Calculate the normalization factor for each rule based on
-#'   actual past signals for that rule across all the instruments to which
-#'   the individual rule has been applied.
-#'   We are pooling all the instruments for each rule. We are not taking the
-#'   cross section median across instruments, as we do for `pool_all()`,
-#'   because the number of instruments per rule is likely to be small - taking
-#'   the median of two values doesn't make much sense.
-#' * `"pool_all"` Calculate the normalization factor for each rule based on
-#'   signals simulated by applying each rule to all available instruments and
-#'   pooling the resulting signals.
-#'   The normalization factor for each rule is the target divided by the mean
-#'   absolute value of the pooled signals.
-#'   Additional argument:
-#'   * `min_period`. A value of `250` (ca. 1 year of
-#'     daily data) might be a good starting point. It is up to the user to
-#'     provide data sets with enough data.
-#' * `"median_pool_all"` Calculate the normalization factor for each rule
-#'   based on signals simulated by applying each rule to all available
-#'   instruments.
-#'   The normalization factor for each rule is the target divided by the mean
-#'   absolute value of all cross section medians.
-#'   Additional argument:
-#'   * `min_period`. A value of `250` (ca. 1 year of
-#'     daily data) might be a good starting point. It is up to the user to
-#'     provide data sets with enough data.
-#' * `"pool_class"` Calculate the normalization factor for each rule based on
-#'   signals simulated by applying each rule to all available instruments in
-#'   a relevant asset class.
-#' @param ... Additional method specific arguments.
-#'
-#' @return Named list of normalization factors
-#' @export
-#'
-#' @examples
-update_signal_normalization_factors <- function(
-    parsed_algos,
-    signal_tables,
-    instrument_data_sets,
-    target = 1,
-    method = "equal",
-    ...) {
-
-  ## Check that a single valid method is provided.
-  valid_methods <- c("equal", "pool_traded", "pool_all", "median_pool_all", "pool_class")
-  if(length(method) != 1 || sum(method == valid_methods) != 1) {
-    stop("A single valid method must be provided to update_normalization_factors()")
-  }
-
-  equal <- function(parsed_algos, equal_norm_factor) {
-    n <- get_num_rules_from_parsed_algos_list(parsed_algos)
-    as.list(rep(equal_norm_factor, n))
-  }
-
-  pool_traded <- function(signal_tables, parsed_algos) {
-    ## Get rule name for each algo in the order they appear in the parsed algos
-    ## list
-    rule_names_by_algo <- get_rule_names_by_parsed_algo(parsed_algos)
-
-    ## Get all unique rule names in a list
-    all_unique_rule_names <- get_unique_rule_names_from_parsed_algos_list(parsed_algos)
-
-    ## For each unique rule name, get the IDs of that rule in the
-    ## rule_names_by_algo list
-    IDs_grouped_by_rule_names <- split(
-      seq_along(rule_names_by_algo),
-      unlist(rule_names_by_algo)
-    )
-
-    ## For each unique rule name, get all signals produced by that rule.
-    ## We are assuming that algos are in the same order as signal tables
-    raw_signals_list <- list()
-    for(rule in unlist(all_unique_rule_names)) {
-      ll <- lapply(
-        signal_tables[unlist(IDs_grouped_by_rule_names[rule])],
-        function(x) {x$raw_signal}
-      )
-      df <- data.frame(ll)
-      names(df) <- NULL
-      raw_signals_list[[rule]] <- df
-    }
-
-    ## When we unlist the raw signal data frame, all the column vectors in that
-    ## data frame are concatenated to one vector. So in effect we are pooling all
-    ## the instruments for each rule. We are not taking the cross section median
-    ## across instruments, as we do for median_pool_all(), because the number of
-    ## instruments per rule is likely to be small - taking the median of two
-    ## values doesn't make much sense.
-    lapply(raw_signals_list,
-           function(raw_signal_vector) {
-             f_indiv_normalization_factor(unlist(raw_signal_vector), target = 1)
-           }
-    )
-  }
-
-  # TODO
-  # Same as median_pool_all(), but instead of median(unlist(raw_signals_df[j, ]))
-  # do mean(abs(unlist(raw_signals_df))) for each rule.
-  pool_all <- function(signal_tables, parsed_algos) {
-    stop("pool_all() not implemented yet")
-  }
-
-  median_pool_all <- function(
-      parsed_algos, ## parsed (expanded) algos
-      data_sets, ## instrument data sets
-      min_periods = 250) {
-
-    stop("pool_all() not implemented yet.")
-
-    ## Get number of rows from first data set.
-    num_rows <- nrow(data_sets[[1]])
-    num_data_sets <- length(data_sets)
-
-    if(num_rows < min_periods) {
-      stop("Not enough data to estimate normalization factor with pool_all().")
-    }
-
-    ## Get rule name for each algo in the order they appear in the algos list
-    rule_names_by_algo <- get_rule_names_by_parsed_algo(algos)
-
-    ## Get all unique rule names in a list
-    all_unique_rule_names <-get_unique_rule_names_from_parsed_algos_list(parsed_algos)
-
-    ## For each unique rule name, get the first ID of that rule in the
-    ## rule_names_by_algo list
-    rule_functions <- lapply(all_unique_rule_names,
-                             function(x) {
-                               #ID = which(x == rule_names_by_algo)[1]
-                               #This should be equivalent:
-                               ID = match(x, rule_names_by_algo)
-                               ## Get functions at each ID in algos list
-                               ## Exit rule should be 0 or 1. The combined
-                               ## rule is the product of entry and exit rule.
-                               ## (Exit rule is optional, i.e constant 1 if
-                               ## omitted.)
-                               c(
-                                 parsed_algos[[ID]]$rule[1],
-                                 parsed_algos[[ID]]$rule[2]
-                               )
-                             }
-    )
-
-    ## Make list of algos for simulation
-    sim_algos <- list()
-    k <- 1
-    for(i in seq_along(rule_functions)) {
-      for(j in seq_along(data_sets)) {
-        sim_algos[[k]] <- list(
-          "data" = data_sets[[j]],
-          "rule" = list(
-            rule_functions[[i]][[1]], ## Entry rule
-            rule_functions[[i]][[2]]  ## Exit rule
-          )
-        )
-        k <- k + 1
-      }
-    }
-
-    ## For each unique rule, apply that rule to all instruments.
-    ## Each column in raw_signals_df is a signal vector.
-    ## One data frame for each rule.
-    ## In each data frame, one column for each instrument.
-    raw_signals_df <- data.frame()
-    for(i in seq_along(sim_algos)) {
-      for(t in (min_periods + 1):num_rows) {
-
-# TODO
-# Should handle situation with no exit rule.
-
-# §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-# fix§0039
-# No good here:
-# trade_system$signal_tables
-# trade_system$position_tables
-#
-#
-#   raw_signals_df[i, t] <- apply_rule(
-#   sim_algos[[i]],
-#   trade_system$signal_tables[[i]],
-#   trade_system$position_tables[[i]],
-#   t
-# )
-# §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-
-      }
-    }
-
-    ## Calculate cross section medians across all instruments for each
-    ## rule.
-    ## Columns are vectors of cross section medians across all instruments for
-    ## each rule.
-    ## Each column in cs_medians corresponds to a rule.
-    ## Rows are observations (oldest to newest, so higher row numbers mean newer).
-    cs_medians <- data.frame()
-    for(i in seq_along(data_sets)) {
-      for(j in 1:(num_rows - min_periods)) {
-        cs_medians[j, i] <- stats::median(unlist(raw_signals_df[j, ])) ## Row median
-      }
-    }
-
-    ## Take mean absolute value of each vector of medians
-    mav_for_each_rule <- lapply(
-      cs_medians,
-      function(x) {unlist(mean(abs(x)))}
-    )
-
-    target / unlist(mav_for_each_rule)
-  }
-
-  pool_class <-  function() {
-    "pool_class() not yet implemented."
-  }
-
-  switch(
-    method,
-    "equal" = equal(
-      parsed_algos,
-      ...),
-    "pool_traded" = pool_traded(
-      signal_tables,
-      parsed_algos),
-    "pool_all" = pool_all(
-      instrument_data_sets,
-      ...),
-    "median_pool_all" = median_pool_all(
-      instrument_data_sets,
-      ...),
-    "pool_class" = pool_class()
-  )
-}
-
-
 get_normalization_factors <- NA
 
 #' Calculate Normalization Factor From Signal Itself
@@ -669,8 +435,11 @@ get_normalization_factors <- NA
 #' @export
 #'
 #' @examples
-f_indiv_normalization_factor <- function(raw_signal_vector, target = 1) {
-  target/mean(abs(raw_signal_vector))
+f_indiv_normalization_factor <- function(
+    raw_signal_vector,
+    target = 1
+  ) {
+  target / mean(abs(raw_signal_vector))
 }
 
 ## LT, F14.a
@@ -692,8 +461,8 @@ f_indiv_normalization_factor <- function(raw_signal_vector, target = 1) {
 #'   252 is the number of business days in a year.
 #'   (We could also round off to 16, and we would probably be fine.)
 #'
-#' @param prices A time series of prices in currency. Newest first.
-#'   Top to bottom: Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param window_length Window length. Includes all if `window_length` is NA.
 #' @param t Time index.
 #'
@@ -705,7 +474,8 @@ f_indiv_normalization_factor <- function(raw_signal_vector, target = 1) {
 f_inst_risk <- function(prices, t, window_length = 25) {
   if(is.na(window_length)) {window_length = t} ## Include all if window_length is NA
   if(t > window_length) {
-    sd_ <- stats::sd(f_returns_from_prices(prices[(t - window_length + 1):t])) * 15.87451 ## 252 is the number of business days in a year. sqrt(252) = 15.87451
+    ## t - window_length is the time index before the first return we want to calculate
+    sd_ <- stats::sd(f_returns_from_prices(prices[(t - window_length):t])) * 15.87451 ## 252 is the number of business days in a year. sqrt(252) = 15.87451
   } else if (t > 1) {
     sd_ <- sd(f_returns_from_prices(prices[1:t])) * 15.87451
     warning("Window length for instrument risk calculation is bigger than length of price vector.\n")
@@ -753,8 +523,8 @@ f_min_capital <- function(min_exposure, inst_risk, instrument_risk_target) {
 ## LT F22
 #' Price Unit Volatility (instrument risk in price units)
 #'
-#' @param price A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param inst_risk instrument risk.
 #'
 #' @returns
@@ -770,9 +540,10 @@ f_price_unit_vol <- function(price, inst_risk) {
 #' High Water Mark
 #'
 #' @description
-#' Highest price since entry of a current open position.
+#' Highest price since entry of a current (time t) open position.
 #'
-#' @param prices Vector of prices.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param t Time index.
 #' @param t_trade_entry Index of current open trade entry time.
 #'
@@ -791,8 +562,8 @@ f_high_water_mark <- function (prices, t, t_trade_entry) {
 #' @description
 #' Lowest price since entry of a current open position.
 #'
-#' @param prices A vector of prices in currency. Newest first. Top to bottom:
-#'   Newer to older.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
 #' @param t Time index.
 #' @param t_trade_entry Time index for the time when the trade is opened.
 #'

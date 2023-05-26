@@ -7,7 +7,8 @@
 f_high_water_mark(prices, t, t_trade_entry)
 }
 \arguments{
-\item{prices}{Vector of prices.}
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer. The last observation is time t.}
 
 \item{t}{Time index.}
 
@@ -17,5 +18,5 @@ f_high_water_mark(prices, t, t_trade_entry)
 A single price value
 }
 \description{
-Highest price since entry of a current open position.
+Highest price since entry of a current (time t) open position.
 }

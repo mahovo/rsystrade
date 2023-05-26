@@ -7,8 +7,8 @@
 f_returns_from_prices(prices)
 }
 \arguments{
-\item{prices}{A vector of prices in currency. Newest last Top to bottom:
-Older to new.}
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer. The last observation is time t.}
 }
 \value{
 Percentage returns

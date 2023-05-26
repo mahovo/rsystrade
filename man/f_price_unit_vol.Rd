@@ -7,10 +7,10 @@
 f_price_unit_vol(price, inst_risk)
 }
 \arguments{
-\item{price}{A vector of prices in currency. Newest first. Top to bottom:
-Newer to older.}
-
 \item{inst_risk}{instrument risk.}
+
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer. The last observation is time t.}
 }
 \description{
 Price Unit Volatility (instrument risk in price units)

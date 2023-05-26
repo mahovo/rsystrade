@@ -42,65 +42,56 @@ The intention is to *not* veil calculations in an endless maze of OOP abstractio
   * Measured as *daily price volatility*, which is the *volatility of daily returns* in decimal percentages.  
 * $w$, **instrument weight**.  
 * $\text{IDM}$, **Instrument Diversification Multiplier**.  
-  * Measured as the value of a 1% increase in the price of a block.  
+  * Measured as the value of a $1%$ increase in the price of a block.  
 $$Z_C = S \cdot \frac{\sigma_{AST}}{\sigma_{AI}} \cdot K_A \cdot w \cdot \text{IDM}$$
 
 ## System components
 
 A system consists of 
 
--   Any number of *algos*. An *algo* in this context is a distinct combination of a *trade rules pair variation* and data for an *instrument* (typically price data). For instance, a (20, 80) Moving Average Crossover plus a stop loss applied to a time series of S&P500 prices is one algo, and a (16, 64) MAC plus a stop loss applied to a time series of S&P500 prices is another algo. A (16, 64) MAC plus a stop loss applied to a time series of corn prices would be a third algo. Here a *rules pair* (or *rule* in short) is a combination of one *signal rule* and one optional *stop loss rule*.  
-
--   A `signal` table for each algo. The `signal` table contains the *signal* calculated by the algo, and some data produced by intermediate steps in the algo. A *signal* is the trade signal used to determine whether to enter, exit or modify a trade.  
--   A `position` table for each subsystem/instrument. All the different algos that affect a single instrument are combined to make up a single subsystem for that instrument. The *position* table contains the value of the resulting position for the subsystem as well as different data produced by intermediate steps.  
--   A `system_account` table containing aggregate data for the entire system.
+-   Any number of *algos*. An *algo* in this context is a distinct combination of a *trade rule function* and data for an *instrument* (typically price data). (See Algos section below)
+-   A signal table for each algo. The `signal` table contains the *signal* calculated by the algo, and some data produced by intermediate steps in the algo. A *signal* is the trade signal used to determine whether to enter, exit or modify a position.  
+-   A *position table* for each subsystem/instrument. All the different algos that affect a single instrument are combined to make up a single subsystem for that instrument. The *position* table contains the value of the resulting position for the subsystem as well as different data produced by intermediate steps.  
+-   A *position modifier*.  A position modifier function is analogous to a signal generating function, except that is applied in `update_position_table_row()` and takes a position size in account currency as input and outputs a modified position. An example of a position modifier could be a stop loss function. In addition to position size, the position modifier may take inputs from variables which are available in the env of `update_position_table_row()`, as well as those columns in the instrument data frame which are associated with variable params in a signal generating rule.  
+-   A *system_account table* containing aggregate data for the entire system.
 
 When you create a new system, a list is created which contains the entire system. You create a new system with `make_system()`.
 ```r
 my_system <- make_system(
-    algos = algos,
+    algos = list(),
     init_capital = 100000,
-    risk_target = 0.12,
+    system_risk_target = 0.12,
     risk_window_length = 25,
     stop_loss_fraction = 0.5,
     min_periods = 1,
-    mode = "sim" ## "sim" or "live"
-)
+    min_signal = -2,
+    max_signal = 2,
+    instrument_data_folder_path,
+    ...)
 ```
 This list contains 
 
-  * A list of instrument data sets. One data set for each unique instrument.  
-  * The user provided list `algos`, which contains a list of algos, which in turn each contain an instrument name and a list containing one _signal rule_ and one optional _stop loss rule_.  
-  * The list `signal_tables`, which contains a table as a data frame for each _algo_.  
-  * The list `position_tables`, which contains a table as a data frame for each _instrument_.  
-  * The data frame `system_account`, which contains a table as a data frame.
-  
+  * a list of rule functions.
+  * a matrix of correlations between subsystem returns.
+  * a user provided list `algos`. Each algo in turn contains a list of instrument names and a list of *signal rule functions*. Each element in the user-provided `algos` list is parsed by `make_system()`, such that an algo for each possible permutation is produced. Each algo in the produced system then contains exactly one instrument and one *rule function*. A *rule function* may contain any combination of rules one can imagine, for instance a *(20, 80) moving average crossover* with a *stop loss*, or anything you can imagine.
+  * a list of signal normalization factors.
+  * a list `signal_tables`, which contains a table as a data frame for each *algo*.  
+  * a list `position_tables`, which contains a table as a data frame for each *instrument*.  
+  * a data frame `system_account`, which contains a table as a data frame.
+  * a list `config` containing system configuration.
 
-Once the `system` list has been build using `make_system()`, the system is updated with new data using `update_system`. This takes the entire `my_system` list as input and spits out an updated `my_system` list.
+
+Once the `system` list has been built using `make_system()`, the system is updated with new data using `update_system`. This takes the entire `my_system` list as input and spits out an updated `my_system` list.
+
 ```r
 update_system(my_system)
 ```
 
 
-### Algos
-
-
-
-### Signals
-
-
-
-### Positions
-
-
-
-### Accounts
-
-
 
 ## Simulation vs live trading
 
-For each time interval `t` (typically daily basis) we get the new data (e.g. daily settlement price). For a simple *Moving Averages Crossover* rule, we would calculate the *moving averages* and the MAC signal for that day and append these to the data base. So the *moving averages* function actually only calculates *an* average for the given lookback period. It doesn't calculate *moving* averages for the entire time series. What makes the averages *move* is the daily calculations of averages.
+For each time interval `t` (typically daily basis) we get the new data (e.g. daily settlement price). For a simple *Moving Averages Crossover* rule, we would calculate the *moving averages* and the *MAC* signal for that day and append these to the data base. So the *moving averages* function actually only calculates *an* average for the given lookback period. It doesn't calculate *moving* averages for the entire time series. What makes the averages *move* is the daily calculations of averages.
 
 # Data
 
@@ -127,18 +118,57 @@ datasets <- list(
 
 # Rules
 
-Variations of the same rule are considered the separate rules. E.g. MA(16, 64) and MA(20, 80) would be two separate rules.
+A rule is a function that produces a trade signal. A *rule function* may implement several rules to produce one signal. For instance one signal could be produced by a *rule function* that first calls a *MAC* variation function and then a *stop loss* function, as well as managing a flag to determine if a trade in the same direction is permissible (we probably don't want to reenter a position in the same direction immediately after a stop has been triggered). Such a flag would be carried over to the next iteration by the *signal table*. If we wanted to apply, say a *MAC*, a *break out* and a *stop loss* to the same instrument, the way to do it would be to write one rule function with a *MAC* and a *stop loss* in one algo, and a rule function with a *break out* and a *stop loss* in another algo. While this ensures that signal weighting is applied to the different signal generating rules, it results in some redundant calculations, as the *stop loss* is calculated for each algo. A way to get around this would be to have a position modifying rule, which modifies the position resulting from the combined signal. But this is currently not supported - maybe in the future.
 
-In rsystrade terminology we "enter" a trade rather than "open" a trade, and "exit" a trade rather than "close" a trade. This is simply to avoid any possible confusion with prices at *market open* and *market close*.
+Variations of the same rule are considered separate rules. E.g. *MA(16, 64)* and *MA(20, 80)* would be two separate rules.
+
+A rule function typicially implements a single rule, but the only limitatiosn on a rule are, that   
+1) it takes a signal table and a position table as inputs.  
+2) it outputs a named list where the first element is a trade signal and is named `signal`. Additional elements may be included in the output list and will be appended to the `signal` table as columns.  
+
+This means that it is possible to combine any number of rules in a single rule function. Usually it is better to implement separate rule variations (such as *(16, 64) moving average crossover*) in separate rule functions, because one signal weight is applied to each signal. If several rules are combined in a single rule function to produce a single signal, these rules will not be weighted individually. The typical use case for implementing more than one rule in a rule function would be if you want separate rules to enter and exit a position, or something along those lines. An example could be if you want to combine a moving average cross over with a stop loss.
+
+Here are some ideas for multi-rule rule functions:  
+  * One *off-rule*. The *off-rule* is a *signal generating rule* which applied when no trade is on for the instrument associated with the algo. The *off-rule* generates a trade signal to enter a trade.  
+  * One *on-rule*. The *on-rule* is a *signal generating rule* which is applied when a trade is on for the instrument associated with the algo. The *on-rule* generates a trade signal to either exit a trade or adjust the position.  
+  * Any number of optional *multiplier rules*. The output of *multiplier rules* are multiplied by the trade signal generated by a *signal generating rule*.
+
+If we want to apply a binary gate as a *multiplier rule*, we just provide a function that returns `0` or `1`.  
+If we want to apply a limiter as a *multiplier rule*, we just provide a function like this:  
+
+```R
+ lim_mult <- function(signal, max_signal) {
+ clamp_signal_upper(signal, max_signal) / signal
+}
+ ```
+
+Note that we could use this technique for any <u>single</u> operation: Put it in a function which divides the operation by the signal. Note further that this is <u>not</u> generally true for more than one multiplier rule! But combining a limiter and a binary gate would work, for example. This is not the most efficient way, but it is flexible.
+  
+Example:  
+```r
+	algos <- list(
+		list( ## algo 1: algos[[1]]
+			instruments = list("instr1"),
+			rule_function = <rule-function-name>
+		)
+	)
+```
+
+For instance, *a (20, 80) Moving Average Crossover* and a stop loss applied to a time series of S&P500 prices is one algo, and a *(16, 64) MAC* and a *stop loss* applied to a time series of S&P500 prices is another algo. A *(16, 64) MAC* and a *stop loss* applied to a time series of corn prices would be a third algo. The *stop loss* could be implemented to output `0` if a stop loss is triggered, and `1` otherwise. This stop *loss rule* would be a `multiplier rule`, acting as a gate on the signal. If no stop loss is triggered, the trade signal is simply multiplied by 1. Alternatively we could write a *stop loss* function which takes the *MAC* signal as an input and let's it pass through if no stop is triggered.
 
 
 # Algos
 
-An *algo* in **rsystrade** is a combination of a *data set* and a *rule*. The *data set* can be specified as an *instrument* (in `live` mode) or a reference to a *data file* (in `sim` mode).
+An *algo* in **rsystrade** is a combination of a *data set* and a *rule function*. The algos in the system list are provided in a list called `algos`. Each algo in this list consists of 
+
+  * a *data set* which can be specified as an *instrument* (in `live` mode) or a reference to a *data file* (in `sim` mode).
+  * a *rule function*. 
 
 # Signals
 
-Signals are generated by rules. In **pysystemtrade**, these things are called *forecasts*. I call them signals, because they are *trade signals*, not forecasts. I reserve the term *forecast* for situations where we are making predictions.
+Signals are generated by rule functions. In some frameworks, these things are called *forecasts*. I call them signals, because they are *trade signals*, not forecasts. I reserve the term *forecast* for situations where we are making predictions.
+
+Any *rule function* provided to a system must output a named list, where the first element is the trade signal generated by the rule. This element must be named `signal`. Any number of additional rules may be provided in the list. These will be appended as columns to the signal table of the algo.
 
 ### Scaled signals
 
@@ -146,9 +176,11 @@ Signals are generated by rules. In **pysystemtrade**, these things are called *f
 >
 > In **pysystemtrade**, *forecasts* are scaled such that the scaled signal has an expected absolute value of 10.
 >
-> In **rsystrade**, *signals* (forecasts) are by default scaled such that the scaled signal has an expected absolute value of 1. So if you would cap your signal within [-20, 20] in **pysystemtrade**, you should cap your signal within [-2, 2] in **rsystrade**.
+> In **rsystrade**, *signals* (forecasts) are by default scaled such that the scaled signal has an expected absolute value of 1. So if you would cap your signal within [-20, 20] in **pysystemtrade**, you should cap your signal within [-2, 2] in **rsystrade**. Or change `system$config$normalization_factor_target`.
+> 
+> See [Volatility targeting notes](https://github.com/mahovo/rsystrade/blob/feature-stop-loss/misc/notebooks/Volatility%20targeting%20notes.pdf) for a detailed discussion. It might be better to use a *normalization factor target* of 10, as in **pysystemtrade**, or even 100.
 
-An expected value of 1 seems intuitive. It is easy to relate to as a decimal ratio. A scale of 2 means double, or 200%. In the **pysystemtrade** framework you have to remember that a scale of 20 means double. But whatever works.
+An expected value of 1 seems intuitive. It is easy to relate to as a decimal ratio. A scale of 2 means double, or 200%.
 
 ## Function names
 
@@ -158,26 +190,52 @@ An expected value of 1 seems intuitive. It is easy to relate to as a decimal rat
 -   Here `f` at the beginning of function name represents the verb `calculate`.  
 -   Instead of `calculate_normalization_factor()` we use `f_normalization_factor()`.  
 -   In other words: Functions with a name that begin with `f_` perform *calculations*.  
--   As a mnemonic you might think of "formula", "function" or "find". I think of the math symbol for a function, because these calculations all implement some sort of formula. Visually the f at the beginning seems intuitive to me, when I skim the code, since it's an *R function* that implements a *math function*.
+<!-- -   As a mnemonic you might think of "formula", "function" or "find". I think of the math symbol for a function, because these calculations all implement some sort of formula. Visually the `f_` at the beginning seems intuitive to me, when I skim the code, since it's an *R function* that implements a *math function*. -->
 
 See also Guidelines.md.
+
+# Positions
+
+
+## Position modifiers
+Position modifiers take a position in account currency as input and modifies it in some way.
+
+## Position multipliers
+A position multiplier is a functions which is multiplied by the position in account currency, as it is determined by the combined signal. Examples of signal multipliers are
+-   risk multipliers.  
+-   gates.  
+One or more position multipliers are applied to a position size by multiplication. Position multipliers can not be applied directly in a system, but can be implemented in a position modifier function. This enables us to transfer intermediate calculations to the positions table through the additional elements in the output list of the position modifier.
+
+Position multiplierunctions are prefixed by `m_`.
+
+### Risk multipliers
+A risk modifier is a function that outputs a value in the interval $[0, 1]$. 
+
+Risk multiplier functions are prefixed by `r`_`.
+
+### Gates
+A gate function is a function which outputs either 0 or 1. E.g. if we want to implement a stop loss position modifier, and we want to control when a new position may be entered after the stop loss was invoked, we can do this with a gate. Then the position modifier function should first calculated the modified position based on the stop loss rule, and then determine if the conditions for opening a new position are met. If the conditions are met, the gate should return 1, otherwise 0. If a stop loss was invoked on a long position at t - 1, we may get a new long signal at t. If the gate determines, that a new long position at t is not allowed, the position will be multiplied by 0, returning a modified position of 0. An alternative way of doing this could be to implement a gate as part of a signal generating function. How ever, if multiple rules are applied to the same instrument, there would be redundancy due to the gate calculations being performed for each rule.
+
+Gate functions are prefixed by `g_`.
 
 
 # **rsystrade** terminology
 ## Algo
-An *algo* in this context is a distinct combination of a *trade rules pair variation* and data for an *instrument* (typically price data). For instance, a (20, 80) Moving Average Crossover plus a stop loss applied to a time series of S&P500 prices is one algo, and a (16, 64) MAC plus a stop loss applied to a time series of S&P500 prices is another algo. A (16, 64) MAC plus a stop loss applied to a time series of corn prices would be a third algo. Here a *rules pair* is a combination of one entry rule and one optional exit rule.
+An *algo* in this context is a distinct combination of a *trade rules variation* and data for an *instrument* (typically price data). For instance, a *(20, 80) Moving Average Crossover* plus a *stop loss* applied to a time series of S&P500 prices is one algo, and a *(16, 64) MAC* plus a *stop loss* applied to a time series of S&P500 prices is another algo. A *(16, 64) MAC* plus a *stop loss* applied to a time series of corn prices would be a third algo.
+
+## Clamp (cap)
+We use *clamp* rather than *cap* to indicate a restriction on a signal (or any value) which limits a signal to a lower and an upper limit. Typically a *cap* would be a restriction with an upper limit only. Sometimes a restriction with a lower limit only is called a *floor*. However, in mathematics *floor* means something else. The mathematical definition is implemented in the R function `floor()`. From the `?floor` help file: "`floor` takes a single numeric argument `x` and returns a numeric vector containing the largest integers not greater than the corresponding elements of `x`." To avoid confusion with the R function *floor* we don't use the term *floor* to indicate a lower restriction. Instead we say a *lower clamp*. Following this logic, we say *upper clamp* rather than *cap*.
 
 ## Entering/exiting (opening/closing)
 We use *entering* and *exiting* rather than *opening* and *closing*, since "open" could indicate the price when the market opens, and "close" could indicate the price when the market closes.
 
 ## Rule
-Aka a *trade rules pair*. A combination of one *entry rule* and one *exit rule*.
+A rule is a function that produces a trade signal. A rule function may implement several rules to produce one signal. For instance one signal could be produced by a *rule function* that first calls a *MAC* variation function and then a *stop loss* function, as well as managing a flag to determine if a trade in the same position is permissible. Such a flag would be carried over to the next iteration by the *signal table*.
 
 ## Signal
 A signal is an output number from a trade rule. The signal indicates whether we should enter or exit a position. The sign of the signal tells us if we should go long or short. The strength of the signal may indicate how big the position should be. Signals are proportional to expected risk adjusted returns. A signal of $0$ indicates that the position should be closed. The value of a signal is the product of the *entry rule signal* and the *exit rule signal*. The exit rule signal is $0$ to trigger exit (e.g. when a stop loss threshold is breached), and $1$ otherwise.
 
-## Clamp (cap)
-We use *clamp* rather than *cap* to indicate a restriction on a signal (or any value) which limits a signal to a lower and an upper limit. Typically a *cap* would be a restriction with an upper limit only. Sometimes a restriction with a lower limit only is called a *floor*. However, in mathematics *floor* means something else. The mathematical definition is implemented in the R function `floor()`. From the `?floor` help file: "`floor` takes a single numeric argument `x` and returns a numeric vector containing the largest integers not greater than the corresponding elements of `x`." To avoid confusion with the R function *floor* we don't use the term *floor* to indicate a lower restriction. Instead we say a *lower clamp*. Following this logic, we say *upper clamp* rather than *cap*.
+
 
 
 

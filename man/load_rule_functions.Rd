@@ -10,7 +10,11 @@ load_rule_functions(parsed_algos)
 \item{parsed_algos}{}
 }
 \description{
-Load rule functions as specified by function names as character strings in
-parsed algos into a list. The functions must be loaded into the enclosing
-(typically global) environment.
+DEPRECATED: This depends on a previous structure of parsed algos, where
+rule functions were given by their name as a character string!
+
+Load rule functions into a list. Functions are specified as functions
+assigned to variables or by function names as character strings in parsed
+algos. The functions must be loaded into the enclosing (typically global)
+or package environment.
 }
