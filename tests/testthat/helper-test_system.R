@@ -21,6 +21,7 @@ make_test_algos <- function(
   )
 }
 
+## This test data is designed to remind us that low volatility will blow us up :-)
 make_test_system <- function() {
   #n = 20
   min_periods <- 10L

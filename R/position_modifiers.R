@@ -21,22 +21,13 @@
 #' @export
 #'
 #' @examples
-# p_stop_loss <- function(
-    # t,
-    # price,
-    # instrument_risk, # at time t-1
-    # stop_loss_fraction,
-    # t_last_position_entry, # at time t-1
-    # direction, # at time t-1
-    # rnd = FALSE
-# ) {
 p_stop_loss <- function(
     t,
     position_size_ccy,
     price,
-    instrument_risk, # at time t-1
-    t_last_position_entry, # at time t-1
-    direction, # at time t-1
+    instrument_risk, # at time t
+    t_last_position_entry, # at time t
+    direction, # at time t
     stop_loss_fraction = 0.5,
     rnd = FALSE
   ) {

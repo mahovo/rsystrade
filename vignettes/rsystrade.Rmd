@@ -51,9 +51,9 @@ A system consists of
 
 -   Any number of *algos*. An *algo* in this context is a distinct combination of a *trade rule function* and data for an *instrument* (typically price data). (See Algos section below)
 -   A signal table for each algo. The `signal` table contains the *signal* calculated by the algo, and some data produced by intermediate steps in the algo. A *signal* is the trade signal used to determine whether to enter, exit or modify a position.  
--   A position table for each subsystem/instrument. All the different algos that affect a single instrument are combined to make up a single subsystem for that instrument. The *position* table contains the value of the resulting position for the subsystem as well as different data produced by intermediate steps.  
--   A position modifier.  A position modifier function is analogous to a signal generating function, except that is applied in `update_position_table_row()` and takes a position size in account currency as input and outputs a modified position. An example of a position modifier could be a stop loss function. In addition to position size, the position modifier may take inputs from variables which are available in the env of `update_position_table_row()`, as well as those columns in the instrument data frame which are associated with variable params in a signal generating rule.  
--   A system_account table containing aggregate data for the entire system.
+-   A *position table* for each subsystem/instrument. All the different algos that affect a single instrument are combined to make up a single subsystem for that instrument. The *position* table contains the value of the resulting position for the subsystem as well as different data produced by intermediate steps.  
+-   A *position modifier*.  A position modifier function is analogous to a signal generating function, except that is applied in `update_position_table_row()` and takes a position size in account currency as input and outputs a modified position. An example of a position modifier could be a stop loss function. In addition to position size, the position modifier may take inputs from variables which are available in the env of `update_position_table_row()`, as well as those columns in the instrument data frame which are associated with variable params in a signal generating rule.  
+-   A *system_account table* containing aggregate data for the entire system.
 
 When you create a new system, a list is created which contains the entire system. You create a new system with `make_system()`.
 ```r
@@ -190,9 +190,33 @@ An expected value of 1 seems intuitive. It is easy to relate to as a decimal rat
 -   Here `f` at the beginning of function name represents the verb `calculate`.  
 -   Instead of `calculate_normalization_factor()` we use `f_normalization_factor()`.  
 -   In other words: Functions with a name that begin with `f_` perform *calculations*.  
--   As a mnemonic you might think of "formula", "function" or "find". I think of the math symbol for a function, because these calculations all implement some sort of formula. Visually the `f_` at the beginning seems intuitive to me, when I skim the code, since it's an *R function* that implements a *math function*.
+<!-- -   As a mnemonic you might think of "formula", "function" or "find". I think of the math symbol for a function, because these calculations all implement some sort of formula. Visually the `f_` at the beginning seems intuitive to me, when I skim the code, since it's an *R function* that implements a *math function*. -->
 
 See also Guidelines.md.
+
+# Positions
+
+
+## Position modifiers
+Position modifiers take a position in account currency as input and modifies it in some way.
+
+## Position multipliers
+A position multiplier is a functions which is multiplied by the position in account currency, as it is determined by the combined signal. Examples of signal multipliers are
+-   risk multipliers.  
+-   gates.  
+One or more position multipliers are applied to a position size by multiplication. Position multipliers can not be applied directly in a system, but can be implemented in a position modifier function. This enables us to transfer intermediate calculations to the positions table through the additional elements in the output list of the position modifier.
+
+Position multiplierunctions are prefixed by `m_`.
+
+### Risk multipliers
+A risk modifier is a function that outputs a value in the interval $[0, 1]$. 
+
+Risk multiplier functions are prefixed by `r`_`.
+
+### Gates
+A gate function is a function which outputs either 0 or 1. E.g. if we want to implement a stop loss position modifier, and we want to control when a new position may be entered after the stop loss was invoked, we can do this with a gate. Then the position modifier function should first calculated the modified position based on the stop loss rule, and then determine if the conditions for opening a new position are met. If the conditions are met, the gate should return 1, otherwise 0. If a stop loss was invoked on a long position at t - 1, we may get a new long signal at t. If the gate determines, that a new long position at t is not allowed, the position will be multiplied by 0, returning a modified position of 0. An alternative way of doing this could be to implement a gate as part of a signal generating function. How ever, if multiple rules are applied to the same instrument, there would be redundancy due to the gate calculations being performed for each rule.
+
+Gate functions are prefixed by `g_`.
 
 
 # **rsystrade** terminology

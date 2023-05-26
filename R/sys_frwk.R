@@ -769,45 +769,12 @@ update_position_table_row <- function(
 
   prices <- inst_data$price[1:t]
 
-  ## Calculate trade direction from combined signal at time t
-  direction <- sign(raw_combined_signal)
-
-  latest_trade_direction <- position_table$direction[t - 1]
-
-  trade_on <- abs(latest_trade_direction)
-
   instrument_risk <- f_inst_risk(
     #c(position_table$price[1:(t - 1)], price),
     prices,
     t = t,
     window_length = config$risk_window_length
   )
-
-  #if(latest_trade_direction != direction) {
-
-  # TODO:
-  # Based on signal:
-  #   * If a trade is not on: Determine whether to enter a trade, and if so
-  #     in which direction.
-  #   * If a trade is on: Determine whether to exit the trade or to switch
-  #     direction.
-  #   * It is not allowed to enter a trade in the same direction as the
-  #     previous trade.
-
-    ## ** NOTE **
-    ## This is the same for all instruments...
-    ## Right...?
-    ## So: Calculate in update_system()
-    ## *** ** ***
-    # inst_div_mult <- f_inst_div_mult(
-    #   subsystem_ret_cor_mat,
-    #   instrument_weights
-    # )
-    #
-    # instrument_risk_target <- f_instrument_risk_target(
-    #   trade_system$config$system_risk_target,
-    #   inst_div_mult
-    # )
 
   # ST, p. 133
   rescaled_combined_signal <- raw_combined_signal * inst_div_mult
@@ -827,28 +794,6 @@ update_position_table_row <- function(
     clamped_combined_signal,
     required_leverage_factor
   )
-
-  if(latest_trade_direction == direction) { ## No change in direction
-    enter_or_exit <- "---"
-    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
-    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
-  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
-    enter_or_exit <- "enter"
-    t_last_position_entry <- t
-    trade_on <- TRUE
-  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
-    enter_or_exit <- "exit"
-    trade_on <- FALSE
-    t_last_position_entry <- "---"
-  } else if(latest_trade_direction * direction == -1) { ## If changing direction
-    enter_or_exit <- "reverse"
-    trade_on <- TRUE
-    t_last_position_entry <- t
-  } else {
-    enter_or_exit <- NA
-    t_last_position_entry <- NA
-    trade_on <- NA
-  }
 
   ## Notional exposure in account currency
   notional_exposure <- f_notional_exposure(
@@ -883,6 +828,16 @@ update_position_table_row <- function(
     position_size_units
   )
 
+  t_last_position_entry <- position_table$t_last_position_entry[t - 1]
+
+  latest_trade_direction <- position_table$direction[t - 1]
+
+  trade_on <- abs(latest_trade_direction)
+
+  ## We calculate direction based on combined signal here, so that direction is
+  ## avaiable for any position modifiers.
+  direction <- sign(raw_combined_signal)
+
   position_modifier_output <- modify_position(
     variable_param_vals = get_pos_mod_var_param_vals(
       t = t,
@@ -897,34 +852,32 @@ update_position_table_row <- function(
 
   modified_position_size_ccy <- position_modifier_output[[1]]
 
-  ## Starter System: No position adjustment.
-  #prev_position_size_units <- trades_data$position_size_units[t - 1]
-  #prev_position_size_ccy <- trades_data$position_size_ccy[t - 1]
+  ## We calculate direction again based on modified position. E.g. if a position
+  ## modifier invoked a stop loss, the position this will change the direction
+  ## to 0.
+  direction <- sign(modified_position_size_ccy)
 
-  #trade_amount_units <- (position_size_units - prev_position_size_units) * direction
-  #trade_amount_ccy <- (position_size_ccy - prev_position_size_ccy) * direction
-
-
-  ## Simple System:
-  ## When entering a trade, amount of cash and capital should always be
-  ## the same, as we only trade one instrument, and always exit the trade
-  ## before entering a new.
-  ## Only list amount borrowed.
-  ## Don't list negative amount when leverage is <1,
-  ## ie. position_size_ccy[t] < cash[t - 1].
-
-  ## When long trade has just been entered:
-  ## cash[t] = cash[t - 1] - position_size_ccy[t] + borrowed_cash[t]
-  ##
-  #### borrowed_cash[t] = max[0, position_size_ccy[t] - cash[t - 1]]
-  #### borrowed_asset[t] = 0
-  #### capital[t] = cash[t] + position_size_ccy[t] - borrowed_cash[t]
-
-  ## When short trade has just been entered:
-  ## cash[t] = cash[t - 1] + borrowed_asset[t]
-  ## borrowed_cash[t] = 0
-  ## borrowed_asset[t] = position_size_ccy[t]
-  ## capital[t] = cash[t - 1]
+  if(latest_trade_direction == direction) { ## No change in direction
+    enter_or_exit <- "---"
+    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
+  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
+    enter_or_exit <- "enter"
+    t_last_position_entry <- t
+    trade_on <- TRUE
+  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
+    enter_or_exit <- "exit"
+    trade_on <- FALSE
+    t_last_position_entry <- "---"
+  } else if(latest_trade_direction * direction == -1) { ## If changing direction
+    enter_or_exit <- "reverse"
+    trade_on <- TRUE
+    t_last_position_entry <- t
+  } else {
+    enter_or_exit <- NA
+    t_last_position_entry <- NA
+    trade_on <- NA
+  }
 
   instrument_return <- f_price_returns(prices, t)
 
