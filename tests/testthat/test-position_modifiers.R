@@ -50,11 +50,13 @@ test_that("p_stop_loss() works", {
   )
   my_test_system$position_modifiers <- parse_position_modifiers(pos_mods)
 
-  my_test_system <- run_system(
-    my_test_system,
-    min_periods = min_periods,
-    mode = "sim",
-    instrument_data_folder_path = testthat::test_path("fixtures/")
+  suppressWarnings(
+    my_test_system <- run_system(
+      my_test_system,
+      min_periods = min_periods,
+      mode = "sim",
+      instrument_data_folder_path = testthat::test_path("fixtures/")
+    )
   )
 
   my_test_stop_loss <- my_test_system$position_tables

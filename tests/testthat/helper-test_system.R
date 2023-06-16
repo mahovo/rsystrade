@@ -122,7 +122,6 @@ make_test_system <- function() {
     init_capital = 1000000,
     system_risk_target = 0.12,
     risk_window_length = 5,
-    position_modifiers = list(),
     min_periods = min_periods,
     mode = "sim",
     instrument_data_folder_path = testthat::test_path("fixtures/")

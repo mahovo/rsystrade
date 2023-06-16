@@ -10,6 +10,7 @@ make_system(
   system_risk_target = 0.12,
   risk_window_length = 25,
   position_modifiers = list(),
+  position_multipliers = list(),
   min_periods = 1,
   min_signal = -2,
   max_signal = 2,

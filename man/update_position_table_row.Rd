@@ -9,6 +9,7 @@ update_position_table_row(
   inst_data,
   position_table,
   position_modifier,
+  position_multipliers,
   raw_combined_signal,
   signal_div_mult,
   instrument_weight,

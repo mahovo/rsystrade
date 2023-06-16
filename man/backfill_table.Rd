@@ -17,7 +17,7 @@ A named list
 }
 \description{
 When a list of values is returned by a signal generator or a position
-modifier, and the list contains more elements than there are cloumns in
+modifier, and the list contains more elements than there are columns in
 the corresponding signal/position table, new columns are appended to the
 table and previous rows are backfilled with NAs in those columns.
 

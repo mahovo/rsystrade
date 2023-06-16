@@ -4,7 +4,14 @@
 \alias{modify_position}
 \title{Modify Position}
 \usage{
-modify_position(variable_param_vals, position_modifier, position_size_ccy, ...)
+modify_position(
+  position_modifier,
+  mod_variable_param_vals,
+  position_multipliers,
+  mul_variable_param_vals,
+  position_size_ccy,
+  ...
+)
 }
 \arguments{
 \item{position_size_ccy}{}

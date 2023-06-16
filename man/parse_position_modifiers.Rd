@@ -7,8 +7,105 @@
 parse_position_modifiers(position_modifiers)
 }
 \arguments{
-\item{position_modifiers}{}
+\item{position_modifiers}{Named list.}
+}
+\value{
+Named list.
 }
 \description{
-Parse List Of Position Modifiers
+Takes a named list of position modifiers and parses it to an appropriate
+format for the system. Names are the names of instruments.
+}
+\details{
+Position modifier functions must comply with these specifications:
+\itemize{
+\item The first parameter must be \code{t}, current time index. \code{t} is provided by
+\code{update_position_table_row()}.
+\item The second parameter must be \code{position_size_ccy}. \code{position_size_ccy} is
+provided by \code{update_position_table_row()}.
+\item The first two parameters are variable parameters. This means that they are
+provided with data as the system is being updated. Parameters that are not
+fixed are variable. I.e. any parameters that are not provided with a value
+when running \code{make_system()}, is a variable parameter.
+\item Any parameters that are provided with a value when running \code{make_system()},
+is a fixed parameter.
+\item The output of a modifier function must be a list, where the first element
+is \code{modified_position_size_ccy}. Any additional elements will appear in
+the \code{position_table} as columns. These will typically be intermediate
+values calculated by the modifier function.
+}
+
+Additional valid params available from the system are:
+\itemize{
+\item prices
+\item instrument_risk
+\item rescaled_combined_signal
+\item clamped_combined_signal
+\item required_leverage_factor
+\item subsystem_position
+\item notional_exposure
+\item target_position_size_units
+\item position_size_units
+\item position_size_ccy
+\item t_last_position_entry
+\item latest_trade_direction
+\item trade_on
+\item direction
+}
+
+The input format of the \code{position_modifiers} list provided to \code{make_system()}
+is (example):
+
+\if{html}{\out{<div class="sourceCode R">}}\preformatted{position_modifiers <- list(
+  list(
+    instruments = list("inst1", "inst2", "inst3"),
+    modifier = list(
+      "f1",
+      f1,
+     y1 = 10
+   )
+ )
+)
+}\if{html}{\out{</div>}}
+
+This will be parsed into a list formated as
+
+\if{html}{\out{<div class="sourceCode R">}}\preformatted{position_modifiers <- list(
+  inst1 = list(
+    modifier_name = "f1",
+    modifier_function = f1,
+    variable_params = list(
+      x1 = "x1"
+    ),
+    fixed_params = list(
+      y1 = 10
+    )
+  ),
+  inst2 = list(
+    modifier_name = "f1",
+    modifier_function = f1,
+    variable_params = list(
+      x1 = "x1"
+    ),
+    fixed_params = list(
+      y1 = 10
+    )
+  )
+)
+}\if{html}{\out{</div>}}
+
+First element in each input \code{position_modifiers[[i]]$modifier} list is the
+modifier name, second element is the modifier function definition itself.
+Remaining elements are the fixed params.
+
+Note: You may provide any name as modifier name. If the modifier
+function is assigned to a variable, you may put this variable as the
+function definition. So the function name doesn't have to match the
+modifier name. The modifier name is just a label for your convenience.
+
+Note: Variable params are not provided by user, i.e. do not appear
+in modifier list.
+
+If the list of data sets only contains \code{"inst1"} and \code{"inst2"}, then \code{"inst3"}
+will be ignored when parsing the \code{position_modifiers} list.
 }

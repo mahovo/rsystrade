@@ -2,7 +2,7 @@
 % Please edit documentation in R/parse_position_modifier_list.R
 \name{make_position_modifiers_list}
 \alias{make_position_modifiers_list}
-\title{Make List Of Position Modifiers From Parsed Position Modifiers List}
+\title{Make List Of Position Modifiers From Position Modifiers List}
 \usage{
 make_position_modifiers_list(position_modifiers = list(), inst_names)
 }
@@ -18,6 +18,21 @@ Named list
 \description{
 Creates a named list. Values are all \code{NA} and the names are the names of
 instruments (or any vector of character strings provided as input).
+}
+\details{
+Initialize list of position modifiers. User may provide a named list where
+the names are instrument names and values are position modifier functions.
+
+\code{make_position_modifiers_list()} creates a named list. Each element corresponds
+to an instrument, in the order instruments occur in the inst_data list. The
+name of each element is the name of the instrument. User provided position
+modifier functions will be assigned to the appropriate element in the list.
+
+Any position modifier function for which the name doesn't match any
+instrument in the system, will be ignored.
+
+If no position modifier function is assigned to an instrument, the position
+of that instrument will not be modified.
 
 Position modifier functions must comply with these specifications:
 \itemize{
@@ -25,7 +40,7 @@ Position modifier functions must comply with these specifications:
 \code{update_position_table_row()}.
 \item The second parameter must be \code{position_size_ccy}. \code{position_size_ccy} is
 provided by \code{update_position_table_row()}.
-\item The first two parameters are variable parameters. This means that the are
+\item The first two parameters are variable parameters. This means that they are
 provided with data as the system is being updated. Parameters that are not
 fixed are variable. I.e. any parameters that are not provided with a value
 when running \code{make_system()}, is a variable parameter.
@@ -74,7 +89,7 @@ This will be parsed into a list formated as
 )
 }\if{html}{\out{</div>}}
 
-Rirst element in each input \code{position_modifiers[[i]]$modifier} list is the
+First element in each input \code{position_modifiers[[i]]$modifier} list is the
 modifier name, second element is the modifier function definition itself.
 Remaining elements are the fixed params.
 Note: You may provide any name as modifier name. If the modifier

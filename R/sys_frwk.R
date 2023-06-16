@@ -112,6 +112,7 @@ make_system <- function(
     system_risk_target = 0.12,
     risk_window_length = 25,
     position_modifiers = list(),
+    position_multipliers = list(),
     min_periods = 1,
     min_signal = -2,
     max_signal = 2,
@@ -241,16 +242,19 @@ make_system <- function(
   ## Initialize list of position modifiers.
   ## User may provide a named list where the names are instrument names and
   ## values are position modifier functions.
-  ## parse_position_modifiers() creates a named list. Each element corresponds
+  ## make_position_modifiers_list() creates a named list. Each element corresponds
   ## to an instrument, in the order instruments occur in the inst_data list.
   ## The name of each element is the name of the instrument.
   ## User provided position modifier functions will be assigned to the
-  ## appropriate elemet in the list.
+  ## appropriate element in the list.
   ## Any position modifier function for which the name doesn't match any
   ## instrument in the system, will be ignored.
   ## If no position modifier function is assigned to an instrument, the position
   ## of that instrument will not be modified.
   position_modifiers <- make_position_modifiers_list(position_modifiers, inst_names)
+
+
+  position_multipliers <- make_position_multipliers_list(position_multipliers, inst_names)
 
   ## Totals for entire system
   system_account_table <- data.frame(
@@ -295,6 +299,7 @@ make_system <- function(
     signal_tables = signal_tables,
     position_tables = position_tables,
     position_modifiers = position_modifiers,
+    position_multipliers = position_multipliers,
     system_account_table = system_account_table,
     # signal_cor_mat = signal_cor_mat,
     config = config
@@ -578,11 +583,13 @@ update_system <- function(
     new_position_row <- update_position_table_row(
       t = t,
       inst_data = trade_system$inst_data[[i]],
-      #trade_system$algos[[i]], ## algo
-      #trade_system$rule_functions,
-      #signal_tables[[i]], ## Current signal_table (not yet in system)
       position_table = trade_system$position_tables[[i]], ## position_table
+      ## Signular because each position_modifier list may only contain one
+      ## modifier.
       position_modifier = trade_system$position_modifiers[[i]],
+      ## Plural because each position_multipliers may contain several
+      ## multipliers.
+      position_multipliers = trade_system$position_multipliers[[i]],
       raw_combined_signal = raw_combined_signals[[i]],
       signal_div_mult = signal_div_mult_vect[i], ## SDM value
       instrument_weight = instrument_weights[i],
@@ -641,6 +648,7 @@ update_system <- function(
     signal_tables = signal_tables,
     position_tables = position_tables,
     position_modifiers = trade_system$position_modifiers,
+    position_multipliers = trade_system$position_multipliers,
     system_account_table = system_account_table,
     # signal_cor_mat = signal_cor_mat,
     config = trade_system$config
@@ -757,6 +765,7 @@ update_position_table_row <- function(
   #signal_table,
   position_table,
   position_modifier,
+  position_multipliers,
   raw_combined_signal,
   signal_div_mult,
   instrument_weight,
@@ -839,14 +848,23 @@ update_position_table_row <- function(
   direction <- sign(raw_combined_signal)
 
   position_modifier_output <- modify_position(
-    variable_param_vals = get_pos_mod_var_param_vals(
+    position_modifier = position_modifier,
+    mod_variable_param_vals = get_pos_mod_var_param_vals(
       t = t,
       position_size_ccy = position_size_ccy,
       inst_data = inst_data,
       position_modifier = position_modifier,
       pos_table_vars = as.list(environment())
     ),
-    position_modifier = position_modifier,
+    position_multipliers = position_multipliers,
+    mul_variable_param_vals = get_pos_mul_var_param_vals(
+      t = t,
+      position_size_ccy = position_size_ccy,
+      inst_data = inst_data,
+      position_multipliers = position_multipliers,
+      pos_table_vars = as.list(environment())
+    ),
+
     position_size_ccy = position_size_ccy
   )
 
@@ -1447,7 +1465,7 @@ update_signal_normalization_factors <- function(
             algo = sim_algos[[ID]]#,
             #rule_function
             #trade_system$signal,
-          )
+          )[[1]]
         }
       }
       raw_signals_dfs[[i]] <- raw_signals_df
@@ -1530,7 +1548,7 @@ get_variable_param_vals <- function(t, inst_data, algo) {
 }
 
 
-#' Get Position Modification Variable Parameter Values
+#' Get Position Midifier Variable Parameter Values
 #'
 #' @param t Time index
 #' @param position_size_ccy Position size in currency
@@ -1538,7 +1556,7 @@ get_variable_param_vals <- function(t, inst_data, algo) {
 #' @param position_modifier Position modifier
 #' @param pos_table_vars Variables passed from update_position_table_row()
 #'
-#' @return Named list
+#' @return Named list of param values
 #' @export
 #'
 #' @examples
@@ -1547,7 +1565,8 @@ get_pos_mod_var_param_vals <- function(
     position_size_ccy,
     inst_data,
     position_modifier,
-    pos_table_vars) {
+    pos_table_vars
+  ) {
 
   ## If a variable param in position_modifier exists as a column in the
   ## instrument data, get the data from that column. Otherwise the param
@@ -1596,6 +1615,86 @@ get_pos_mod_var_param_vals <- function(
     ## data frame, must be available inside update_position_table_row()
     pos_mod_params_not_in_data
   )
+}
+
+
+#' Get Position Multiplier Variable Parameter Values
+#'
+#' @param t Time index
+#' @param position_size_ccy Position size in currency
+#' @param inst_data Instrument data frame
+#' @param position_multiplier Position multiplier from parsed multiplier list
+#' @param pos_table_vars Variables passed from update_position_table_row()
+#'
+#' @return Nested list of param values for each multiplier function
+#' @export
+#'
+#' @examples
+get_pos_mul_var_param_vals <- function(
+    t,
+    position_size_ccy,
+    inst_data,
+    position_multipliers,
+    pos_table_vars
+) {
+  ## If a variable param in position_multiplier exists as a column in the
+  ## instrument data, get the data from that column. Otherwise the param
+  ## must match a variable assigned inside update_posisition_table_row()
+  ## before modify_position() - and if it is available inside
+  ## update_posisition_table_row() before modify_position(), it should also be
+  ## available inside modify_position() before multiply_position().
+
+  pos_mul_var_param_vals <- list()
+  for(i in seq_along(position_multipliers)) {
+    ## Get the variable params which match data columns
+    position_multiplier <- position_multipliers[[i]]
+    pos_mul_params_in_data <- intersect(
+      names(position_multiplier$variable_params[-c(1, 2)]),
+      colnames(inst_data)
+    )
+
+    ## Get the variable param names which don't match any data columns
+    pos_mul_param_names_not_in_data <- setdiff(
+      names(position_multiplier$variable_params[-c(1, 2)]),
+      colnames(inst_data)
+    )
+
+    ## Create variables from the param names
+    load_pos_mul_params_not_in_data <- function(
+      pos_mul_param_names_not_in_data,
+      pos_table_vars
+    ) {
+      vars <- lapply(
+        pos_mul_param_names_not_in_data,
+        function(x) {eval(parse(text = paste0("pos_table_vars$", x)))}
+      )
+      names(vars) <- pos_mul_param_names_not_in_data
+      vars
+    }
+
+    pos_mul_params_not_in_data <- load_pos_mul_params_not_in_data(
+      pos_mul_param_names_not_in_data,
+      pos_table_vars
+    )
+
+    pos_mul_var_param_vals[[i]] <- c(
+      ## t must be the first variable param
+      ## position_size_ccy must be the second variable param
+      list(t = t, position_size_ccy = position_size_ccy),
+      ## t and position_size_ccy, which we get as the system is running, are
+      ## excluded
+      inst_data[pos_mul_params_in_data],
+      #inst_data[names(position_multipliers[[i]]$variable_params[-c(1, 2)])]
+      ## Variable params which don't correspond to columns in the instrument
+      ## data frame, must be available inside update_position_table_row()
+      pos_mul_params_not_in_data
+    )
+  }
+
+
+  ## TODO
+  ## names??
+  pos_mul_var_param_vals
 }
 
 
@@ -1699,7 +1798,7 @@ generate_signal <- function(
 #'
 #' @description
 #' When a list of values is returned by a signal generator or a position
-#'   modifier, and the list contains more elements than there are cloumns in
+#'   modifier, and the list contains more elements than there are columns in
 #'   the corresponding signal/position table, new columns are appended to the
 #'   table and previous rows are backfilled with NAs in those columns.
 #'
@@ -1737,6 +1836,13 @@ backfill_table <- function(
   )
   names(backfilled_new_cols) <- names(new_cols)
   new_sig_tbl <- cbind(table, backfilled_new_cols)
+
+  ###############
+  ## Enter browser when backfilling position_table:
+  # if(colnames(table)[3] == "instrument_risk") {
+  #   browser()
+  # }
+  ###############
 
   rbind(new_sig_tbl, new_row)
 }
@@ -1928,32 +2034,43 @@ calculate_subsystem_position <- function(
 #'
 #' @examples
 modify_position <- function(
-    variable_param_vals,
     position_modifier,
+    mod_variable_param_vals,
+    position_multipliers,
+    mul_variable_param_vals,
     position_size_ccy,
     ...
   ) {
 
   ## Modify position if modifier list contains no NAs
   test_pos_mod <- function(position_modifier) {
-   if(length(position_modifier) == 1) {
+    if(length(position_modifier) == 1) {
       !is.na(position_modifier[[1]])
     } else {
       !anyNA(position_modifier)
     }
   }
 
+  ## Multiply position if multiplier list contains no NAs
+  test_pos_mul <- function(position_multipliers) {
+    if(length(position_multipliers) == 1) {
+      !is.na(position_multipliers[[1]])
+    } else {
+      !anyNA(position_multipliers)
+    }
+  }
+
   ## test_pos_mod() is TRUE if no elements in position_modifier is NA
   if(test_pos_mod(position_modifier)){
-    if(names(variable_param_vals[1]) != "t") {
+    if(names(mod_variable_param_vals[1]) != "t") {
       stop("The first variable parameter must be t.")
     }
-    if(names(variable_param_vals[2]) != "position_size_ccy") {
+    if(names(mod_variable_param_vals[2]) != "position_size_ccy") {
       stop("The second variable parameter must be position_size_ccy.")
     }
 
     ## Pass values from instrument data to variable params
-    variable_params <- variable_param_vals
+    variable_params <- mod_variable_param_vals
     ## Assign the variable names from algo to appropriate values
 
     names(variable_params) <- names(position_modifier$variable_params)
@@ -1967,12 +2084,111 @@ modify_position <- function(
       position_modifier$modifier_function,
       params
     )
-
-    position_modifier_output
   } else {
-    modified_position_size_ccy <- position_size_ccy
-    list(modified_position_size_ccy = modified_position_size_ccy)
+    position_modifier_output <- list(modified_position_size_ccy = position_size_ccy)
   }
+
+  if(test_pos_mod(position_multipliers)){
+    position_multipliers_output <- multiply_position(
+      mul_variable_param_vals,
+      position_multipliers
+    )
+  } else {
+    position_multipliers_output <- 1
+  }
+
+  ## Multiply modified position_size_ccy by multipliers
+  final_position_ccy <- position_modifier_output[[1]] * position_multipliers_output[[1]]
+
+  modifiers_output <- c(
+    list(final_position_ccy = final_position_ccy),
+    position_modifier_output,
+    position_multipliers_output
+  )
+
+  make_list_names_unique(modifiers_output)
+}
+
+
+
+#' Multiply Position By Multiplier Functions
+#'
+#' @description
+#' Apply multipliers from parsed list of position multipliers to a single
+#'   position.
+#'
+#' @param mult_variable_param_vals Multiplier variable param values
+#' @param position_multipliers A list of multipliers affecting a single
+#'   instrument position
+#'
+#' @return List of multiplier outputs
+#' @export
+#'
+#' @details
+#' Note: If different multiplier functions are applied to the same instrument,
+#'   and these functions have elements in their outputs with identical names,
+#'   the column names in `position_table` will be modified. E.g.
+#'   if function `f1` outputs `list(combined_multiplier = 2, x = 10, y = 20)`
+#'   and function `f2` outputs `list(combined_multiplier = 3, x = 10, z = 20)`,
+#'   then this will result in the following columns in `position_table`:
+#'   `combined_multiplier`, `x`, `y`, `x.1` and `z`.
+#'
+#' @examples
+multiply_position <- function(
+    mult_variable_param_vals,
+    position_multipliers
+  ) {
+
+
+  mult_variable_params <- list()
+  mult_params <- list()
+  position_multipliers_output <- list()
+  position_multiplier_additional_output <- list()
+
+  ## Assign names as dummy values
+  position_multiplier_values <- get_multiplier_names_from_multiplier_list(
+    position_multipliers
+  )
+  names(position_multiplier_values) <- position_multiplier_values
+
+
+  for(i in seq_along(position_multipliers)) {
+    if(!anyNA(position_multipliers[[i]])) {
+      mult_variable_params[[i]] <- list()
+      mult_params[[i]] <- list()
+      ## ## Pass values from instrument data to variable params
+      mult_variable_params[[i]] <- mult_variable_param_vals[[i]]
+      ## Assign the variable names from algo to appropriate values
+
+      names(mult_variable_params[[i]]) <- names(
+        position_multipliers[[i]]$variable_params
+      )
+
+      mult_params[[i]] <- c(
+        mult_variable_params[[i]], ## assign variable params
+        position_multipliers[[i]]$fixed_params ## fixed params
+      )
+
+      position_multipliers_output[[i]] <- do.call(
+        position_multipliers[[i]]$multiplier_function,
+        mult_params[[i]]
+      )
+
+      position_multiplier_values[[i]] <- position_multipliers_output[[i]][[1]]
+      position_multiplier_additional_output[[i]] <- position_multipliers_output[[i]][-1]
+
+    } else {
+      position_multiplier_values[[i]] <- 1
+      position_multiplier_additional_output[[i]] <- list()
+    }
+  }
+
+  c(
+    ## Multiply all multiplier values for one instrument
+    list(combined_multiplier = prod(unlist(position_multiplier_values))),
+    position_multiplier_values,
+    rlang::flatten(position_multiplier_additional_output)
+  )
 }
 
 

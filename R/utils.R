@@ -175,3 +175,18 @@ convert_binary_class_label <- function(
   )
 }
 
+#' Make List Names Unique
+#'
+#' Appends `.#` to duplicate list names, where `#` represents a consequtive
+#'   number.
+#'
+#' @param list Named list
+#'
+#' @return Named list with unique names
+#' @export
+#'
+#' @examples
+make_list_names_unique <- function(list) {
+  names(list) <- make.names(names(list), unique=TRUE)
+  list
+}
