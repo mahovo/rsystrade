@@ -48,7 +48,7 @@ test_that("p_stop_loss() works", {
       )
     )
   )
-  my_test_system$position_modifiers <- parse_position_modifiers(pos_mods)
+  my_test_system$position_modifiers <- expand_position_modifiers(pos_mods)
 
   suppressWarnings(
     my_test_system <- run_system(
@@ -65,7 +65,6 @@ test_that("p_stop_loss() works", {
   #   my_test_stop_loss,
   #   file=test_path("fixtures/", "my_expected_stop_loss.RData")
   # )
-
 
   my_expected_stop_loss <- readRDS(test_path("fixtures", "my_expected_stop_loss.RData"))
 

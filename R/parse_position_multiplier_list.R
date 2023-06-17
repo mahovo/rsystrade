@@ -24,10 +24,10 @@
 ## lists are limited to one modifier.
 
 
-#' Parse List Of Position Multipliers
+#' Expand Nested List Of Position Multipliers
 #'
 #' @description
-#' Takes a named list of position multipliers and parses it to an appropriate
+#' Takes a named list of position multipliers and expands it to an appropriate
 #'   format for the system. Names are the names of corresponding instruments.
 #'
 #' @param position_multipliers Named list.
@@ -142,7 +142,7 @@
 #'   )
 #' )
 #' ```
-#' This will be parsed into a list formatted as
+#' This will be expanded into a list formatted as
 #' ```R
 #' position_multipliers <- list(
 #'   inst1 = list(
@@ -240,15 +240,15 @@
 #' @export
 #'
 #' @examples
-# parse_position_multipliers <- function(position_multipliers) {
-#   parsed_posmul_list <- list()
+# expand_position_multipliers <- function(position_multipliers) {
+#   expanded_posmul_list <- list()
 #   k <- 1
 #   for(i in seq_along(position_multipliers)) {
 #
 #     ## For each  user provided position multiplier list,
 #     ## cycle through all the instruments
 #     for(j in seq_along(position_multipliers[[i]]$instruments)) {
-#       parsed_posmul_list[[k]] <- list()
+#       expanded_posmul_list[[k]] <- list()
 #
 #       ## For each instrument in a user provided position multiplier list,
 #       ## cycle through all the multipliers
@@ -265,7 +265,7 @@
 #           setdiff(x, fixed_params_names)
 #         }
 #         names(variable_params) <- variable_params
-#         parsed_posmul_list[[k]][[m]] <- list(
+#         expanded_posmul_list[[k]][[m]] <- list(
 #           multiplier_name = multiplier_name,
 #           multiplier_function = multiplier_function,
 #           variable_params = variable_params,
@@ -276,9 +276,9 @@
 #       }
 #
 #
-#       ## The names of the elements in the parsed position multipliers list, are
+#       ## The names of the elements in the expanded position multipliers list, are
 #       ## instrument names
-#       names(parsed_posmul_list)[k] <- position_multipliers[[i]]$instruments[[j]]
+#       names(expanded_posmul_list)[k] <- position_multipliers[[i]]$instruments[[j]]
 #       k <- k + 1
 #
 #
@@ -288,15 +288,15 @@
 #
 #   }
 #
-#   #inst_names_by_posmul <- get_inst_names_by_position_multiplier(parsed_posmul_list)
+#   #inst_names_by_posmul <- get_inst_names_by_position_multiplier(expanded_posmul_list)
 #
-#   parsed_posmul_list
+#   expanded_posmul_list
 # }
-parse_position_multipliers <- function(position_multipliers) {
+expand_position_multipliers <- function(position_multipliers) {
 
-  ## Get instrument names from user-provided list of position multipliers
-  ## (not parsed list)
-  ## These functions are not public because they are applied to non-parsed
+  ## Get instrument names from user-provided nested (not parsed) list of position
+  ## multipliers.
+  ## These functions are not public because they are applied to non-expanded
   ## lists.
   get_instrument_names <- function(position_multipliers) {
     inst_names <- list()
@@ -314,7 +314,7 @@ parse_position_multipliers <- function(position_multipliers) {
     unique(inst_names)
   }
 
-  parsed_posmul_list <- list()
+  expanded_posmul_list <- list()
 
   unique_instrument_names <- get_unique_instrument_names(position_multipliers)
 
@@ -323,14 +323,14 @@ parse_position_multipliers <- function(position_multipliers) {
   ## For each  user provided position multiplier list,
   ## cycle through all the unique instruments
   for(k in seq_along(unique_instrument_names)) {
-    parsed_posmul_list[[k]] <- list()
+    expanded_posmul_list[[k]] <- list()
 
     unique_instrument_name <- unique_instrument_names[[k]]
 
     for(i in seq_along(position_multipliers)) {
 
 
-      #parsed_posmul_list[[k]] <- list()
+      #expanded_posmul_list[[k]] <- list()
 
       for(j in seq_along(position_multipliers[[i]]$instruments)) {
         ## For each instrument in a user provided position multiplier list,
@@ -353,9 +353,9 @@ parse_position_multipliers <- function(position_multipliers) {
 
             names(variable_params) <- variable_params
 
-            parsed_posmul_list[[k]] <- c(
-                if(length(parsed_posmul_list[[k]]) > 0) {
-                  parsed_posmul_list[[k]]
+            expanded_posmul_list[[k]] <- c(
+                if(length(expanded_posmul_list[[k]]) > 0) {
+                  expanded_posmul_list[[k]]
                 } else {list()},
                 list(
                   list(
@@ -375,10 +375,10 @@ parse_position_multipliers <- function(position_multipliers) {
     ## Check that names of multipliers associated with a single instrument are
     ## unique
     all_mult_names <- get_multiplier_names_from_multiplier_list(
-      parsed_posmul_list[[k]]
+      expanded_posmul_list[[k]]
     )
     unique_mult_names <- get_unique_multiplier_names_from_multiplier_list(
-      parsed_posmul_list[[k]]
+      expanded_posmul_list[[k]]
     )
     if(length(all_mult_names) != length(unique_mult_names)) {
       stop("All multiplier names associated with a single instrument (subsystem)
@@ -386,33 +386,32 @@ parse_position_multipliers <- function(position_multipliers) {
     }
   }
 
-  names(parsed_posmul_list) <- unique_instrument_names
+  names(expanded_posmul_list) <- unique_instrument_names
 
-  parsed_posmul_list
+  expanded_posmul_list
 }
 
 
 
-#' Make List Of Position Multipliers From Position Multipliers List
+#' Parse Nested List Of Position Multipliers
 #'
 #' @description
 #' Creates a named list. Values are all `NA` and the names are the names of
 #'   instruments (or any vector of character strings provided as input).
 #'
-#'
-#' @param position_multipliers User provided named list of position multiplier
-#'   functions.
+#' @param position_multipliers User provided nested named list of position
+#'   multiplier functions.
 #' @param inst_names Vector of instrument names.
 #'
 #' @details
-#' Initialize list of position multipliers User may provide a named list where
+#' Initialize list of position multipliers. User may provide a named list where
 #'   the names are instrument names and values are position multiplier functions.
 #'
-#' `make_position_multifiers_list()` creates a named list. Each element corresponds
-#'   to an instrument, in the order instruments occur in the inst_data list. The
-#'   name of each element is the name of the instrument. User provided position
-#'   multiplier functions will be assigned to the appropriate element in the
-#'   list.
+#' `parse_position_multifiers_list()` creates a named list. Each element
+#'   corresponds to an instrument, in the order instruments occur in the
+#'   inst_data list. The name of each element is the name of the instrument.
+#'   User provided position multiplier functions will be assigned to the
+#'   appropriate element in the list.
 #'
 #' Any position multiplier function for which the name doesn't match any
 #'   instrument in the system, will be ignored.
@@ -584,7 +583,7 @@ parse_position_multipliers <- function(position_multipliers) {
 #' @export
 #'
 #' @examples
-make_position_multipliers_list <- function(
+parse_position_multipliers_list <- function(
     position_multipliers = list(),
     inst_names
 ) {
@@ -595,15 +594,15 @@ make_position_multipliers_list <- function(
     names(init_pos_muls) <- inst_names
     init_pos_muls
   }
-  make_pos_muls <- function() {
+  parse_pos_muls <- function() {
     init_pos_muls <- initialize_pos_muls()
-    parsed_pos_muls <- parse_position_multipliers(position_multipliers)
+    expanded_pos_muls <- expand_position_multipliers(position_multipliers)
 
-    for(i in seq_along(parsed_pos_muls)) {
-      pos_mul <- names(parsed_pos_muls[i])
+    for(i in seq_along(expanded_pos_muls)) {
+      pos_mul <- names(expanded_pos_muls[i])
 
       if(!is.null(init_pos_muls[[pos_mul]])) {
-        init_pos_muls[pos_mul] <- parsed_pos_muls[pos_mul]
+        init_pos_muls[pos_mul] <- expanded_pos_muls[pos_mul]
       }
     }
 
@@ -618,7 +617,7 @@ make_position_multipliers_list <- function(
     # if(is.null(names(position_multipliers))) {
     #   stop("Provided list of position multiplier functions must be named. Each name should correspond to an instrument name.")
     # }
-    make_pos_muls()
+    parse_pos_muls()
   }
 }
 

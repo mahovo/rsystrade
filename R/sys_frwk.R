@@ -251,10 +251,10 @@ make_system <- function(
   ## instrument in the system, will be ignored.
   ## If no position modifier function is assigned to an instrument, the position
   ## of that instrument will not be modified.
-  position_modifiers <- make_position_modifiers_list(position_modifiers, inst_names)
+  position_modifiers <- parse_position_modifiers_list(position_modifiers, inst_names)
 
 
-  position_multipliers <- make_position_multipliers_list(position_multipliers, inst_names)
+  position_multipliers <- parse_position_multipliers_list(position_multipliers, inst_names)
 
   ## Totals for entire system
   system_account_table <- data.frame(

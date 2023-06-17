@@ -1,8 +1,8 @@
-#' Parse List Of Position Modifiers
+#' Expand List Of Position Modifiers
 #'
 #' @description
-#' Takes a named list of position modifiers and parses it to an appropriate
-#'   format for the system. Names are the names of instruments.
+#' Takes a nested named list of position modifiers and expands it to an
+#'   appropriate format for the system. Names are the names of instruments.
 #'
 #' @param position_modifiers Named list.
 #'
@@ -54,7 +54,7 @@
 #'  )
 #' )
 #' ```
-#' This will be parsed into a list formated as
+#' This will be expanded into a list formated as
 #' ```R
 #' position_modifiers <- list(
 #'   inst1 = list(
@@ -98,8 +98,8 @@
 #' @export
 #'
 #' @examples
-parse_position_modifiers <- function(position_modifiers) {
-  parsed_posmod_list <- list()
+expand_position_modifiers <- function(position_modifiers) {
+  expanded_posmod_list <- list()
   k <- 1
   for(i in seq_along(position_modifiers)) {
     modifier <- position_modifiers[[i]]$modifier
@@ -115,26 +115,26 @@ parse_position_modifiers <- function(position_modifiers) {
     names(variable_params) <- variable_params
 
     for(j in seq_along(position_modifiers[[i]]$instruments)) {
-      parsed_posmod_list[[k]] <- list(
+      expanded_posmod_list[[k]] <- list(
         modifier_name = modifier_name,
         modifier_function = modifier_function,
         variable_params = variable_params,
         fixed_params = fixed_params
       )
-      names(parsed_posmod_list)[k] <- position_modifiers[[i]]$instruments[[j]]
+      names(expanded_posmod_list)[k] <- position_modifiers[[i]]$instruments[[j]]
       k <- k + 1
     }
   }
-  inst_names_by_posmod <- get_inst_names_by_position_modifier(parsed_posmod_list)
+  inst_names_by_posmod <- get_inst_names_by_position_modifier(expanded_posmod_list)
   if(length(inst_names_by_posmod) != length(unique(inst_names_by_posmod))) {
     stop("Only one position modifier function may be provided for each instrument.")
   }
 
-  parsed_posmod_list
+  expanded_posmod_list
 }
 
 
-#' Make List Of Position Modifiers From Position Modifiers List
+#' Parse List Of Position Modifiers From Nested Position Modifiers List
 #'
 #' @description
 #' Creates a named list. Values are all `NA` and the names are the names of
@@ -148,10 +148,11 @@ parse_position_modifiers <- function(position_modifiers) {
 #' Initialize list of position modifiers. User may provide a named list where
 #'   the names are instrument names and values are position modifier functions.
 #'
-#' `make_position_modifiers_list()` creates a named list. Each element corresponds
-#'   to an instrument, in the order instruments occur in the inst_data list. The
-#'   name of each element is the name of the instrument. User provided position
-#'   modifier functions will be assigned to the appropriate element in the list.
+#' `parse_position_modifiers_list()` creates a named list. Each element
+#'   corresponds to an instrument, in the order instruments occur in the
+#'   inst_data list. The name of each element is the name of the instrument.
+#'   User provided position modifier functions will be assigned to the
+#'   appropriate element in the list.
 #'
 #' Any position modifier function for which the name doesn't match any
 #'   instrument in the system, will be ignored.
@@ -227,7 +228,7 @@ parse_position_modifiers <- function(position_modifiers) {
 #' @export
 #'
 #' @examples
-make_position_modifiers_list <- function(
+parse_position_modifiers_list <- function(
     position_modifiers = list(),
     inst_names
   ) {
@@ -238,15 +239,15 @@ make_position_modifiers_list <- function(
     names(init_pos_mods) <- inst_names
     init_pos_mods
   }
-  make_pos_mods <- function() {
+  parse_pos_mods <- function() {
     init_pos_mods <- initialize_pos_mods()
-    parsed_pos_mods <- parse_position_modifiers(position_modifiers)
+    expanded_pos_mods <- expand_position_modifiers(position_modifiers)
 
-    for(i in seq_along(parsed_pos_mods)) {
-      pos_mod <- names(parsed_pos_mods[i])
+    for(i in seq_along(expanded_pos_mods)) {
+      pos_mod <- names(expanded_pos_mods[i])
 
       if(!is.null(init_pos_mods[[pos_mod]])) {
-        init_pos_mods[pos_mod] <- parsed_pos_mods[pos_mod]
+        init_pos_mods[pos_mod] <- expanded_pos_mods[pos_mod]
       }
     }
 
@@ -261,7 +262,7 @@ make_position_modifiers_list <- function(
     # if(is.null(names(position_modifiers))) {
     #   stop("Provided list of position modifier functions must be named. Each name should correspond to an instrument name.")
     # }
-    make_pos_mods()
+    parse_pos_mods()
   }
 }
 
