@@ -13,7 +13,8 @@ multiply_position(mult_variable_param_vals, position_multipliers)
 instrument position}
 }
 \value{
-List of multiplier outputs
+List of multiplier function outputs. The first element must be the
+multiplier value.
 }
 \description{
 Apply multipliers from parsed list of position multipliers to a single

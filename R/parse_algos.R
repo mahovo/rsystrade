@@ -556,7 +556,7 @@ get_rule_variation_names_by_parsed_algo <- function(parsed_algos) {
     #   parsed_algos[[i]]$rule,
     #   function(x) {x}
     # )
-    rule_variation_names[[i]] <- parsed_algos[[i]]$rule
+    rule_variation_names[[i]] <- parsed_algos[[i]]$rule$rule_variation
   }
   rule_variation_names
 }

@@ -183,6 +183,9 @@ make_system <- function(
   ## Get number of signals
   num_signals <- length(parsed_algos)
 
+  ## Get algo name for each signal
+  signal_names <- get_rule_variation_names_by_parsed_algo(parsed_algos)
+
   ## Build list of signal tables. To be filled with one signal table for each
   ## algo.
   signal_tables <- list()
@@ -198,6 +201,9 @@ make_system <- function(
       clamped_signal = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       signal_weight = numeric(min_periods) #rep(NA, min_periods)
     )
+
+    ## Algo names as comments in each data frame
+    comment(signal_tables[[i]]) <- signal_names[[i]]
   }
 
   ## Get number of instuments
@@ -236,7 +242,11 @@ make_system <- function(
       borrowed_asset_ccy = numeric(min_periods),
       position_change_ccy = numeric(min_periods)
     )
+
+    ## Instrument names as comments in each data frame
+    comment(position_tables[[i]]) <- inst_names[[i]]
   }
+
   names(position_tables) <- inst_names
 
   ## Initialize list of position modifiers.
@@ -474,6 +484,8 @@ update_system <- function(
   signal_tables <- trade_system$signal_tables
 
   for(i in seq_along(trade_system$algos)) {
+    signal_name <- comment(signal_tables[[i]])
+
     new_signal_row <- update_signal_table_row(
       t = t,
       inst_data = trade_system$inst_data[ trade_system$algos[[i]]$instrument ][[1]],
@@ -503,6 +515,9 @@ update_system <- function(
         new_row = new_signal_row
       )
     }
+
+    ## Transfer comment to updated data frame
+    comment(signal_tables[[i]]) <- signal_name
   }
 
 
@@ -580,6 +595,8 @@ update_system <- function(
   position_tables <- trade_system$position_tables
 
   for(i in seq_along(position_tables)) {
+    inst_name <- comment(position_tables[[i]])
+
     new_position_row <- update_position_table_row(
       t = t,
       inst_data = trade_system$inst_data[[i]],
@@ -607,6 +624,9 @@ update_system <- function(
         new_row = new_position_row
       )
     }
+
+    ## Transfer comment to updated data frame
+    comment(position_tables[[i]]) <- inst_name
   }
 
 
@@ -1649,13 +1669,13 @@ get_pos_mul_var_param_vals <- function(
     ## Get the variable params which match data columns
     position_multiplier <- position_multipliers[[i]]
     pos_mul_params_in_data <- intersect(
-      names(position_multiplier$variable_params[-c(1, 2)]),
+      names(position_multiplier$variable_params[-c(1)]),
       colnames(inst_data)
     )
 
     ## Get the variable param names which don't match any data columns
     pos_mul_param_names_not_in_data <- setdiff(
-      names(position_multiplier$variable_params[-c(1, 2)]),
+      names(position_multiplier$variable_params[-c(1)]),
       colnames(inst_data)
     )
 
@@ -1679,8 +1699,9 @@ get_pos_mul_var_param_vals <- function(
 
     pos_mul_var_param_vals[[i]] <- c(
       ## t must be the first variable param
-      ## position_size_ccy must be the second variable param
-      list(t = t, position_size_ccy = position_size_ccy),
+      # ## position_size_ccy must be the second variable param
+      # list(t = t, position_size_ccy = position_size_ccy),
+      list(t = t),
       ## t and position_size_ccy, which we get as the system is running, are
       ## excluded
       inst_data[pos_mul_params_in_data],
@@ -1778,7 +1799,8 @@ generate_signal <- function(
   ## Pass values from instrument data to variable params
   variable_params <- variable_param_vals
   ## Assign the variable names from algo to appropriate values
-  names(variable_params) <- algo$rule$variable_param_names
+  ## (These names are actually not used, so redundant.)
+  names(variable_params) <- algo$rule$variable_params
 
   params <- c(
     variable_params, ## assign variable params
@@ -2053,11 +2075,11 @@ modify_position <- function(
 
   ## Multiply position if multiplier list contains no NAs
   test_pos_mul <- function(position_multipliers) {
-    if(length(position_multipliers) == 1) {
-      !is.na(position_multipliers[[1]])
-    } else {
+    # if(length(position_multipliers) == 1) {
+    #   !is.na(position_multipliers[[1]])
+    # } else {
       !anyNA(position_multipliers)
-    }
+    # }
   }
 
   ## test_pos_mod() is TRUE if no elements in position_modifier is NA
@@ -2088,7 +2110,7 @@ modify_position <- function(
     position_modifier_output <- list(modified_position_size_ccy = position_size_ccy)
   }
 
-  if(test_pos_mod(position_multipliers)){
+  if(test_pos_mul(position_multipliers)){
     position_multipliers_output <- multiply_position(
       mul_variable_param_vals,
       position_multipliers
@@ -2121,7 +2143,8 @@ modify_position <- function(
 #' @param position_multipliers A list of multipliers affecting a single
 #'   instrument position
 #'
-#' @return List of multiplier outputs
+#' @return List of multiplier function outputs. The first element must be the
+#'   multiplier value.
 #' @export
 #'
 #' @details
@@ -2139,7 +2162,6 @@ multiply_position <- function(
     position_multipliers
   ) {
 
-
   mult_variable_params <- list()
   mult_params <- list()
   position_multipliers_output <- list()
@@ -2151,15 +2173,18 @@ multiply_position <- function(
   )
   names(position_multiplier_values) <- position_multiplier_values
 
-
   for(i in seq_along(position_multipliers)) {
     if(!anyNA(position_multipliers[[i]])) {
+      # if(names(mod_variable_param_vals[1]) != "t") {
+      #   stop("The first variable parameter must be t.")
+      # }
       mult_variable_params[[i]] <- list()
       mult_params[[i]] <- list()
-      ## ## Pass values from instrument data to variable params
-      mult_variable_params[[i]] <- mult_variable_param_vals[[i]]
-      ## Assign the variable names from algo to appropriate values
 
+      ## Pass values from instrument data to variable params
+      mult_variable_params[[i]] <- mult_variable_param_vals[[i]]
+
+      ## Assign the variable names from algo to appropriate values
       names(mult_variable_params[[i]]) <- names(
         position_multipliers[[i]]$variable_params
       )

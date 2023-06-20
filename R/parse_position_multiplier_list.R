@@ -40,7 +40,7 @@
 #'      that is not provided with a value when running `make_system()`, is a
 #'      variable parameter.
 #'  * The output of a multiplier function must be a list, where the first element
-#'      is `multiplier`. Any additional elements will appear in
+#'      is `multiplier_value`. Any additional elements will appear in
 #'      the `position_table` as columns. These will typically be intermediate
 #'      values calculated by the multiplier function.
 #'

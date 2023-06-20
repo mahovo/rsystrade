@@ -25,7 +25,7 @@ is a fixed parameter.
 that is not provided with a value when running \code{make_system()}, is a
 variable parameter.
 \item The output of a multiplier function must be a list, where the first element
-is \code{multiplier}. Any additional elements will appear in
+is \code{multiplier_value}. Any additional elements will appear in
 the \code{position_table} as columns. These will typically be intermediate
 values calculated by the multiplier function.
 }
