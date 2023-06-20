@@ -17,5 +17,6 @@ observation is time t.}
 A single number in price units.
 }
 \description{
-Calculate price returns.
+Calculate price returns. If \code{t} is a vector, returns for each value of \code{t}
+will be calculated.
 }

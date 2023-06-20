@@ -147,11 +147,11 @@ f_subsystem_pandl <- function(position_table, instrument_return, t) {
   position_table$position_size_units[t - 1] * instrument_return
 }
 
-
 #' Calculate Price Returns
 #'
 #' @description
-#' Calculate price returns.
+#' Calculate price returns. If `t` is a vector, returns for each value of `t`
+#'   will be calculated.
 #'
 #' @param prices A price vector containing at least the two prices we need for
 #'   calculating returns. Oldest first. Top to bottom: Older to newer. The last

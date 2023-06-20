@@ -237,7 +237,13 @@ make_system <- function(
       t_last_position_entry = rep(0, min_periods),
       trade_on = rep(FALSE, min_periods),
       ## Fill with small random values to avoid zero-sd
-      instrument_return = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
+      instrument_return = c(
+        0,
+        f_price_returns(
+          signal_tables[[i]]$price[2:min_periods],
+          2:min_periods
+          )
+      ),#numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       final_target_pos_size_units = numeric(min_periods),
       final_pos_size_units = numeric(min_periods),
