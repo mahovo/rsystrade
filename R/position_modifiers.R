@@ -58,10 +58,10 @@ p_stop_loss <- function(
       stop_loss <- "stop_loss"
     }
   } #else {signal <- 0} ## Should be redundant...
-  modified_position_size_ccy <- position_size_ccy * signal
+  modifier_value <- position_size_ccy * signal
 
   list(
-    modified_position_size_ccy = modified_position_size_ccy,
+    modifier_value = modifier_value,
     stop_loss_gap = stop_loss_gap,
     stop_loss = stop_loss
   )

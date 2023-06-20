@@ -139,65 +139,23 @@ make_test_system <- function() {
 
 
 
-## *** NOTE *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## This part is not used!
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-##
-## Rule functions need to be loaded into the package env to work with tests.
-## This is done here when doing shift+cmd+L.
-## This is only true for testing. In normal use, rule functions need to be in
-## the global env.
-## The test system written to disk has been modified, so that the rule
-## functions are in the package env (not the global env).
-## This is done by commenting out the code at the bottom of this document.
-## This only needs to be done again, if the test system on disk is overwritten.
-# mac_2_4 <- function(
-#     prices
-#   ) {
-#   mac_rule(
-#     prices,
-#     t = t,
-#     ma_fast = NA,
-#     ma_slow = NA,
-#     n_fast = 2L,
-#     n_slow = 4L,
-#     gap = 0,
-#     strict = TRUE,
-#     binary = FALSE
-#   )
-# }
-# mac_3_6 <- function(
-#     prices
-# ) {
-#   mac_rule(
-#     prices,
-#     t = t,
-#     ma_fast = NA,
-#     ma_slow = NA,
-#     n_fast = 3L,
-#     n_slow = 6L,
-#     gap = 0,
-#     strict = TRUE,
-#     binary = FALSE
-#   )
-# }
-#
-#
-# mac_2_4 <- rlang::set_env(mac_2_4, rlang::global_env())
-# mac_3_6 <- rlang::set_env(mac_3_6, rlang::global_env())
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-
-
 ## Write expected system to disk
+
 # my_test_system <- make_test_system()
 # saveRDS(my_test_system, file = test_path("fixtures/", "my_expected_system.rds"), compress = FALSE)
 
+
+
 ## Change path to avoid mismatch between actual and expected:
+
 # my_expected_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 # my_expected_system$config$instrument_data_folder_path <- "fixtures/"
 # saveRDS(my_expected_system, file = test_path("fixtures/", "my_expected_system.rds"), compress = FALSE)
+
+
+
+
+
 
 
 

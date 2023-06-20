@@ -28,7 +28,8 @@ f_portfolio_weighted_position <- function() {
 #' Calculate Final Position To Trade In Units Of Contracts
 #'
 #' @description
-#' Calculate final rounded position to trade in units of contracts.
+#' Calculate final rounded position to trade in units of contracts. Truncates
+#'   the target position to the nearest integer towards 0.
 #'
 #' @param target_position_size_units Target position to trade in units of
 #'   contracts.
@@ -37,10 +38,10 @@ f_portfolio_weighted_position <- function() {
 #' @export
 #'
 #' @examples
-f_position_units <- function(
+f_position_in_units <- function(
     target_position_size_units
 ) {
-  floor(target_position_size_units)
+  trunc(target_position_size_units)
 }
 
 
@@ -124,10 +125,11 @@ f_leverage_factor <- function(cash = NA, invested = NA, borrowed = NA) {
 }
 
 
-#' Calculate Target Position Size In Units Of Contracts
+#' Calculate Target Position In Units Of Contracts
 #'
 #' @description
-#' Calculate the target position size in units of contracts.
+#' Calculate the target position in units of contracts. Works for position size
+#'   as well as position change.
 #'
 #' @param notional_exposure Notional exposure.
 #' @param price Single price observation in currency of account.
@@ -137,7 +139,7 @@ f_leverage_factor <- function(cash = NA, invested = NA, borrowed = NA) {
 #' @export
 #'
 #' @examples
-f_target_position_size_units <- function(
+f_target_position_in_units <- function(
     notional_exposure,
     price,
     fx_rate = 1
@@ -146,10 +148,11 @@ f_target_position_size_units <- function(
 }
 
 
-#' Calculate Position Size In Account Currency
+#' Calculate Position In Account Currency
 #'
 #' @description
-#' Calculate position size in price units of the account currency.
+#' Calculate position in price units of the account currency. Works for position
+#'   size as well as position change.
 #'
 #' @param price Price in currency of account.
 #' @param position_size_units Position size in units.
@@ -158,7 +161,7 @@ f_target_position_size_units <- function(
 #' @export
 #'
 #' @examples
-f_position_size_ccy <- function(
+f_position_in_ccy <- function(
     price,
     position_size_units
     ) {

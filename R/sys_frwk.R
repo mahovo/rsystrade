@@ -239,8 +239,14 @@ make_system <- function(
       ## Fill with small random values to avoid zero-sd
       instrument_return = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
-      borrowed_asset_ccy = numeric(min_periods),
-      position_change_ccy = numeric(min_periods)
+      final_target_pos_size_units = numeric(min_periods),
+      final_pos_size_units = numeric(min_periods),
+      final_pos_size_ccy = numeric(min_periods),
+      final_pos_change_ccy = numeric(min_periods),
+      final_target_pos_change_units = numeric(min_periods),
+      final_pos_change_units = numeric(min_periods),
+      borrowed_asset_ccy = numeric(min_periods)#,
+      #position_change_ccy = numeric(min_periods)
     )
 
     ## Instrument names as comments in each data frame
@@ -839,7 +845,7 @@ update_position_table_row <- function(
   #   system_account_table$capital[t - 1],
   #   instrument_risk
   # )
-  target_position_size_units <- f_target_position_size_units(
+  target_position_size_units <- f_target_position_in_units(
     notional_exposure,
     prices[t] #,
     # TODO
@@ -847,12 +853,11 @@ update_position_table_row <- function(
     #fx_rate # default 1
   )
 
+  ## Position in rounded number of contracts
+  position_size_units <- f_position_in_units(target_position_size_units)
 
-  ## Actual traded position in rounded number of contracts
-  position_size_units <- f_position_units(target_position_size_units)
-
-  ## Actual position size in units account currency
-  position_size_ccy <- f_position_size_ccy(
+  ## Position size in units account currency
+  position_size_ccy <- f_position_in_ccy(
     prices[t],
     position_size_units
   )
@@ -888,12 +893,12 @@ update_position_table_row <- function(
     position_size_ccy = position_size_ccy
   )
 
-  modified_position_size_ccy <- position_modifier_output[[1]]
+  final_pos_target_ccy <- position_modifier_output[[1]]
 
   ## We calculate direction again based on modified position. E.g. if a position
   ## modifier invoked a stop loss, the position this will change the direction
   ## to 0.
-  direction <- sign(modified_position_size_ccy)
+  direction <- sign(final_pos_target_ccy)
 
   if(latest_trade_direction == direction) { ## No change in direction
     enter_or_exit <- "---"
@@ -926,14 +931,47 @@ update_position_table_row <- function(
   ## Update P&L for subsystem
   subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
 
-  # borrowed_asset,
-  borrowed_asset_ccy <- modified_position_size_ccy * (direction < 0) ## 0 if long
 
-  position_change_ccy <- f_position_change_ccy(
+  ## Recalculate target position post position modifier
+  final_target_pos_size_units <- f_target_position_in_units(
+    final_pos_target_ccy,
+    prices[t] #,
+    # TODO
+    # Uncomment when implementing fx rates:
+    #fx_rate # default 1
+  )
+
+  ## Actual traded final position in rounded number of contracts
+  final_pos_size_units <- f_position_in_units(final_target_pos_size_units)
+
+  ## Recalculate actual final traded position size in units account currency
+  ## post position modifier
+  final_pos_size_ccy <- f_position_in_ccy(
+    prices[t],
+    final_pos_size_units
+  )
+
+  final_pos_change_ccy <- f_position_change_ccy(
     position_table,
-    modified_position_size_ccy,
+    final_pos_size_ccy,
     t
   )
+
+  ## Recalculate target position post position modifier
+  final_target_pos_change_units <- f_target_position_in_units(
+    final_pos_change_ccy,
+    prices[t] #,
+    # TODO
+    # Uncomment when implementing fx rates:
+    #fx_rate # default 1
+  )
+
+  final_pos_change_units <- f_position_in_units(
+    final_target_pos_change_units
+  )
+
+  ## borrowed_asset (total after position change)
+  borrowed_asset_ccy <- final_pos_size_units * (direction < 0) ## 0 if long
 
   #} else { ## latest_trade_direction == direction: no change (don't enter
     ## trade)
@@ -989,8 +1027,14 @@ update_position_table_row <- function(
     trade_on = trade_on,
     instrument_return = instrument_return,
     subsystem_pandl = subsystem_pandl,
-    borrowed_asset_ccy = borrowed_asset_ccy,
-    position_change_ccy = position_change_ccy
+    final_target_pos_size_units = final_target_pos_size_units,
+    final_pos_size_units = final_pos_size_units,
+    final_pos_size_ccy = final_pos_size_ccy,
+    final_pos_change_ccy = final_pos_change_ccy,
+    final_target_pos_change_units = final_target_pos_change_units,
+    final_pos_change_units = final_pos_change_units,
+    borrowed_asset_ccy = borrowed_asset_ccy#,
+    #position_change_ccy = position_change_ccy
   )
 
   c(
@@ -2107,7 +2151,7 @@ modify_position <- function(
       params
     )
   } else {
-    position_modifier_output <- list(modified_position_size_ccy = position_size_ccy)
+    position_modifier_output <- list(modifier_value = position_size_ccy)
   }
 
   if(test_pos_mul(position_multipliers)){
@@ -2120,10 +2164,10 @@ modify_position <- function(
   }
 
   ## Multiply modified position_size_ccy by multipliers
-  final_position_ccy <- position_modifier_output[[1]] * position_multipliers_output[[1]]
+  modified_position_ccy <- position_modifier_output[[1]] * position_multipliers_output[[1]]
 
   modifiers_output <- c(
-    list(final_position_ccy = final_position_ccy),
+    list(modified_position_ccy = modified_position_ccy),
     position_modifier_output,
     position_multipliers_output
   )

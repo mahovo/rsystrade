@@ -76,10 +76,10 @@ test_that("m_block_same_direction_entry() works", {
 
   my_test_pos_mul <- my_test_system$position_tables
 
-  saveRDS(
-    my_test_pos_mul,
-    file=test_path("fixtures/", "my_expected_pos_mul.RData")
-  )
+  # saveRDS(
+  #   my_test_pos_mul,
+  #   file=test_path("fixtures/", "my_expected_pos_mul.RData")
+  # )
 
   my_expected_pos_mul <- readRDS(test_path("fixtures", "my_expected_pos_mul.RData"))
 
