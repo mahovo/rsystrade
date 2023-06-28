@@ -4,14 +4,14 @@
 \alias{f_price_returns}
 \title{Calculate Price Returns}
 \usage{
-f_price_returns(prices, t)
+f_price_returns(t, prices)
 }
 \arguments{
+\item{t}{Time index ("now")}
+
 \item{prices}{A price vector containing at least the two prices we need for
 calculating returns. Oldest first. Top to bottom: Older to newer. The last
 observation is time t.}
-
-\item{t}{Time index ("now")}
 }
 \value{
 A single number in price units.
@@ -19,4 +19,7 @@ A single number in price units.
 \description{
 Calculate price returns. If \code{t} is a vector, returns for each value of \code{t}
 will be calculated.
+}
+\details{
+\deqn{R_t = P_t - P_{t-1}}
 }

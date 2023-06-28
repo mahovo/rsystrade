@@ -207,9 +207,8 @@ r_stop_loss <- function(
 #' @param gap
 #'
 #' @return
-#' @export
-#'
-#' @examples
+
+
 # apply_mac_rule <- function(
     #     prices,
 #     ma_data, ## Data frame

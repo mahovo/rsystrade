@@ -1,5 +1,21 @@
 
 
+#' Block Entry In Same Direction
+#'
+#' @description
+#' Position multiplier
+#'
+#' @param t Time index.
+#' @param prices Price vector.
+#' @param direction Direction. 1 for long, -1 for short, 0 for flat.
+#' @param t_last_position_entry Time index of last position entry.
+#' @param position_table Position table.
+#' @param mode Mode.
+#'
+#' @return
+#' @export
+#'
+#' @examples
 m_block_same_direction_entry <- function(
     t,
     prices,

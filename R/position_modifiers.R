@@ -37,27 +37,31 @@ p_stop_loss <- function(
 
   ## Exit position if stop loss level was breached today [LT, p. 138].
   ## Exit position even if price has recovered. [LT, p. 141]
-  stop_loss_level <- f_stop_loss_level(
-    f_high_water_mark(price, t, t_last_position_entry),
-    f_low_water_mark(price, t, t_last_position_entry),
-    stop_loss_gap = stop_loss_gap,
-    direction = direction,
-    rnd  = rnd
-  )
+
+  stop_loss_level <- function() {
+    f_stop_loss_level(
+      f_high_water_mark(price, t, t_last_position_entry),
+      f_low_water_mark(price, t, t_last_position_entry),
+      stop_loss_gap = stop_loss_gap,
+      direction = direction,
+      rnd  = rnd
+    )
+  }
 
   signal <- 1 ## bypass by default
   stop_loss <- "---"
   if(direction == 1) { ## If long
-    if(price[t] < stop_loss_level) { ## Exit position if...
+    if(price[t] < stop_loss_level()) { ## Exit position if...
       signal <- 0 ## Exit
       stop_loss <- "stop_loss"
     }
-  } else if(direction == -1) { ## If short
-    if(price[t] > stop_loss_level) { ## Exit position if...
+  } else if (direction == -1) { ## If short
+    if(price[t] > stop_loss_level()) { ## Exit position if...
       signal <- 0 ## Exit
       stop_loss <- "stop_loss"
     }
-  } #else {signal <- 0} ## Should be redundant...
+  } else {signal <- 0} ## Should be redundant...
+
   modifier_value <- position_size_ccy * signal
 
   list(

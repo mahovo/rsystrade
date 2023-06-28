@@ -2,9 +2,9 @@
 % Please edit documentation in R/formulas-risk.R
 \name{ew_cov_matrix}
 \alias{ew_cov_matrix}
-\title{Exponential Wrighted Covariance Matrix}
+\title{Exponential Weighted Covariance Matrix}
 \usage{
-ew_cov_matrix(data, lookback = NA)
+ew_cov_matrix(data, lambda = NA, lookback = NA)
 }
 \arguments{
 \item{data}{Dataframe.}

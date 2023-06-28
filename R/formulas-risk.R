@@ -38,7 +38,6 @@ f_required_leverage_factor <- function(
   instrument_risk_target / instrument_risk
 }
 
-
 #' Notional exposure
 #'
 #' @description
@@ -64,11 +63,144 @@ f_notional_exposure <- function(
   combined_signal * capital * required_leverage_factor * instrument_weight
 }
 
+## ST, p. 298
+#' Calculate Exponentially Weighted Average
+#'
+#' Calculate EWA of vector \eqn{x} at time \eqn{t} based on a lookback window.
+#'   If the length of the lookback window is \eqn{\lambda}, the range of the lookback
+#'   window is \eqn{[t-\lambda, t-1]}.
+#'
+#' @param x Vector.
+#' @param lambda Smoothing parameter. If no lambda is provided, set lambda to  1 - (2 / (1 + L)).
+#' @param lookback Lookback window length as positive integer. If no `lookback`
+#'   is provided, the entire \eqn{x} vector will be used.
+#'
+#' @return Single exponentially weighted average value
+#' @export
+#'
+#' @details
+#' \deqn{E[X_t | X_{t-1}] = \frac{1}{\sum_{i=0}^{t-2}\lambda^i}\sum_{j=1}^{t-1}\lambda^{j-1} X_{t-j}}
+#'
+#' @examples
+#'
+#' @references Tsay: Analysis Of Financial Time Series
+f_ewa <- function(x, lambda = NA, lookback = NA) {
 
+  if(is.na(lookback)) {
+    L <- length(x)
+    x_window <- x
+  } else {
+    L <- lookback
+    x_window <- utils::tail(x, L)
+  }
+  if(!is.integer(L)) {stop("lookback must be an integer (e.g. 25L).")}
+  if(!(L >= 0L)) {stop("lookback must be zero or positive.")}
 
+  if(is.na(lambda)) {
+    lambda <- 1 - (2 / (1 + L))
+  }
 
+  ## Reversing the order of weights instead of reversing the order of observations.
+  w <- lambda^((L - 1):(0))
+  drop((w %*% x_window) / sum(w))
+}
 
+#' Exponential Weighted Standard Deviation
+#'
+#' @param x Input vector.
+#' @param lambda Smoothing parameter.
+#' @param lookback Length of lookback window.
+#'
+#' @return Single value
+#' @export
+#'
+#' @examples
+f_ewa_sd <- function(
+    x,
+    lambda = NA,
+    lookback = NA
+  ) {
+  if(is.na(lookback)) {
+    x_window <- x
+  } else {
+    x_window <- utils::tail(x, lookback)
+  }
 
+  mu_x <- f_ewa(x_window, lambda, lookback)
+
+  f_ewa(
+    (x_window - as.vector(mu_x))^2,
+    lambda,
+    lookback
+  )
+}
+
+#' Exponential Weighted Covariance
+#'
+#' @param x Vector.
+#' @param y Vector.
+#' @param lookback Integer. Lookback window length. If no `lookback` is
+#'   provided, the entire \eqn{x} and \eqn{y} vectors will be used.
+#'
+#' @return Number
+#' @export
+#'
+#' @examples
+f_ewa_cov <- function(
+    x,
+    y,
+    lambda = NA,
+    lookback = NA
+  ) {
+  if(is.na(lookback)) {
+    x_window <- x
+    y_window <- y
+  } else {
+    x_window <- utils::tail(x, lookback)
+    y_window <- utils::tail(y, lookback)
+  }
+  mu_x <- f_ewa(x_window, lambda, lookback)
+  mu_y <- f_ewa(y_window, lambda, lookback)
+  f_ewa(
+    (x_window - mu_x) * (y_window - mu_y),
+    lambda,
+    lookback
+  )
+}
+
+#' Exponential Weighted Covariance Matrix
+#'
+#' Exponentially Weighted Moving-Average estimate of the covariance matrix.
+#' See Tsay: Analysis Of Financial Time Series (3rd Ed., 10.1, p. 507)
+#'
+#' @param data Dataframe.
+#' @param lookback Integer. Lookback window length.
+#'
+#' @return Matrix
+#' @export
+#'
+#' @examples
+ew_cov_matrix <- function(data, lambda = NA, lookback = NA) {
+  if(is.na(lookback)) {
+    L <- nrow(data)
+    data_window <- data
+  } else {
+    L <- lookback
+    data_window <- utils::tail(data, L)
+  }
+  m <- ncol(data)
+  cor_mat <- matrix(0, ncol=m, nrow=m)
+  for (i in 1:m) {
+    for (j in 1:m) {
+      cov_mat[i, j] <- f_ewa_cov(
+        data_window[ , i], data_window[ , j],
+        lambda = lambda,
+        lookback = L
+      )
+    }
+  }
+  cov_mat
+}
 
 #' Signals Correlation Matrix
 #'
@@ -77,7 +209,7 @@ f_notional_exposure <- function(
 #'   correlation matrix for a subsystem of all the signal vectors affecting a
 #'   single instrument in the system.
 #'
-#' @param signals Dataframe where each column is a signal vector
+#' @param signals Dataframe where each column is a signal vector.
 #'
 #' @return Correlation matrix
 #' @export
@@ -102,25 +234,30 @@ f_signal_cor_mat <- function(
 #'   instrument.
 #'
 #' @param subsystem_returns Dataframe where each columns is a vector of
-#'   subsystem (daily) percentage returns
-#' @param method Method
+#'   subsystem (daily) percentage returns.
+#' @param method Method.
 #' * `"Pearson"`, Pearsons Correlation Coefficient
-#' * `ewa`, Exponential Weighted Average Correlation
-#'   \deqn{E[X_t | X_{t-1}] = \frac{1}{\sum_{i=0}^{t-2}A^i}\sum_{j=1}^{t-1}A^{j-1} X_{t-j}}
+#' * `ewa`, Exponential Weighted Average
+#'   \deqn{E[X_t | X_{t-1}] = \frac{1}{\sum_{i=0}^{t-2}\lambda^i}\sum_{j=1}^{t-1}\lambda^{j-1} X_{t-j}}
 #'
 #' @return Correlation matrix
 #' @export
 #'
 #' @examples
+#'
+#' @references Tsay: Analysis Of Financial Time Series
+#'
+#' @seealso [f_ewa()]
 f_subsystem_ret_cor_mat <- function(
     subsystem_returns,
     method = "Pearson",
-    min_cor
+    min_cor,
+    ...
     ) {
   cor_mat <- switch(
     method,
     "Pearson" = f_signal_cor_mat(subsystem_returns), #stats::cor(subsystem_returns),
-    "ewa" = f_ewa_cor(subsystem_returns)
+    "ewa" = f_ewa_cor(subsystem_returns, lambda, lookback)
   )
 
   ## Check if any correlation is NA
@@ -136,29 +273,51 @@ Replacing NAs in correlation matrix by min_cor value is supposed to fix this pro
 }
 
 
-#' Exponential Wrighted Correlation
+#' Exponential Weighted Correlation
 #'
-#' @param x Vector
-#' @param y Vector
+#' @param x Vector.
+#' @param y Vector.
 #' @param lookback Integer. Lookback window length. If no `lookback` is
 #'   provided, the entire \eqn{x} and \eqn{y} vectors will be used.
+#'
+#' @details
+#'   \deqn{s^2(X) = \frac{1}{n - 1}\sum_i^n (X_i - \mu_X)^2}
+#'   \deqn{\text{COV}(X, Y) = \frac{1}{n - 1} \sum_i^n ((X_i - \mu_X)(Y_i - \mu_Y))}
+#'   \deqn{\text{COR}(X, Y) = \frac{1}{n - 1} \frac{\sum_i^n ((X_i - \mu_X)(Y_i - \mu_Y))}{s(X) s(Y)}}
 #'
 #' @return Number
 #' @export
 #'
 #' @examples
-f_ewa_cor <- function(x, y, lookback, min_cor_mat) {
-  L <- lookback
-  x_window <- utils::tail(x, L)
-  y_window <- utils::tail(y, L)
-  mu_x <- f_ewa(x)
-  mu_y <- f_ewa(y)
-  num <- f_ewa((x - mu_x) * (y - mu_y))
-  denom <- sqrt(f_ewa((x - mu_x)^2) * f_ewa((y - mu_y)^2))
+f_ewa_cor <- function(x, y, lambda = NA, lookback = NA) {
+  if(is.na(lookback)) {
+    x_window <- x
+    y_window <- y
+  } else {
+    x_window <- utils::tail(x, lookback)
+    y_window <- utils::tail(y, lookback)
+  }
+  mu_x <- f_ewa(x_window, lambda, lookback)
+  mu_y <- f_ewa(y_window, lambda, lookback)
+  num <- f_ewa(
+    (x_window - mu_x) * (y_window - mu_y),
+    lambda,
+    lookback
+  )
+  denom <- sqrt(
+    f_ewa(
+      (x_window - mu_x)^2) * f_ewa(
+          (y_window - mu_y)^2,
+          lambda,
+          lookback
+        ),
+      lambda,
+      lookback
+    )
   num / denom
 }
 
-#' Exponential Wrighted Correlation Matrix
+#' Exponential Weighted Correlation Matrix
 #'
 #' Exponentially Weighted Moving-Average estimate of the correlation matrix.
 #' See Tsay: Analysis Of Financial Time Series (3rd Ed., 10.1, p. 507)
@@ -170,7 +329,7 @@ f_ewa_cor <- function(x, y, lookback, min_cor_mat) {
 #' @export
 #'
 #' @examples
-ew_cor_matrix <- function(data, lookback = NA) {
+ew_cor_matrix <- function(data, lambda = NA, lookback = NA) {
   if(is.na(lookback)) {
     L <- nrow(data)
     data_window <- data
@@ -182,61 +341,16 @@ ew_cor_matrix <- function(data, lookback = NA) {
   cor_mat <- matrix(0, ncol=m, nrow=m)
   for (i in 1:m) {
     for (j in 1:m) {
-      cor_mat[i, j] <- f_ewa_cor(data_window[ , i], data_window[ , j], L)
+      cor_mat[i, j] <- f_ewa_cor(
+        data_window[ , i], data_window[ , j],
+        lambda = lambda,
+        lookback = L
+      )
     }
   }
   cor_mat
 }
 
-#' Exponential Wrighted Covariance
-#'
-#' @param x Vector
-#' @param y Vector
-#' @param lookback Integer. Lookback window length. If no `lookback` is
-#'   provided, the entire \eqn{x} and \eqn{y} vectors will be used.
-#'
-#' @return Number
-#' @export
-#'
-#' @examples
-f_ewa_cov <- function(x, y, lookback) {
-  L <- lookback
-  x_window <- utils::tail(x, L)
-  y_window <- utils::tail(y, L)
-  mu_x <- f_ewa(x)
-  mu_y <- f_ewa(y)
-  f_ewa((x - mu_x) * (y - mu_y))
-}
-
-#' Exponential Wrighted Covariance Matrix
-#'
-#' Exponentially Weighted Moving-Average estimate of the covariance matrix.
-#' See Tsay: Analysis Of Financial Time Series (3rd Ed., 10.1, p. 507)
-#'
-#' @param data Dataframe.
-#' @param lookback Integer. Lookback window length.
-#'
-#' @return Matrix
-#' @export
-#'
-#' @examples
-ew_cov_matrix <- function(data, lookback = NA) {
-  if(is.na(lookback)) {
-    L <- nrow(data)
-    data_window <- data
-  } else {
-    L <- lookback
-    data_window <- utils::tail(data, L)
-  }
-  m <- ncol(data)
-  cor_mat <- matrix(0, ncol=m, nrow=m)
-  for (i in 1:m) {
-    for (j in 1:m) {
-      cov_mat[i, j] <- f_ewa_cov(data_window[ , i], data_window[ , j], L)
-    }
-  }
-  cov_mat
-}
 
 ## ST F6 [p. 298]
 #' Instrument Risk In Units Of Percentage Of Price
@@ -251,36 +365,38 @@ ew_cov_matrix <- function(data, lookback = NA) {
 #' \deqn{a = \frac{2}{1 + L}}
 #' \deqn{E_{t} = a \cdot P_{t} + E_{t - 1}(1 - a)}
 #'
-#' At f_price_volatility_ewma\eqn{t_0} use `last_ewma` = `current_price`.
+#' At \eqn{t_0} use `last_ewma` = `current_price`.
 #'
 #' @param current_price Current price.
 #' @param last_ewma Last exponential weighted moving average.
 #' @param window_length Window length.
 #'
 #' @return Instrument risk in units of percentage of price
-#' @export
-#'
-#' @examples
-f_price_volatility_ewma <- function(
-    current_price, ## Price at time t
-    last_ewma, ## EWMA at time t - 1
-    window_length = 25
-    ) {
 
-  if(!is.integer(window_length)) {stop("window_length must be an integer (e.g. 25L).")}
-  if(!(window_length > 0L)) {stop("window_length must be positive.")}
 
-  a = 2 / (1 + window_length)
-  a * current_price + (1 - a) * last_ewma
-}
+# f_price_volatility_ewma <- function(
+#     current_price, ## Price at time t
+#     last_ewma, ## EWMA at time t - 1
+#     window_length = 25
+#     ) {
+#
+#   if(!is.integer(window_length)) {stop("window_length must be an integer (e.g. 25L).")}
+#   if(!(window_length > 0L)) {stop("window_length must be positive.")}
+#
+#   a = 2 / (1 + window_length)
+#   a * current_price + (1 - a) * last_ewma
+# }
 
 
 ## LT, p. 220
 ## IDM: LT, F25.1
 #' Instrument Risk Target
 #'
-#' @param system_risk_target Annualized volatility target in percentages
-#' @param IDM Instrument Diversification Multiplier
+#' @description
+#' Calculate instrument risk target.
+#'
+#' @param system_risk_target Annualized volatility target in percentages.
+#' @param IDM Instrument Diversification Multiplier.
 #'    \deqn{\text{IDM} = \frac{1}{\sqrt{W^{T}HW}}}
 #'    where \eqn{H} is the correlation matrix for returns, and \eqn{W} is the vector
 #'    of instrument weights summing to one.
@@ -289,6 +405,7 @@ f_price_volatility_ewma <- function(
 #' @export
 #'
 #' @examples
+#'
 f_instrument_risk_target <- function(system_risk_target, IDM) {
   system_risk_target * IDM
 }
@@ -300,11 +417,11 @@ f_instrument_risk_target <- function(system_risk_target, IDM) {
 #'    Where $H$ is the correlation matrix for returns in percentage terms, and
 #'    $W$ is the vector of instrument weights summing to one.
 #'
-#' @param inst_ret_cor_mat Instrument returns correlations matrix
-#' @param instrument_weights Vector of weights
+#' @param inst_ret_cor_mat Instrument returns correlations matrix.
+#' @param instrument_weights Vector of weights.
 #' @param min_cor Minimum value for each element in `inst_ret_cor_mat`
-#'   matrix
-#' @param max_idm Maximum output value of IDM
+#'   matrix.
+#' @param max_idm Maximum output value of IDM.
 #'
 #' @return Scalar
 #' @export
@@ -342,11 +459,11 @@ f_inst_div_mult <- function(
 #'
 #' Negative correlations should be floored at 0 before calculation of SDM.
 #'
-#' @param signal_correlations Correlations matrix for signals
-#' @param signal_weights Vector of signal weights
+#' @param signal_correlations Correlations matrix for signals.
+#' @param signal_weights Vector of signal weights.
 #' @param min_cor Minimum value for each element in `signal_correlations`
-#'   matrix
-#' @param max_sdm Maximum output value of SDM
+#'   matrix.
+#' @param max_sdm Maximum output value of SDM.
 #'
 #' @return Scalar
 #' @export
@@ -375,10 +492,10 @@ f_sig_div_mult <- function(
 #'  *Instrument risk* in units of *annual standard deviation of price returns*
 #'    to match units of the rule.
 #'
-#' @param raw_signal Single number
-#' @param current_price Price in currency as a single number
+#' @param raw_signal Single number.
+#' @param current_price Price in currency as a single number.
 #' @param inst_risk Risk in units of annual standard deviation of price returns
-#'   as a single number
+#'   as a single number.
 #' @return
 #' @export
 #'
@@ -443,41 +560,100 @@ f_indiv_normalization_factor <- function(
 }
 
 ## LT, F14.a
-#' Instrument risk, annualized
+#' Instrument Risk
 #'
 #' @description
-#' Annualised standard deviation of returns in percentage terms.
-#' \eqn{P_t}, price in currency at time \eqn{t}.
-#' \eqn{n}, number of price observations.
+#' Standard deviation of returns in percentage terms. Annualized by default.
 #'
-#' \deqn{\overline{R} = \dfrac{1}{n} \sum_{t=2}^n \left(\dfrac{P_t}{P_{t-1}} - 1\right)}
-#'
-#' \deqn{\text{Instrument Risk} = \sqrt{\dfrac{1}{n-1}\sum_{t=2}^n \left(\left(\dfrac{P_t}{P_{t-1}} - 1\right) - \overline{R}\right)^2}}
-#'
-#' The square root of the number of business days per year is hard coded:
-#'
-#'   ```sqrt(252) = 15.87451```
-#'
-#'   252 is the number of business days in a year.
-#'   (We could also round off to 16, and we would probably be fine.)
-#'
+#' @param t The time index of the observation to estimate.
 #' @param prices A vector of prices in currency. Oldest first. Top to bottom:
-#'   Older to newer. The last observation is time t.
-#' @param window_length Window length. Includes all if `window_length` is NA.
-#' @param t Time index.
+#'   Older to newer. The last observation is time `t-1`.
+#' @param window_length Window length of the returns. Includes all if
+#'   `window_length` is NA.
+#' @param annualized TRUE if annualized output is desired.
+#' @param periods Number of periods per year. E.g. 252 for daily input.
+#' @param method Standard deviation calculation method (see details below).
+#'   * `return_rate_sd`
+#'   * `return_rate_ewsd`
+#'
+#' @details
+#' \eqn{p_t}, price in currency at time \eqn{t}.
+#'
+#' \eqn{r_t}, Returns at time \eqn{t}.
+#'
+#' \eqn{n}, number of price observations. \eqn{t \leq n+1}.
+#'
+#' Notice, if today is time \eqn{T}, and you want to calculate risk from past
+#'   data at time 1 to \eqn{T - 1}, set the \eqn{t} parameter to \eqn{T}. The
+#'   last return observation in the lookback window is \eqn{r_{t-1}},
+#'   which is calculated from prices \eqn{p_{t-2}} and \eqn{p_{t-1}}.
+#'   The input price vector must be of length at least `window_length` + 1.
+#'
+#' Methods
+#' * `return_rate_sd`
+#' \deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
+#' \deqn{\overline{r_t} = \dfrac{1}{n} \sum_{t=2}^n r_t}
+#' \deqn{\sigma = \sqrt{\dfrac{1}{n-1}\sum_{t=2}^n \left(r_t - \overline{r}\right)^2}}
+#'
+#' * `return_rate_ewsd`
+#' \deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
+#' \deqn{\mu_t \equiv E[r_t | r_{t-1}] = \frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} r_{t-j}}
+#' \deqn{\sigma_t^{\text{ewa}} =  \sqrt{\frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} (\mathbf{r}_{t-j} - \mu_{t-j})(\mathbf{r}_{t-j} - \mu_{t-j})^{'}}}
+#' \deqn{0 < \lambda < 1}
+#'
+#' Additional parameters:
+#'
+#' * `lambda` Smoothing parameter. If no lambda is provided, set lambda to  1 - (2 / (1 + L)).
 #'
 #' @returns Standard deviation
 #' @export
 #'
 #' @example
 #'
-f_inst_risk <- function(prices, t, window_length = 25) {
-  if(is.na(window_length)) {window_length = t} ## Include all if window_length is NA
-  if(t > window_length) {
-    ## t - window_length is the time index before the first return we want to calculate
-    sd_ <- stats::sd(f_returns_from_prices(prices[(t - window_length):t])) * 15.87451 ## 252 is the number of business days in a year. sqrt(252) = 15.87451
+f_inst_risk <- function(
+    t,
+    prices,
+    window_length = NA,
+    annualized = TRUE,
+    periods = 252,
+    method = 1,
+    ...
+  ) {
+
+  scaling_factor <- if(annualized) {
+      sqrt(periods)
+    } else {
+      1
+    }
+
+  if(is.na(window_length)) {
+    window_length = t - 2 ## Minus two because we want to estimate r_t based on
+                          ## r_1 to r_{t-1}, and returns vector is one shorter
+                          ## than price vector.
+  }
+
+  return_rate_sd <- function(time_range) {
+    stats::sd(f_returns_from_prices(prices[time_range]))
+  }
+  return_rate_ewsd <- function(time_range, lambda) {
+    f_ewa_sd(
+      f_returns_from_prices(prices[time_range]),
+      lambda,
+      lookback = as.integer(window_length)
+    )
+  }
+
+  volatility <- switch(
+    method,
+    "1" = return_rate_sd,
+    "2" = return_rate_ewsd
+  )
+
+  if(t > window_length + 1) {
+    ## (t - window_length - 1) is the time index before the first return we want to calculate
+    sd_ <- volatility((t - window_length - 1):(t - 1), ...) * scaling_factor
   } else if (t > 1) {
-    sd_ <- sd(f_returns_from_prices(prices[1:t])) * 15.87451
+    sd_ <- volatility(1:(t - 1), ...) * scaling_factor
     warning("Window length for instrument risk calculation is bigger than length of price vector.\n")
   } else {
     sd_ <- NA
@@ -507,9 +683,9 @@ f_min_exposure <- function(min_exposure, inst_risk, instrument_risk_target) {
 #' @description
 #' Calculate minimum capital required to trade the system.
 #'
-#' @param min_exposure Minimum exposure.
-#' @param inst_risk Instrument risk.
-#' @param instrument_risk_target Instrument risk target.
+#' @param min_exposure Minimum exposure
+#' @param inst_risk Instrument risk
+#' @param instrument_risk_target Instrument risk target
 #'
 #' @returns
 #' @export
@@ -521,7 +697,10 @@ f_min_capital <- function(min_exposure, inst_risk, instrument_risk_target) {
 }
 
 ## LT F22
-#' Price Unit Volatility (instrument risk in price units)
+#' Price Unit Volatility
+#'
+#' @description
+#' Instrument risk in price units.
 #'
 #' @param prices A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer. The last observation is time t.

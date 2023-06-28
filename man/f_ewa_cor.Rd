@@ -2,14 +2,14 @@
 % Please edit documentation in R/formulas-risk.R
 \name{f_ewa_cor}
 \alias{f_ewa_cor}
-\title{Exponential Wrighted Correlation}
+\title{Exponential Weighted Correlation}
 \usage{
-f_ewa_cor(x, y, lookback, min_cor_mat)
+f_ewa_cor(x, y, lambda = NA, lookback = NA)
 }
 \arguments{
-\item{x}{Vector}
+\item{x}{Vector.}
 
-\item{y}{Vector}
+\item{y}{Vector.}
 
 \item{lookback}{Integer. Lookback window length. If no \code{lookback} is
 provided, the entire \eqn{x} and \eqn{y} vectors will be used.}
@@ -18,5 +18,10 @@ provided, the entire \eqn{x} and \eqn{y} vectors will be used.}
 Number
 }
 \description{
-Exponential Wrighted Correlation
+Exponential Weighted Correlation
+}
+\details{
+\deqn{s^2(X) = \frac{1}{n - 1}\sum_i^n (X_i - \mu_X)^2}
+\deqn{\text{COV}(X, Y) = \frac{1}{n - 1} \sum_i^n ((X_i - \mu_X)(Y_i - \mu_Y))}
+\deqn{\text{COR}(X, Y) = \frac{1}{n - 1} \frac{\sum_i^n ((X_i - \mu_X)(Y_i - \mu_Y))}{s(X) s(Y)}}
 }

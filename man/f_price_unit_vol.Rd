@@ -2,7 +2,7 @@
 % Please edit documentation in R/formulas-risk.R
 \name{f_price_unit_vol}
 \alias{f_price_unit_vol}
-\title{Price Unit Volatility (instrument risk in price units)}
+\title{Price Unit Volatility}
 \usage{
 f_price_unit_vol(price, inst_risk)
 }
@@ -13,5 +13,5 @@ f_price_unit_vol(price, inst_risk)
 Older to newer. The last observation is time t.}
 }
 \description{
-Price Unit Volatility (instrument risk in price units)
+Instrument risk in price units.
 }

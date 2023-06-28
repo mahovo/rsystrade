@@ -2,14 +2,14 @@
 % Please edit documentation in R/formulas-risk.R
 \name{f_ewa_cov}
 \alias{f_ewa_cov}
-\title{Exponential Wrighted Covariance}
+\title{Exponential Weighted Covariance}
 \usage{
-f_ewa_cov(x, y, lookback)
+f_ewa_cov(x, y, lambda = NA, lookback = NA)
 }
 \arguments{
-\item{x}{Vector}
+\item{x}{Vector.}
 
-\item{y}{Vector}
+\item{y}{Vector.}
 
 \item{lookback}{Integer. Lookback window length. If no \code{lookback} is
 provided, the entire \eqn{x} and \eqn{y} vectors will be used.}
@@ -18,5 +18,5 @@ provided, the entire \eqn{x} and \eqn{y} vectors will be used.}
 Number
 }
 \description{
-Exponential Wrighted Covariance
+Exponential Weighted Covariance
 }

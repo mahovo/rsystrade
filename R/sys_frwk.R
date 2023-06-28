@@ -236,12 +236,19 @@ make_system <- function(
       enter_or_exit = rep("---", min_periods),
       t_last_position_entry = rep(0, min_periods),
       trade_on = rep(FALSE, min_periods),
+      percentage_return = c(
+        0,
+        f_percentage_returns(
+          2:min_periods,
+          signal_tables[[i]]$price[2:min_periods]
+        )
+      ),
       ## Fill with small random values to avoid zero-sd
       instrument_return = c(
         0,
         f_price_returns(
-          signal_tables[[i]]$price[2:min_periods],
-          2:min_periods
+          2:min_periods,
+          signal_tables[[i]]$price[2:min_periods]
           )
       ),#numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
@@ -573,7 +580,7 @@ update_system <- function(
   subsystem_ret_cor_mat <-
     f_subsystem_ret_cor_mat(
       subsystem_pandl_vectors,
-      method = trade_system$config$correlation_method, #"Pearson"
+      method = trade_system$config$correlation_method, ## Default "Pearson"
       min_cor = trade_system$config$min_cor
     )
 
@@ -810,11 +817,15 @@ update_position_table_row <- function(
 
   prices <- inst_data$price[1:t]
 
+  ## Annualized volatility
   instrument_risk <- f_inst_risk(
     #c(position_table$price[1:(t - 1)], price),
-    prices,
     t = t,
-    window_length = config$risk_window_length
+    prices,
+    window_length = config$risk_window_length,
+    annualized = TRUE,
+    periods = 252,
+    method = 1
   )
 
   # ST, p. 133
@@ -917,7 +928,7 @@ update_position_table_row <- function(
   } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
     enter_or_exit <- "exit"
     trade_on <- FALSE
-    t_last_position_entry <- "---"
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1] #"---"
   } else if(latest_trade_direction * direction == -1) { ## If changing direction
     enter_or_exit <- "reverse"
     trade_on <- TRUE
@@ -928,7 +939,8 @@ update_position_table_row <- function(
     trade_on <- NA
   }
 
-  instrument_return <- f_price_returns(prices, t)
+  percentage_return <- f_percentage_returns(t, prices)
+  instrument_return <- f_price_returns(t, prices)
 
   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
   # fix§0040
@@ -1031,6 +1043,7 @@ update_position_table_row <- function(
     enter_or_exit = enter_or_exit,
     t_last_position_entry = t_last_position_entry,
     trade_on = trade_on,
+    percentage_return = percentage_return,
     instrument_return = instrument_return,
     subsystem_pandl = subsystem_pandl,
     final_target_pos_size_units = final_target_pos_size_units,

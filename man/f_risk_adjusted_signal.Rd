@@ -7,12 +7,12 @@
 f_risk_adjusted_signal(raw_signal, current_price, inst_risk)
 }
 \arguments{
-\item{raw_signal}{Single number}
+\item{raw_signal}{Single number.}
 
-\item{current_price}{Price in currency as a single number}
+\item{current_price}{Price in currency as a single number.}
 
 \item{inst_risk}{Risk in units of annual standard deviation of price returns
-as a single number}
+as a single number.}
 }
 \description{
 \emph{Instrument risk} in units of \emph{annual standard deviation of price returns}

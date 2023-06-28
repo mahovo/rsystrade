@@ -2,9 +2,9 @@
 % Please edit documentation in R/formulas-risk.R
 \name{ew_cor_matrix}
 \alias{ew_cor_matrix}
-\title{Exponential Wrighted Correlation Matrix}
+\title{Exponential Weighted Correlation Matrix}
 \usage{
-ew_cor_matrix(data, lookback = NA)
+ew_cor_matrix(data, lambda = NA, lookback = NA)
 }
 \arguments{
 \item{data}{Dataframe.}

@@ -7,7 +7,7 @@
 f_signal_cor_mat(signals)
 }
 \arguments{
-\item{signals}{Dataframe where each column is a signal vector}
+\item{signals}{Dataframe where each column is a signal vector.}
 }
 \value{
 Correlation matrix

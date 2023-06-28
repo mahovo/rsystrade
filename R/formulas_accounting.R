@@ -143,7 +143,10 @@ f_capital <- function(system_account_table, account_pandl, t) {
 #' @export
 #'
 #' @examples
-f_subsystem_pandl <- function(position_table, instrument_return, t) {
+f_subsystem_pandl <- function(
+    position_table,
+    instrument_return,
+    t) {
   position_table$position_size_units[t - 1] * instrument_return
 }
 
@@ -153,33 +156,40 @@ f_subsystem_pandl <- function(position_table, instrument_return, t) {
 #' Calculate price returns. If `t` is a vector, returns for each value of `t`
 #'   will be calculated.
 #'
+#' @param t Time index ("now")
 #' @param prices A price vector containing at least the two prices we need for
 #'   calculating returns. Oldest first. Top to bottom: Older to newer. The last
 #'   observation is time t.
-#' @param t Time index ("now")
+#'
+#' @details
+#' \deqn{R_t = P_t - P_{t-1}}
 #'
 #' @return A single number in price units.
 #' @export
 #'
 #' @examples
-f_price_returns <- function(prices, t) {
+f_price_returns <- function(t, prices) {
   prices[t] - prices[t - 1]
 }
 
 #' Calculate Percentage Returns
 #'
 #' @description
-#' Calculate percentage returns.
+#' Calculate percentage returns (aka net returns).
 #'
 #' @param prices A price vector containing at least the two prices we need for
 #'   calculating returns. Oldest first. Top to bottom: Older to newer. The last
 #'   observation is time t.
 #'
+#' @details
+#' \deqn{R_t = \frac{P_t - P_{t-1}}{P_{t-1}}}
+#'
 #' @return Percentage as decimal fraction
 #' @export
 #'
 #' @examples
-f_percentage_returns <- function(prices, t) {
+#'
+f_percentage_returns <- function(t, prices) {
   (prices[t] - prices[t - 1]) / prices[t - 1]
 }
 

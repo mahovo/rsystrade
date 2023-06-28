@@ -2,34 +2,71 @@
 % Please edit documentation in R/formulas-risk.R
 \name{f_inst_risk}
 \alias{f_inst_risk}
-\title{Instrument risk, annualized}
+\title{Instrument Risk}
 \usage{
-f_inst_risk(prices, t, window_length = 25)
+f_inst_risk(
+  t,
+  prices,
+  window_length = NA,
+  annualized = TRUE,
+  periods = 252,
+  method = 1,
+  ...
+)
 }
 \arguments{
+\item{t}{The time index of the observation to estimate.}
+
 \item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
-Older to newer. The last observation is time t.}
+Older to newer. The last observation is time \code{t-1}.}
 
-\item{t}{Time index.}
+\item{window_length}{Window length of the returns. Includes all if
+\code{window_length} is NA.}
 
-\item{window_length}{Window length. Includes all if \code{window_length} is NA.}
+\item{annualized}{TRUE if annualized output is desired.}
+
+\item{periods}{Number of periods per year. E.g. 252 for daily input.}
+
+\item{method}{Standard deviation calculation method (see details below).
+\itemize{
+\item \code{return_rate_sd}
+\item \code{return_rate_ewsd}
+}}
 }
 \value{
 Standard deviation
 }
 \description{
-Annualised standard deviation of returns in percentage terms.
-\eqn{P_t}, price in currency at time \eqn{t}.
-\eqn{n}, number of price observations.
+Standard deviation of returns in percentage terms. Annualized by default.
+}
+\details{
+\eqn{p_t}, price in currency at time \eqn{t}.
 
-\deqn{\overline{R} = \dfrac{1}{n} \sum_{t=2}^n \left(\dfrac{P_t}{P_{t-1}} - 1\right)}
+\eqn{r_t}, Returns at time \eqn{t}.
 
-\deqn{\text{Instrument Risk} = \sqrt{\dfrac{1}{n-1}\sum_{t=2}^n \left(\left(\dfrac{P_t}{P_{t-1}} - 1\right) - \overline{R}\right)^2}}
+\eqn{n}, number of price observations. \eqn{t \leq n+1}.
 
-The square root of the number of business days per year is hard coded:
+Notice, if today is time \eqn{T}, and you want to calculate risk from past
+data at time 1 to \eqn{T - 1}, set the \eqn{t} parameter to \eqn{T}. The
+last return observation in the lookback window is \eqn{r_{t-1}},
+which is calculated from prices \eqn{p_{t-2}} and \eqn{p_{t-1}}.
+The input price vector must be of length at least \code{window_length} + 1.
 
-\code{sqrt(252) = 15.87451}
+Methods
+\itemize{
+\item \code{return_rate_sd}
+\deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
+\deqn{\overline{r_t} = \dfrac{1}{n} \sum_{t=2}^n r_t}
+\deqn{\sigma = \sqrt{\dfrac{1}{n-1}\sum_{t=2}^n \left(r_t - \overline{r}\right)^2}}
+\item \code{return_rate_ewsd}
+\deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
+\deqn{\mu_t \equiv E[r_t | r_{t-1}] = \frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} r_{t-j}}
+\deqn{\sigma_t^{\text{ewa}} =  \sqrt{\frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} (\mathbf{r}_{t-j} - \mu_{t-j})(\mathbf{r}_{t-j} - \mu_{t-j})^{'}}}
+\deqn{0 < \lambda < 1}
+}
 
-252 is the number of business days in a year.
-(We could also round off to 16, and we would probably be fine.)
+Additional parameters:
+\itemize{
+\item \code{lambda} Smoothing parameter. If no lambda is provided, set lambda to  1 - (2 / (1 + L)).
+}
 }

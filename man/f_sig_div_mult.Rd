@@ -7,14 +7,14 @@
 f_sig_div_mult(signal_correlations, signal_weights, min_cor = 0, max_sdm = 2.5)
 }
 \arguments{
-\item{signal_correlations}{Correlations matrix for signals}
+\item{signal_correlations}{Correlations matrix for signals.}
 
-\item{signal_weights}{Vector of signal weights}
+\item{signal_weights}{Vector of signal weights.}
 
 \item{min_cor}{Minimum value for each element in \code{signal_correlations}
-matrix}
+matrix.}
 
-\item{max_sdm}{Maximum output value of SDM}
+\item{max_sdm}{Maximum output value of SDM.}
 }
 \value{
 Scalar

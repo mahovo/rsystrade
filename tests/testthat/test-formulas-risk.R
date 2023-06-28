@@ -78,7 +78,74 @@ test_that("method = \"pool_traded\" in update_signal_normalization_factors() wor
 #   )
 # })
 
+test_that("f_inst_risk() works", {
+
+  returns <- rep(c(0, 2), 10)
+  prices <- f_prices_from_returns(returns, 1)
+
+  ## If mu is simple mean (not exponential):
+  ## Each squared deviation from the mean is 1, so we can just calculate the sum
+  ## of the weights, which by design is supposed to be 1.
+  ## Of course, with exponential mu, setting lambda to 1 is equivalent to
+  ## simple mean
 
 
+  my_test_norm_inst_risk <- list()
+  my_test_norm_inst_risk[[1]] <- f_inst_risk(
+    t = 22,
+    prices = prices,
+    window_length = NA,
+    annualized = FALSE,
+    periods = 20,
+    method = 1
+  ) * sqrt(19/20)
+  my_test_norm_inst_risk[[2]] <- f_inst_risk(
+    t = 22,
+    prices = prices,
+    window_length = NA,
+    annualized = FALSE,
+    periods = 20,
+    method = 2,
+    lambda = 1
+  )
+  my_test_norm_inst_risk[[3]] <- f_inst_risk(
+    t = 22,
+    prices = prices,
+    window_length = NA,
+    annualized = FALSE,
+    method = 2,
+    lambda = NA
+  )
+  my_test_norm_inst_risk[[4]] <- f_inst_risk(
+    t = 22,
+    prices = prices,
+    window_length = 10,
+    annualized = FALSE,
+    method = 2,
+    lambda = NA
+  )
+  my_test_norm_inst_risk[[5]] <- f_inst_risk(
+    t = 22,
+    prices = prices,
+    window_length = 10,
+    annualized = FALSE,
+    method = 2,
+    lambda = 1
+  )
 
+  my_expected_inst_risk <- list(
+    1,
+    1,
+    0.9975,
+    0.99,
+    1
+  )
+
+
+  ## Compare ----
+  expect_equal(
+    my_test_norm_inst_risk,
+    my_expected_inst_risk
+  )
+})
 

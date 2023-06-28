@@ -104,7 +104,7 @@ test_that("update_signal_normalization_factors() works", {
   #   my_test_signal_normalization_factors_2,
   #   my_test_signal_normalization_factors_3
   # )
-
+  #
   # saveRDS(
   #   my_expected_signal_normalization_factors,
   #   file=test_path("fixtures/", "my_expected_signal_normalization_factors.RData")

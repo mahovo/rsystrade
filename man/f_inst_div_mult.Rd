@@ -12,14 +12,14 @@ f_inst_div_mult(
 )
 }
 \arguments{
-\item{inst_ret_cor_mat}{Instrument returns correlations matrix}
+\item{inst_ret_cor_mat}{Instrument returns correlations matrix.}
 
-\item{instrument_weights}{Vector of weights}
+\item{instrument_weights}{Vector of weights.}
 
 \item{min_cor}{Minimum value for each element in \code{inst_ret_cor_mat}
-matrix}
+matrix.}
 
-\item{max_idm}{Maximum output value of IDM}
+\item{max_idm}{Maximum output value of IDM.}
 }
 \value{
 Scalar
