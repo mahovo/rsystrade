@@ -108,21 +108,27 @@ test_that("f_inst_risk() works", {
     method = 2,
     lambda = 1
   )
-  my_test_norm_inst_risk[[3]] <- f_inst_risk(
-    t = 22,
-    prices = prices,
-    window_length = NA,
-    annualized = FALSE,
-    method = 2,
-    lambda = NA
+  my_test_norm_inst_risk[[3]] <- signif(
+    f_inst_risk(
+      t = 22,
+      prices = prices,
+      window_length = NA,
+      annualized = FALSE,
+      method = 2,
+      lambda = NA
+    ),
+    13
   )
-  my_test_norm_inst_risk[[4]] <- f_inst_risk(
-    t = 22,
-    prices = prices,
-    window_length = 10,
-    annualized = FALSE,
-    method = 2,
-    lambda = NA
+  my_test_norm_inst_risk[[4]] <- signif(
+    f_inst_risk(
+      t = 22,
+      prices = prices,
+      window_length = 10,
+      annualized = FALSE,
+      method = 2,
+      lambda = NA
+    ),
+    13
   )
   my_test_norm_inst_risk[[5]] <- f_inst_risk(
     t = 22,
@@ -136,8 +142,8 @@ test_that("f_inst_risk() works", {
   my_expected_inst_risk <- list(
     1,
     1,
-    0.9975,
-    0.99,
+    0.9987492177719,
+    0.9949874371066,
     1
   )
 

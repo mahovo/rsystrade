@@ -70,7 +70,7 @@ f_notional_exposure <- function(
 #'   If the length of the lookback window is \eqn{\lambda}, the range of the lookback
 #'   window is \eqn{[t-\lambda, t-1]}.
 #'
-#' @param x Vector.
+#' @param x Vector. Top to bottom: Oldest to newest.
 #' @param lambda Smoothing parameter. If no lambda is provided, set lambda to  1 - (2 / (1 + L)).
 #' @param lookback Lookback window length as positive integer. If no `lookback`
 #'   is provided, the entire \eqn{x} vector will be used.
@@ -128,10 +128,12 @@ f_ewa_sd <- function(
 
   mu_x <- f_ewa(x_window, lambda, lookback)
 
-  f_ewa(
-    (x_window - as.vector(mu_x))^2,
-    lambda,
-    lookback
+  sqrt(
+    f_ewa(
+      (x_window - as.vector(mu_x))^2,
+      lambda,
+      lookback
+    )
   )
 }
 
@@ -297,23 +299,36 @@ f_ewa_cor <- function(x, y, lambda = NA, lookback = NA) {
     x_window <- utils::tail(x, lookback)
     y_window <- utils::tail(y, lookback)
   }
-  mu_x <- f_ewa(x_window, lambda, lookback)
-  mu_y <- f_ewa(y_window, lambda, lookback)
-  num <- f_ewa(
-    (x_window - mu_x) * (y_window - mu_y),
+  #mu_x <- f_ewa(x_window, lambda, lookback)
+  #mu_y <- f_ewa(y_window, lambda, lookback)
+
+  # num <- f_ewa(
+  #   (x_window - mu_x) * (y_window - mu_y),
+  #   lambda,
+  #   lookback
+  # )
+  num <- f_ewa_cov(
+    x_window,
+    y_window,
     lambda,
     lookback
   )
-  denom <- sqrt(
-    f_ewa(
-      (x_window - mu_x)^2) * f_ewa(
-          (y_window - mu_y)^2,
-          lambda,
-          lookback
-        ),
-      lambda,
-      lookback
-    )
+
+  # denom <- sqrt(
+  #   f_ewa(
+  #     (x_window - mu_x)^2,
+  #     lambda,
+  #     lookback
+  #   ) * f_ewa(
+  #         (y_window - mu_y)^2,
+  #         lambda,
+  #         lookback
+  #       ),
+  #   lambda,
+  #   lookback
+  # )
+  denom <- f_ewa_sd(x_window, lambda, lookback) * f_ewa_sd(y_window, lambda, lookback)
+
   num / denom
 }
 
