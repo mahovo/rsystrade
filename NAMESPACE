@@ -3,6 +3,7 @@
 export("%>%")
 export(backfill_table)
 export(benchmark)
+export(buffer_position)
 export(calculate_equal_inst_weights)
 export(calculate_equal_signal_weights)
 export(calculate_signal_weights)

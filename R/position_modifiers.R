@@ -5,6 +5,7 @@
 #'   position_size_ccy if stop loss threshold was not breached.
 #'
 #' @param t Time index.
+#' @param position_size_ccy Position size in account currenct.
 #' @param price A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer.
 #' @param instrument_risk Instrument risk at time t-1.
@@ -70,3 +71,7 @@ p_stop_loss <- function(
     stop_loss = stop_loss
   )
 }
+
+
+
+

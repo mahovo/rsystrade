@@ -140,7 +140,8 @@ make_system <- function(
       signal_normalization_factors_args = list(
         equal = list(equal_norm_factor = 1),
         median_pool_all = list(min_periods_median_pool_all = 250)
-      )
+      ),
+      rel_buffer_size = 0.1
     )
   ##////////////////////
   ## Initialize system
@@ -254,7 +255,11 @@ make_system <- function(
       subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
       final_target_pos_size_units = numeric(min_periods),
       final_pos_size_units = numeric(min_periods),
-      final_pos_size_ccy = numeric(min_periods),
+      final_unbuffered_pos_size_ccy = numeric(min_periods),
+      buffer_size = numeric(min_periods),
+      buffer_top = numeric(min_periods),
+      buffer_bottom = numeric(min_periods),
+      final_buffered_pos_size_ccy = numeric(min_periods),
       final_pos_change_ccy = numeric(min_periods),
       final_target_pos_change_units = numeric(min_periods),
       final_pos_change_units = numeric(min_periods),
@@ -912,33 +917,6 @@ update_position_table_row <- function(
 
   final_pos_target_ccy <- position_modifier_output[[1]]
 
-  ## We calculate direction again based on modified position. E.g. if a position
-  ## modifier invoked a stop loss, the position this will change the direction
-  ## to 0.
-  direction <- sign(final_pos_target_ccy)
-
-  if(latest_trade_direction == direction) { ## No change in direction
-    enter_or_exit <- "---"
-    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
-    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
-  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
-    enter_or_exit <- "enter"
-    t_last_position_entry <- t
-    trade_on <- TRUE
-  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
-    enter_or_exit <- "exit"
-    trade_on <- FALSE
-    t_last_position_entry <- position_table$t_last_position_entry[t - 1] #"---"
-  } else if(latest_trade_direction * direction == -1) { ## If changing direction
-    enter_or_exit <- "reverse"
-    trade_on <- TRUE
-    t_last_position_entry <- t
-  } else {
-    enter_or_exit <- NA
-    t_last_position_entry <- NA
-    trade_on <- NA
-  }
-
   percentage_return <- f_percentage_returns(t, prices)
   instrument_return <- f_price_returns(t, prices)
 
@@ -964,15 +942,57 @@ update_position_table_row <- function(
 
   ## Recalculate actual final traded position size in units account currency
   ## post position modifier
-  final_pos_size_ccy <- f_position_in_ccy(
+  final_unbuffered_pos_size_ccy <- f_position_in_ccy(
     prices[t],
     final_pos_size_units
   )
 
+  buffer_position_output <- buffer_position(
+    t = t,
+    position_size_ccy = final_unbuffered_pos_size_ccy,
+    rel_buffer_size = config$rel_buffer_size,
+    t_last_position_entry = t_last_position_entry,
+    position_table = position_table
+  )
+
+  buffer_size <- buffer_position_output$buffer_size
+  buffer_top <- buffer_position_output$buffer_top
+  buffer_bottom <- buffer_position_output$buffer_bottom
+
+  final_buffered_pos_size_ccy <- buffer_position_output$buffered_position_size_ccy
+
+  ## We calculate direction again based on modified and buffered position. E.g.
+  ## if a position modifier invoked a stop loss, the position this will change
+  ## the direction to 0.
+  direction <- sign(final_buffered_pos_size_ccy)
+
+  ## These can be overridden with a position modifier
+  if(latest_trade_direction == direction) { ## No change in direction
+    enter_or_exit <- "---"
+    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
+  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
+    enter_or_exit <- "enter"
+    t_last_position_entry <- t
+    trade_on <- TRUE
+  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
+    enter_or_exit <- "exit"
+    trade_on <- FALSE
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1] #"---"
+  } else if(latest_trade_direction * direction == -1) { ## If changing direction
+    enter_or_exit <- "reverse"
+    trade_on <- TRUE
+    t_last_position_entry <- t
+  } else {
+    enter_or_exit <- NA
+    t_last_position_entry <- NA
+    trade_on <- NA
+  }
+
   final_pos_change_ccy <- f_position_change_ccy(
-    position_table,
-    final_pos_size_ccy,
-    t
+    position_table = position_table,
+    position_size_ccy = final_buffered_pos_size_ccy,
+    t = t
   )
 
   ## Recalculate target position post position modifier
@@ -1048,7 +1068,11 @@ update_position_table_row <- function(
     subsystem_pandl = subsystem_pandl,
     final_target_pos_size_units = final_target_pos_size_units,
     final_pos_size_units = final_pos_size_units,
-    final_pos_size_ccy = final_pos_size_ccy,
+    final_unbuffered_pos_size_ccy = final_unbuffered_pos_size_ccy,
+    buffer_size = buffer_size,
+    buffer_top = buffer_top,
+    buffer_bottom = buffer_bottom,
+    final_buffered_pos_size_ccy = final_buffered_pos_size_ccy,
     final_pos_change_ccy = final_pos_change_ccy,
     final_target_pos_change_units = final_target_pos_change_units,
     final_pos_change_units = final_pos_change_units,
@@ -2103,7 +2127,51 @@ calculate_subsystem_position <- function(
   combined_signal * required_leverage_factor
 }
 
+#' Buffer Position Modifier
+#'
+#' @description
+#'
+#' @param t Time index.
+#' @param position_size_ccy Position size in account currenct.
+#' @param rel_buffer_size Relative buffer size.
+#' @param t_last_position_entry Time index of last position entry.
+#' @param position_table Position table.
+#'
+#' @details
+#' Keep last position size if
+#' \deqn{\dfrac{|\text{position}_{t} - \text{position}_{t - 1}|}{\text{position}_{t - 1}} > \text{Relative buffer threshold}}
+#'
+#' @return
+#' @export
+#'
+#' @examples
+buffer_position <- function(
+    t,
+    position_size_ccy,
+    rel_buffer_size,
+    t_last_position_entry,
+    position_table
+) {
+  last_position <- position_table$final_buffered_pos_size_ccy[t - 1]
+  buffer_size <- abs(position_size_ccy) * rel_buffer_size
+  buffer_top <- last_position + buffer_size
+  buffer_bottom <- last_position - buffer_size
 
+  if(position_size_ccy > buffer_top) {
+    buffered_position_size_ccy <- position_size_ccy
+  } else if(position_size_ccy < buffer_bottom) {
+    buffered_position_size_ccy <- position_size_ccy
+  } else {
+    buffered_position_size_ccy <- last_position
+  }
+
+  list(
+    buffered_position_size_ccy = buffered_position_size_ccy,
+    buffer_size = buffer_size,
+    buffer_top = buffer_top,
+    buffer_bottom = buffer_bottom
+  )
+}
 
 #' Modify Position
 #'

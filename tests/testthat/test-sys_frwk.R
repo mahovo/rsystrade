@@ -331,3 +331,30 @@ test_that("modify_position() works", {
     my_expected_modified_positions
   )
 })
+
+
+test_that("buffer_position() works", {
+
+  position_table <- list(final_buffered_pos_size_ccy = c(100, 101))
+  config <- list(rel_buffer_size = 0.1)
+
+  my_test_buffered_positions <- buffer_position(
+    t = 3,
+    position_size_ccy = 102,
+    rel_buffer_size = config$rel_buffer_size,
+    t_last_position_entry = 2,
+    position_table = position_table
+  )
+  my_expected_buffered_positions = list(
+    buffered_position_size_ccy = 101,
+    buffer_size = 10.2,
+    buffer_top = 111.2,
+    buffer_bottom = 90.8
+  )
+
+  ## Test ----
+  expect_equal(
+    my_test_buffered_positions,
+    my_expected_buffered_positions
+  )
+})

@@ -18,6 +18,8 @@ p_stop_loss(
 \arguments{
 \item{t}{Time index.}
 
+\item{position_size_ccy}{Position size in account currenct.}
+
 \item{price}{A vector of prices in currency. Oldest first. Top to bottom:
 Older to newer.}
 

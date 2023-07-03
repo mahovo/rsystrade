@@ -22,7 +22,8 @@ m_block_same_direction_entry <- function(
     direction, ## at time t
     t_last_position_entry,
     position_table,
-    mode = 1) {
+    mode = 1
+  ) {
 
   previous_entry_dir <- position_table$direction[t_last_position_entry]
 
@@ -75,3 +76,8 @@ m_block_same_direction_entry <- function(
     multiplier_value = multiplier_value
   )
 }
+
+
+
+
+

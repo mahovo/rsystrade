@@ -7,7 +7,7 @@
 f_ewa(x, lambda = NA, lookback = NA)
 }
 \arguments{
-\item{x}{Vector.}
+\item{x}{Vector. Top to bottom: Oldest to newest.}
 
 \item{lambda}{Smoothing parameter. If no lambda is provided, set lambda to  1 - (2 / (1 + L)).}
 
