@@ -22,7 +22,7 @@ f_position <- function() {
 #'
 #' @examples
 f_portfolio_weighted_position <- function() {
-  warning(" is not yet implemented.")
+  warning("f_portfolio_weighted_position() is not yet implemented.")
 }
 
 #' Calculate Final Position To Trade In Units Of Contracts

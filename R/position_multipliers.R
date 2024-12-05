@@ -6,11 +6,16 @@
 #' Position multiplier
 #'
 #' @param t Time index.
-#' @param prices Price vector.
-#' @param direction Direction. 1 for long, -1 for short, 0 for flat.
-#' @param t_last_position_entry Time index of last position entry.
-#' @param position_table Position table.
-#' @param mode Mode.
+#' @param price (Variable param) Price vector.
+#' @param direction (Variable param) Direction. 1 for long, -1 for short, 0 for flat.
+#' @param t_last_position_entry (Variable param) Time index of last position entry.
+#' @param position_table (Variable param) Position table.
+#' @param mode (Fixed param) Mode. See details.
+#'
+#' @details
+#' `mode=1` is `block_same_dir_entry()`.
+#'
+#' `mode=2` is `block_same_dir_entry_inside_watermarks()`.
 #'
 #' @return
 #' @export
@@ -18,14 +23,18 @@
 #' @examples
 m_block_same_direction_entry <- function(
     t,
-    prices,
+    price,
     direction, ## at time t
     t_last_position_entry,
     position_table,
-    mode = 1
+    mode = 1 ## Fixed param
   ) {
 
-  previous_entry_dir <- position_table$direction[t_last_position_entry]
+  previous_entry_dir <- if(t_last_position_entry == 0) {
+      0
+    } else {
+      position_table$direction[t_last_position_entry]
+    }
 
   true_if_entering <- function() {
     previous_entry_dir == 0 && abs(direction) == 1
@@ -40,11 +49,11 @@ m_block_same_direction_entry <- function(
   }
 
   block_same_dir_entry_inside_watermarks <- function() {
-    hwm <- f_high_water_mark(prices, t, t_last_position_entry)
-    lwm <- f_low_water_mark(prices, t, t_last_position_entry)
+    hwm <- f_high_water_mark(price, t, t_last_position_entry)
+    lwm <- f_low_water_mark(price, t, t_last_position_entry)
 
     block_below_hwm <- function() {
-      if(prices[t] < hwm) {
+      if(price[t] < hwm) {
         block_same_dir_entry()
       } else {
         1
@@ -52,7 +61,7 @@ m_block_same_direction_entry <- function(
     }
 
     block_above_lwm <- function() {
-      if(prices[t] > lwm) {
+      if(price[t] > lwm) {
         block_same_dir_entry()
       } else {
         1
@@ -77,7 +86,35 @@ m_block_same_direction_entry <- function(
   )
 }
 
+## AFTS, p. 581
 
+## ## ## ## ## ## ##
+## TODO
+## Should the instrument risk be limited directly instead of adjusting the
+## position?
+## Implement as a soft limit function where min is calculated by m_min_limit_risk()
+## (not using that name).
+## Max risk could be determined by percentile, e.g. 99th...?
+## But don't we only want to limit risk downwards?
+## ## ## ## ## ## ##
 
+m_min_limit_risk <- function(
+    t,
+    instrument_risk,
+    inst_div_mul,
+    instrument_weight,
+    instrument_risk_target,
+    config,
+    max_leverage = 2, ## Fixed param
+    mode = 1 ## Fixed param
+  ) {
+  min_risk <- config$max_signal * inst_div_mul * instrument_weight *
+    instrument_risk_target / (config$normalization_factor_target * max_leverage)
 
+  multiplier_value <- min(1, instrument_risk / min_risk)
+
+  list(
+    multiplier_value = multiplier_value
+  )
+}
 

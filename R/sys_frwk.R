@@ -8,7 +8,7 @@
 #' Make Trade System
 #'
 #' @description
-#' `config` contains
+#' By default `config` contains
 #'
 #'   * `init_capital`
 #'   * `system_risk_target`
@@ -16,19 +16,22 @@
 #'   * `min_periods`
 #'   * `min_signal`
 #'   * `max_signal`
+#'   * `correlation_method`
 #'   * `min_cor` Default is `0`.
 #'   * `max_sdm` Default is `2.5`.
 #'   * `same_direction_trade_allowed` Default is `FALSE`.
 #'   * `instrument_data_folder_path`
 #'   * `signal_weight_calculation_method` Default is `"equal"`.
 #'   * `inst_weight_calculation_method` Default is `"equal"`.
-#'   * `target_normalization_factor` Default is `1`,
+#'   * `normalization_factor_target` Default is `1`,
 #'   * `signal_normalization_factors_method` Default is `"equal"`.
 #'   * `signal_normalization_factors_args` A list of additional arguments for
 #'     each method in `update_signal_normalization_factors()`.
 #'     * Additional argument for method `"equal"` is `equal_norm_factor`.
 #'     * Additional argument for method `"median_pool_all"` is
 #'       `min_periods_median_pool_all`.
+#'   * `rel_buffer_size` Default is `0.1`
+#'   * `portfolio_multiplier`
 #'
 #' @param algos A list of algos.
 #' @param init_capital Initial capital.
@@ -113,6 +116,7 @@ make_system <- function(
     risk_window_length = 25,
     position_modifiers = list(),
     position_multipliers = list(),
+    portfolio_multipliers = list(),
     min_periods = 1,
     min_signal = -2,
     max_signal = 2,
@@ -141,7 +145,8 @@ make_system <- function(
         equal = list(equal_norm_factor = 1),
         median_pool_all = list(min_periods_median_pool_all = 250)
       ),
-      rel_buffer_size = 0.1
+      rel_buffer_size = 0.1,
+      portfolio_multiplier = list(combi_method = "min")
     )
   ##////////////////////
   ## Initialize system
@@ -223,20 +228,32 @@ make_system <- function(
       rescaled_combined_signal = numeric(min_periods),
       clamped_raw_combined_signal = numeric(min_periods),
       required_leverage_factor = numeric(min_periods),
-      signal_div_mult = numeric(min_periods),
+      signal_div_mul = numeric(min_periods),
       instrument_weight = numeric(min_periods),
-      inst_div_mult = numeric(min_periods),
+      inst_div_mul = numeric(min_periods),
       notional_exposure = numeric(min_periods),
       target_position_size_units = numeric(min_periods),
       position_size_units = numeric(min_periods),
       position_size_ccy = numeric(min_periods),
+      subsystem_position = numeric(min_periods),
       direction = numeric(min_periods),
       #stop_loss = numeric(min_periods),
       #stop_loss_gap = numeric(min_periods),
-      subsystem_position = numeric(min_periods),
       enter_or_exit = rep("---", min_periods),
       t_last_position_entry = rep(0, min_periods),
       trade_on = rep(FALSE, min_periods),
+      final_target_pos_ccy = numeric(min_periods),
+      final_target_pos_units = numeric(min_periods),
+      final_unbuffered_pos_units = numeric(min_periods),
+      final_unbuffered_pos_ccy = numeric(min_periods),
+      buffer_size = numeric(min_periods),
+      buffer_top = numeric(min_periods),
+      buffer_bottom = numeric(min_periods),
+      final_buffered_pos_ccy = numeric(min_periods),
+      final_pos_change_ccy = numeric(min_periods),
+      final_target_pos_change_units = numeric(min_periods),
+      final_pos_change_units = numeric(min_periods),
+      borrowed_asset_ccy = numeric(min_periods),
       percentage_return = c(
         0,
         f_percentage_returns(
@@ -250,20 +267,9 @@ make_system <- function(
         f_price_returns(
           2:min_periods,
           signal_tables[[i]]$price[2:min_periods]
-          )
+        )
       ),#numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
-      subsystem_pandl = numeric(min_periods),  #rnorm(min_periods, 0, 0.001)
-      final_target_pos_size_units = numeric(min_periods),
-      final_pos_size_units = numeric(min_periods),
-      final_unbuffered_pos_size_ccy = numeric(min_periods),
-      buffer_size = numeric(min_periods),
-      buffer_top = numeric(min_periods),
-      buffer_bottom = numeric(min_periods),
-      final_buffered_pos_size_ccy = numeric(min_periods),
-      final_pos_change_ccy = numeric(min_periods),
-      final_target_pos_change_units = numeric(min_periods),
-      final_pos_change_units = numeric(min_periods),
-      borrowed_asset_ccy = numeric(min_periods)#,
+      subsystem_pandl = numeric(min_periods)#,  #rnorm(min_periods, 0, 0.001)
       #position_change_ccy = numeric(min_periods)
     )
 
@@ -522,7 +528,7 @@ update_system <- function(
       config = trade_system$config
     )
 
-    ## Additional output from rules will be added to signal tables append
+    ## Additional output from rules will be added to signal tables by appending
     ## additional columns.
     ## The first time a rule produces additional output, the appropriate new
     ## columns will be appended to the signal table. Previous rows will be
@@ -562,9 +568,7 @@ update_system <- function(
   #instrument_list <- sapply(trade_system$inst_data, function(x) comment(x))
   #names(price_vectors) <- instrument_list
 
-
-
-  ## Get all past subsystem returns from the tradesystem as vectors in a data
+  ## Get all past subsystem returns from the trade system as vectors in a data
   ## frame.
   min_periods <- trade_system$config$min_periods
   subsystem_pandl_vectors <- data.frame(
@@ -585,35 +589,35 @@ update_system <- function(
   subsystem_ret_cor_mat <-
     f_subsystem_ret_cor_mat(
       subsystem_pandl_vectors,
-      method = trade_system$config$correlation_method, ## Default "Pearson"
-      min_cor = trade_system$config$min_cor
+      method = trade_system$config$correlation_method ## Default "Pearson"
     )
 
   ## Vector of weights
   instrument_weights <- calculate_equal_inst_weights(trade_system$algos)
 
   combined_signals_and_sdm <- combine_signals(
-    signal_tables,
-    trade_system$algos,
+    t = t,
+    signal_tables = signal_tables,
+    algos = trade_system$algos,
     min_cor = trade_system$config$min_cor,
     max_sdm = trade_system$config$max_sdm,
     # signal_cor_mat,
-    t
+    correlation_method = trade_system$config$correlation_method
   )
 
   raw_combined_signals <- combined_signals_and_sdm$combined_signals
 
   ## Vector of SDM values
-  signal_div_mult_vect <- combined_signals_and_sdm$signal_div_mult_vect
+  signal_div_mul_vect <- combined_signals_and_sdm$signal_div_mul_vect
 
-  inst_div_mult <- f_inst_div_mult(
+  inst_div_mul <- f_inst_div_mul(
     subsystem_ret_cor_mat,
     instrument_weights
   )
 
   instrument_risk_target <- f_instrument_risk_target(
     trade_system$config$system_risk_target,
-    inst_div_mult
+    inst_div_mul
   )
 
   position_tables <- trade_system$position_tables
@@ -632,9 +636,9 @@ update_system <- function(
       ## multipliers.
       position_multipliers = trade_system$position_multipliers[[i]],
       raw_combined_signal = raw_combined_signals[[i]],
-      signal_div_mult = signal_div_mult_vect[i], ## SDM value
+      signal_div_mul = signal_div_mul_vect[i], ## SDM value
       instrument_weight = instrument_weights[i],
-      inst_div_mult = inst_div_mult,
+      inst_div_mul = inst_div_mul,
       instrument_risk_target = instrument_risk_target,
       subsystem_ret_cor_mat = subsystem_ret_cor_mat,
       system_account_table = trade_system$system_account_table,
@@ -653,7 +657,24 @@ update_system <- function(
     comment(position_tables[[i]]) <- inst_name
   }
 
-
+  ## Apply portfolio risk overlay multiplier (aka portfolio multiplier)
+  combined_portfolio_multiplier <- combine_portfolio_multipliers(
+    portfolio_multipliers = trade_system$portfolio_multipliers,
+    system_vars = as.list(environment()),
+    combi_method = config$portfolio_multiplier$combi_method
+  )
+  if(combined_portfolio_multiplier[[1]] != 1) {
+    position_tables <- apply_portfolio_multiplier(
+      t = t,
+      prices = prices,
+      modified_target_pos_ccy = position_modifier_output[[1]],
+      portfolio_multiplier_value = combined_portfolio_multiplier[[1]],
+      t_last_position_entry = t_last_position_entry,
+      latest_trade_direction = latest_trade_direction,
+      position_tables = position_tables,
+      config = trade_system$config
+    )
+  }
 
   system_account_table <- trade_system$system_account_table
 
@@ -786,15 +807,15 @@ update_signal_table_row <- function(
 #'
 #' Update the position table accordingly.
 #'
+#' @param t Time index.
 #' @param inst_data Instrument data table.
 #' @param signal_table Signal table.
 #' @param position_table Position table.
 #' @param position_modifier Position modifier function.
 #' @param raw_combined_signal Raw combined signal value.
-#' @param signal_div_mult Signal diversification multiplier.
+#' @param signal_div_mul Signal diversification multiplier.
 #' @param subsystem_ret_cor_mat Subsystem returns correlation matrix.
 #' @param system_account_table System account table.
-#' @param t Time index.
 #' @param config Configuration list.
 #'
 #' @return List
@@ -811,9 +832,9 @@ update_position_table_row <- function(
   position_modifier,
   position_multipliers,
   raw_combined_signal,
-  signal_div_mult,
+  signal_div_mul,
   instrument_weight,
-  inst_div_mult,
+  inst_div_mul,
   instrument_risk_target,
   subsystem_ret_cor_mat,
   system_account_table,
@@ -834,7 +855,7 @@ update_position_table_row <- function(
   )
 
   # ST, p. 133
-  rescaled_combined_signal <- raw_combined_signal * inst_div_mult
+  rescaled_combined_signal <- raw_combined_signal * inst_div_mul
 
   clamped_combined_signal <- clamp_signal(
     rescaled_combined_signal,
@@ -915,133 +936,144 @@ update_position_table_row <- function(
     position_size_ccy = position_size_ccy
   )
 
-  final_pos_target_ccy <- position_modifier_output[[1]]
-
-  percentage_return <- f_percentage_returns(t, prices)
-  instrument_return <- f_price_returns(t, prices)
-
-  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  # fix§0040
-  # Calculate `subsystem_pandl`
-  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  ## Update P&L for subsystem
-  subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
-
-
-  ## Recalculate target position post position modifier
-  final_target_pos_size_units <- f_target_position_in_units(
-    final_pos_target_ccy,
-    prices[t] #,
-    # TODO
-    # Uncomment when implementing fx rates:
-    #fx_rate # default 1
-  )
-
-  ## Actual traded final position in rounded number of contracts
-  final_pos_size_units <- f_position_in_units(final_target_pos_size_units)
-
-  ## Recalculate actual final traded position size in units account currency
-  ## post position modifier
-  final_unbuffered_pos_size_ccy <- f_position_in_ccy(
-    prices[t],
-    final_pos_size_units
-  )
-
-  buffer_position_output <- buffer_position(
+  final_columns <- finalize_positions(
     t = t,
-    position_size_ccy = final_unbuffered_pos_size_ccy,
-    rel_buffer_size = config$rel_buffer_size,
+    prices = prices,
+    final_target_pos_ccy = position_modifier_output[[1]],
     t_last_position_entry = t_last_position_entry,
-    position_table = position_table
-  )
-
-  buffer_size <- buffer_position_output$buffer_size
-  buffer_top <- buffer_position_output$buffer_top
-  buffer_bottom <- buffer_position_output$buffer_bottom
-
-  final_buffered_pos_size_ccy <- buffer_position_output$buffered_position_size_ccy
-
-  ## We calculate direction again based on modified and buffered position. E.g.
-  ## if a position modifier invoked a stop loss, the position this will change
-  ## the direction to 0.
-  direction <- sign(final_buffered_pos_size_ccy)
-
-  ## These can be overridden with a position modifier
-  if(latest_trade_direction == direction) { ## No change in direction
-    enter_or_exit <- "---"
-    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
-    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
-  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
-    enter_or_exit <- "enter"
-    t_last_position_entry <- t
-    trade_on <- TRUE
-  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
-    enter_or_exit <- "exit"
-    trade_on <- FALSE
-    t_last_position_entry <- position_table$t_last_position_entry[t - 1] #"---"
-  } else if(latest_trade_direction * direction == -1) { ## If changing direction
-    enter_or_exit <- "reverse"
-    trade_on <- TRUE
-    t_last_position_entry <- t
-  } else {
-    enter_or_exit <- NA
-    t_last_position_entry <- NA
-    trade_on <- NA
-  }
-
-  final_pos_change_ccy <- f_position_change_ccy(
+    latest_trade_direction = latest_trade_direction,
     position_table = position_table,
-    position_size_ccy = final_buffered_pos_size_ccy,
-    t = t
+    config = config
   )
 
-  ## Recalculate target position post position modifier
-  final_target_pos_change_units <- f_target_position_in_units(
-    final_pos_change_ccy,
-    prices[t] #,
-    # TODO
-    # Uncomment when implementing fx rates:
-    #fx_rate # default 1
-  )
-
-  final_pos_change_units <- f_position_in_units(
-    final_target_pos_change_units
-  )
-
-  ## borrowed_asset (total after position change)
-  borrowed_asset_ccy <- final_pos_size_units * (direction < 0) ## 0 if long
-
-  #} else { ## latest_trade_direction == direction: no change (don't enter
-    ## trade)
-    #position_size_units <- position_table$position_size_units[t - 1] ## Still 0
-    #position_size_ccy <- position_table$position_size_ccy[t - 1] ## Still 0
-
-
-    #subsystem_pandl <- NA
-
-    #borrowed_cash <- 0 ## No trade is on
-    #borrowed_asset <- 0
-
-    ## While no trade on:
-    ## capital[t] = cash[t]
-
-    #cash <- system_account_table$cash[t - 1]
-    #capital <- system_account_table$capital[t - 1]
-
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-    # fix§0018
-    # Calculate `cash` for entire trade system and move `cash` from
-    # `position_tables` to `system_account_table`.
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-    #account_value <- capital
-
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-    # fix§0037
-    # Fill unmodified columns for this row
-    # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
-  #} ## closure of "if(latest_trade_direction != direction) {"
-
-
+  # final_target_pos_ccy <- position_modifier_output[[1]]
+  #
+  # ## Note: Apply portfolio multiplier to final_target_pos_ccy and recalculate
+  # ## everything below...
+  #
+  # ## Recalculate target position post position modifier
+  # final_target_pos_units <- f_target_position_in_units(
+  #   final_target_pos_ccy,
+  #   prices[t] #,
+  #   # TODO
+  #   # Uncomment when implementing fx rates:
+  #   #fx_rate # default 1
+  # )
+  #
+  # ## Actual traded final position in rounded number of contracts
+  # final_unbuffered_pos_units <- f_position_in_units(final_target_pos_units)
+  #
+  # ## Recalculate actual final traded position size in units account currency
+  # ## post position modifier
+  # final_unbuffered_pos_ccy <- f_position_in_ccy(
+  #   prices[t],
+  #   final_unbuffered_pos_units
+  # )
+  #
+  # buffer_position_output <- buffer_position(
+  #   t = t,
+  #   position_size_ccy = final_unbuffered_pos_ccy,
+  #   rel_buffer_size = config$rel_buffer_size,
+  #   t_last_position_entry = t_last_position_entry,
+  #   position_table = position_table
+  # )
+  #
+  # buffer_size <- buffer_position_output$buffer_size
+  # buffer_top <- buffer_position_output$buffer_top
+  # buffer_bottom <- buffer_position_output$buffer_bottom
+  #
+  # final_buffered_pos_ccy <- buffer_position_output$buffered_position_size_ccy
+  #
+  # ## We calculate direction again based on modified and buffered position. E.g.
+  # ## if a position modifier invoked a stop loss, the position this will change
+  # ## the direction to 0.
+  # direction <- sign(final_buffered_pos_ccy)
+  #
+  # ## These can be overridden with a position modifier
+  # if(latest_trade_direction == direction) { ## No change in direction
+  #   enter_or_exit <- "---"
+  #   trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
+  #   t_last_position_entry <- position_table$t_last_position_entry[t - 1]
+  # } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
+  #   enter_or_exit <- "enter"
+  #   t_last_position_entry <- t
+  #   trade_on <- TRUE
+  # } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
+  #   enter_or_exit <- "exit"
+  #   trade_on <- FALSE
+  #   t_last_position_entry <- position_table$t_last_position_entry[t - 1] #"---"
+  # } else if(latest_trade_direction * direction == -1) { ## If changing direction
+  #   enter_or_exit <- "reverse"
+  #   trade_on <- TRUE
+  #   t_last_position_entry <- t
+  # } else {
+  #   enter_or_exit <- NA
+  #   t_last_position_entry <- NA
+  #   trade_on <- NA
+  # }
+  #
+  # final_pos_change_ccy <- f_position_change_ccy(
+  #   position_table = position_table,
+  #   position_size_ccy = final_buffered_pos_ccy,
+  #   t = t
+  # )
+  #
+  # ## Recalculate target position post position modifier
+  # final_target_pos_change_units <- f_target_position_in_units(
+  #   final_pos_change_ccy,
+  #   prices[t] #,
+  #   # TODO
+  #   # Uncomment when implementing fx rates:
+  #   #fx_rate # default 1
+  # )
+  #
+  # final_pos_change_units <- f_position_in_units(
+  #   final_target_pos_change_units
+  # )
+  #
+  # ## borrowed_asset (total after position change)
+  # borrowed_asset_ccy <- final_unbuffered_pos_units * (direction < 0) ## 0 if long
+  #
+  # #} else { ## latest_trade_direction == direction: no change (don't enter
+  #   ## trade)
+  #   #position_size_units <- position_table$position_size_units[t - 1] ## Still 0
+  #   #position_size_ccy <- position_table$position_size_ccy[t - 1] ## Still 0
+  #
+  #
+  #   #subsystem_pandl <- NA
+  #
+  #   #borrowed_cash <- 0 ## No trade is on
+  #   #borrowed_asset <- 0
+  #
+  #   ## While no trade on:
+  #   ## capital[t] = cash[t]
+  #
+  #   #cash <- system_account_table$cash[t - 1]
+  #   #capital <- system_account_table$capital[t - 1]
+  #
+  #   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  #   # fix§0018
+  #   # Calculate `cash` for entire trade system and move `cash` from
+  #   # `position_tables` to `system_account_table`.
+  #   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  #   #account_value <- capital
+  #
+  #   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  #   # fix§0037
+  #   # Fill unmodified columns for this row
+  #   # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # #} ## closure of "if(latest_trade_direction != direction) {"
+  #
+  # percentage_return <- f_percentage_returns(t, prices)
+  # instrument_return <- f_price_returns(t, prices)
+  #
+  # # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # # fix§0040
+  # # Calculate `subsystem_pandl`
+  # # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # ## Update P&L for subsystem
+  # subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
+  #
   standard_columns <- list(
     time = inst_data$time[t],
     price = prices[t],
@@ -1051,37 +1083,39 @@ update_position_table_row <- function(
     rescaled_combined_signal = rescaled_combined_signal,
     clamped_raw_combined_signal = clamped_combined_signal,
     required_leverage_factor = required_leverage_factor,
-    signal_div_mult = signal_div_mult,
+    signal_div_mul = signal_div_mul,
     instrument_weight = instrument_weight,
-    inst_div_mult = inst_div_mult,
+    inst_div_mul = inst_div_mul,
     notional_exposure = notional_exposure,
     target_position_size_units = target_position_size_units,
     position_size_units = position_size_units,
     position_size_ccy = position_size_ccy,
-    direction = direction,
-    subsystem_position = subsystem_position,
-    enter_or_exit = enter_or_exit,
-    t_last_position_entry = t_last_position_entry,
-    trade_on = trade_on,
-    percentage_return = percentage_return,
-    instrument_return = instrument_return,
-    subsystem_pandl = subsystem_pandl,
-    final_target_pos_size_units = final_target_pos_size_units,
-    final_pos_size_units = final_pos_size_units,
-    final_unbuffered_pos_size_ccy = final_unbuffered_pos_size_ccy,
-    buffer_size = buffer_size,
-    buffer_top = buffer_top,
-    buffer_bottom = buffer_bottom,
-    final_buffered_pos_size_ccy = final_buffered_pos_size_ccy,
-    final_pos_change_ccy = final_pos_change_ccy,
-    final_target_pos_change_units = final_target_pos_change_units,
-    final_pos_change_units = final_pos_change_units,
-    borrowed_asset_ccy = borrowed_asset_ccy#,
-    #position_change_ccy = position_change_ccy
+  #   direction = direction,
+    subsystem_position = subsystem_position#,
+  #   enter_or_exit = enter_or_exit,
+  #   t_last_position_entry = t_last_position_entry,
+  #   trade_on = trade_on#,
+  #   final_target_pos_ccy = final_pos_target_ccy,
+  #   final_target_pos_units = final_target_pos_units,
+  #   final_unbuffered_pos_units = final_unbuffered_pos_units,
+  #   final_unbuffered_pos_ccy = final_unbuffered_pos_ccy,
+  #   buffer_size = buffer_size,
+  #   buffer_top = buffer_top,
+  #   buffer_bottom = buffer_bottom,
+  #   final_buffered_pos_ccy = final_buffered_pos_ccy,
+  #   final_pos_change_ccy = final_pos_change_ccy,
+  #   final_target_pos_change_units = final_target_pos_change_units,
+  #   final_pos_change_units = final_pos_change_units,
+  #   borrowed_asset_ccy = borrowed_asset_ccy,
+  #   percentage_return = percentage_return,
+  #   instrument_return = instrument_return,
+  #   subsystem_pandl = subsystem_pandl#,
+  #   #position_change_ccy = position_change_ccy
   )
 
   c(
     standard_columns,
+    final_columns,
     position_modifier_output
   )
 
@@ -1655,7 +1689,7 @@ get_variable_param_vals <- function(t, inst_data, algo) {
 }
 
 
-#' Get Position Midifier Variable Parameter Values
+#' Get Position Modifier Variable Parameter Values
 #'
 #' @param t Time index
 #' @param position_size_ccy Position size in currency
@@ -1806,6 +1840,41 @@ get_pos_mul_var_param_vals <- function(
 }
 
 
+
+get_portfolio_mul_var_param_vals <- function(
+    portfolio_multiplier,
+    system_vars
+  ) {
+
+  ## Get the variable param names
+  portfolio_mul_param_names <- names(portfolio_multiplier$variable_params[-1])
+
+
+  ## Create variables from the param names
+  load_portfolio_mul_params<- function(
+    portfolio_mul_param_names,
+    system_vars
+  ) {
+    vars <- lapply(
+      portfolio_mul_param_names,
+      function(x) {eval(parse(text = paste0("system_vars$", x)))}
+    )
+    names(vars) <- portfolio_mul_param_names
+    vars
+  }
+
+  portfolio_mul_params <- load_portfolio_mul_params(
+    portfolio_mul_param_names,
+    system_vars
+  )
+
+  c(
+    ## t must be the first variable param
+    list(t = portfolio_multiplier$variable_params[[1]]),
+    portfolio_mul_params
+  )
+}
+
 #' Generate Trade Signal From Rule
 #'
 #' @description
@@ -1824,13 +1893,8 @@ get_pos_mul_var_param_vals <- function(
 #' For now `generate_signal()` only accepts a price vector as input. The last
 #'   observation is time $t$ ("now").
 #'
-#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
-#'   Older to newer. The last observation is time t.
-#' @param signal_table Signal table. Last row is time t-1.
-#' @param position_table Position table. Last row is time t-1.
-#' @param algo Single algo from the expanded algos list.
-#' @param rule_function
-#' @param t
+#' @param variable_param_vals List. The first param must be t.
+#' @param algo Single parsed algo from the algos list.
 #'
 #' @return Single signal value
 #' @export
@@ -1946,12 +2010,12 @@ backfill_table <- function(
   names(backfilled_new_cols) <- names(new_cols)
   new_sig_tbl <- cbind(table, backfilled_new_cols)
 
-  ###############
+  ## ## ## ## ## ## ## ##
   ## Enter browser when backfilling position_table:
   # if(colnames(table)[3] == "instrument_risk") {
   #   browser()
   # }
-  ###############
+  ## ## ## ## ## ## ## ##
 
   rbind(new_sig_tbl, new_row)
 }
@@ -1960,6 +2024,52 @@ get_signal_weight <- function() {
   warning("get_signal_weight() not implemented yet.")
 }
 
+## AFTS p. 571
+#' Get Position Weights
+#'
+#' @description
+#' Calculates the position weight for instrument \eqn{i} as
+#'   \deqn{w_{i, t} = \dfrac{N_{i,t} \cdot P_{i, t}}{C_t}}
+#' where \eqn{N_{i,t}} is the number of contracts of instrument \eqn{i} at
+#'   time \eqn{t}, \eqn{P_{t, i}} is the price of instrument \eqn{i} at
+#'   time \eqn{t}, and \eqn{C_t} is the total capital of the system.
+#'
+#' @param t Time index.
+#' @param position_tables Position tables list.
+#' @param account_table Account table.
+#'
+#' @return \eqn{t \times 1} vector of weights
+#' @export
+#'
+#' @examples
+get_position_weights <- function(
+    t,
+    position_tables,
+    capital
+  ) {
+  # as.matrix(data.frame(lapply(
+  #   position_tables,
+  #   function(x) {
+  #     if(is.null(x$price)) {
+  #       stop("get_position_weights() needs position tables
+  #       with price column as input.")
+  #     }
+  #
+  #     x$final_position_size_units[t] * x$price[t] / capital
+  #   }
+  # )))
+  unlist(lapply(
+    position_tables,
+    function(x) {
+      if(is.null(x$price)) {
+        stop("get_position_weights() needs position tables
+        with price column as input.")
+      }
+
+      x$final_position_size_units[t] * x$price[t] / capital
+    }
+  ))
+}
 
 #' Get All Past Raw Signals
 #'
@@ -2040,11 +2150,12 @@ calculate_equal_inst_weights <- function(parsed_algos) {
 #' `combine_signals()` returns a single combined signal for each instrument.
 #'   Now the subsystem consists of exactly one rule applied to one instrument.
 #'
-#' @param signal_tables List of data frames. One data frame for each signal.
 #' @param t Time index.
+#' @param signal_tables List of data frames. One data frame for each signal.
 #' @param algos List of parsed (expanded) algos.
 #' @param min_cor Minimum correlation.
 #' @param max_sdm Maximum signal diversification multiplier.
+#' @param correlation_method Correlation method. See `help(f_cor_mat())`.
 #'
 #' @return List containing a vector of combined signals and a vector of signal
 #'   diversification multiplier values
@@ -2052,11 +2163,13 @@ calculate_equal_inst_weights <- function(parsed_algos) {
 #'
 #' @examples
 combine_signals <- function(
+    t,
     signal_tables,
     algos,
     min_cor,
     max_sdm,
-    t) {
+    correlation_method
+  ) {
 
   inst_names_by_algo <- get_inst_names_by_parsed_algo(algos)
   unique_inst_names <-
@@ -2065,7 +2178,7 @@ combine_signals <- function(
   n <- length(unique_inst_names)
   combined_signals <- numeric(n)
   signal_cor_mats <- list()
-  signal_div_mult_vect <-numeric(n)
+  signal_div_mul_vect <-numeric(n)
 
   for(i in 1:n) {
     ## A subsystem is all the algos for an individual instrument
@@ -2088,20 +2201,26 @@ combine_signals <- function(
     ## Calculate signal correlations.
     ## No need to do this every time we run update_position_table_row.
 
-    signal_cor_mats[[i]] <- f_signal_cor_mat(signal_vectors)
+    signal_cor_mats[[i]] <- fix_cor_mat_NAs(
+      f_cor_mat(
+        signal_vectors,
+        method = correlation_method
+      ),
+      value = 1 ## Replace NA by 1
+    )
 
     ## Signal Diversification Multiplier
-    signal_div_mult_vect[i] <- f_sig_div_mult(
+    signal_div_mul_vect[i] <- f_sig_div_mul(
       signal_cor_mats[[i]],
       signal_weights,
       min_cor,
       max_sdm
     )
 
-    combined_signals[i] <- signals %*% signal_weights * signal_div_mult_vect[i]
+    combined_signals[i] <- signals %*% signal_weights * signal_div_mul_vect[i]
   }
 
-  list("combined_signals" = combined_signals, "signal_div_mult_vect" = signal_div_mult_vect)
+  list("combined_signals" = combined_signals, "signal_div_mul_vect" = signal_div_mul_vect)
 }
 
 
@@ -2132,7 +2251,7 @@ calculate_subsystem_position <- function(
 #' @description
 #'
 #' @param t Time index.
-#' @param position_size_ccy Position size in account currenct.
+#' @param position_size_ccy Position size in account currency.
 #' @param rel_buffer_size Relative buffer size.
 #' @param t_last_position_entry Time index of last position entry.
 #' @param position_table Position table.
@@ -2152,7 +2271,7 @@ buffer_position <- function(
     t_last_position_entry,
     position_table
 ) {
-  last_position <- position_table$final_buffered_pos_size_ccy[t - 1]
+  last_position <- position_table$final_buffered_pos_ccy[t - 1]
   buffer_size <- abs(position_size_ccy) * rel_buffer_size
   buffer_top <- last_position + buffer_size
   buffer_bottom <- last_position - buffer_size
@@ -2176,13 +2295,13 @@ buffer_position <- function(
 #' Modify Position
 #'
 #' @description
+#' Apply position modifier function.
 #'
+#' @param variable_param_vals Variable parameter values.
+#' @param position_modifier Position modifier.
+#' @param position_size_ccy Position size in currency of account.
 #'
-#' @param variable_param_vals
-#' @param position_modifier
-#' @param position_size_ccy
-#'
-#' @return
+#' @return List of unique position modifier outputs
 #' @export
 #'
 #' @examples
@@ -2197,11 +2316,11 @@ modify_position <- function(
 
   ## Modify position if modifier list contains no NAs
   test_pos_mod <- function(position_modifier) {
-    if(length(position_modifier) == 1) {
-      !is.na(position_modifier[[1]])
-    } else {
+    # if(length(position_modifier) == 1) {
+    #   !is.na(position_modifier[[1]])
+    # } else {
       !anyNA(position_modifier)
-    }
+    # }
   }
 
   ## Multiply position if multiplier list contains no NAs
@@ -2270,9 +2389,9 @@ modify_position <- function(
 #' Apply multipliers from parsed list of position multipliers to a single
 #'   position.
 #'
-#' @param mult_variable_param_vals Multiplier variable param values
+#' @param mul_variable_param_vals Multiplier variable param values.
 #' @param position_multipliers A list of multipliers affecting a single
-#'   instrument position
+#'   instrument position.
 #'
 #' @return List of multiplier function outputs. The first element must be the
 #'   multiplier value.
@@ -2289,12 +2408,12 @@ modify_position <- function(
 #'
 #' @examples
 multiply_position <- function(
-    mult_variable_param_vals,
+    mul_variable_param_vals,
     position_multipliers
   ) {
 
-  mult_variable_params <- list()
-  mult_params <- list()
+  mul_variable_params <- list()
+  mul_params <- list()
   position_multipliers_output <- list()
   position_multiplier_additional_output <- list()
 
@@ -2309,25 +2428,25 @@ multiply_position <- function(
       # if(names(mod_variable_param_vals[1]) != "t") {
       #   stop("The first variable parameter must be t.")
       # }
-      mult_variable_params[[i]] <- list()
-      mult_params[[i]] <- list()
+      mul_variable_params[[i]] <- list()
+      mul_params[[i]] <- list()
 
       ## Pass values from instrument data to variable params
-      mult_variable_params[[i]] <- mult_variable_param_vals[[i]]
+      mul_variable_params[[i]] <- mul_variable_param_vals[[i]]
 
       ## Assign the variable names from algo to appropriate values
-      names(mult_variable_params[[i]]) <- names(
+      names(mul_variable_params[[i]]) <- names(
         position_multipliers[[i]]$variable_params
       )
 
-      mult_params[[i]] <- c(
-        mult_variable_params[[i]], ## assign variable params
+      mul_params[[i]] <- c(
+        mul_variable_params[[i]], ## assign variable params
         position_multipliers[[i]]$fixed_params ## fixed params
       )
 
       position_multipliers_output[[i]] <- do.call(
         position_multipliers[[i]]$multiplier_function,
-        mult_params[[i]]
+        mul_params[[i]]
       )
 
       position_multiplier_values[[i]] <- position_multipliers_output[[i]][[1]]
@@ -2347,6 +2466,431 @@ multiply_position <- function(
   )
 }
 
+
+#' Finalize Positions
+#'
+#' @description
+#' Calculate final position columns for row `t` in `position_table`.
+#'
+#' @param t Time index.
+#' @param prices Price vector.
+#' @param final_target_pos_ccy Final target position size in currency of
+#'   account.
+#' @param t_last_position_entry Time index of last position entry.
+#' @param latest_trade_direction Latest trade direction.
+#' @param position_table Position table.
+#' @param config Config list.
+#'
+#' @details
+#' A complete position table consists of *standard columns*, *final columns* and
+#'   position *modifier output columns*.
+#'
+#' @return List of final column entries for row `t`
+#' @export
+#'
+#' @examples
+
+
+finalize_positions <- function(
+    t,
+    prices,
+    final_target_pos_ccy,
+    t_last_position_entry,
+    latest_trade_direction,
+    position_table,
+    config
+  ) {
+
+  ## Recalculate target position post position modifier
+  final_target_pos_units <- f_target_position_in_units(
+    final_target_pos_ccy,
+    prices[t] #,
+    # TODO
+    # Uncomment when implementing fx rates:
+    #fx_rate # default 1
+  )
+
+  ## Actual traded final position in rounded number of contracts
+  final_unbuffered_pos_units <- f_position_in_units(final_target_pos_units)
+
+  ## Recalculate actual final traded position size in units account currency
+  ## post position modifier
+  final_unbuffered_pos_ccy <- f_position_in_ccy(
+    prices[t],
+    final_unbuffered_pos_units
+  )
+
+  buffer_position_output <- buffer_position(
+    t = t,
+    position_size_ccy = final_unbuffered_pos_ccy,
+    rel_buffer_size = config$rel_buffer_size,
+    t_last_position_entry = t_last_position_entry,
+    position_table = position_table
+  )
+
+  buffer_size <- buffer_position_output$buffer_size
+  buffer_top <- buffer_position_output$buffer_top
+  buffer_bottom <- buffer_position_output$buffer_bottom
+
+  final_buffered_pos_ccy <- buffer_position_output$buffered_position_size_ccy
+
+  ## We calculate direction again based on modified and buffered position. E.g.
+  ## if a position modifier invoked a stop loss, the position this will change
+  ## the direction to 0.
+  direction <- sign(final_buffered_pos_ccy)
+  trade_on <- position_table$trade_on[t - 1]
+
+  ## These can be overridden with a position modifier
+  if(latest_trade_direction == direction) { ## No change in direction
+    enter_or_exit <- "---"
+    trade_on <- abs(direction) ## Note TRUE == 1, FALSE == 0
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1]
+  } else if(latest_trade_direction == 0 && abs(direction) == 1) { ## If entering a position
+    enter_or_exit <- "enter"
+    t_last_position_entry <- t
+    trade_on <- TRUE
+  } else if(direction == 0 && trade_on == TRUE) { ## If closing an open position
+    enter_or_exit <- "exit"
+    trade_on <- FALSE
+    t_last_position_entry <- position_table$t_last_position_entry[t - 1] #"---"
+  } else if(latest_trade_direction * direction == -1) { ## If changing direction
+    enter_or_exit <- "reverse"
+    trade_on <- TRUE
+    t_last_position_entry <- t
+  } else {
+    enter_or_exit <- NA
+    t_last_position_entry <- NA
+    trade_on <- NA
+  }
+
+  final_pos_change_ccy <- f_position_change_ccy(
+    position_table = position_table,
+    position_size_ccy = final_buffered_pos_ccy,
+    t = t
+  )
+
+  ## Recalculate target position post position modifier
+  final_target_pos_change_units <- f_target_position_in_units(
+    final_pos_change_ccy,
+    prices[t] #,
+    # TODO
+    # Uncomment when implementing fx rates:
+    #fx_rate # default 1
+  )
+
+  final_pos_change_units <- f_position_in_units(
+    final_target_pos_change_units
+  )
+
+  ## borrowed_asset (total after position change)
+  borrowed_asset_ccy <- final_unbuffered_pos_units * (direction < 0) ## 0 if long
+
+  #} else { ## latest_trade_direction == direction: no change (don't enter
+  ## trade)
+  #position_size_units <- position_table$position_size_units[t - 1] ## Still 0
+  #position_size_ccy <- position_table$position_size_ccy[t - 1] ## Still 0
+
+
+  #subsystem_pandl <- NA
+
+  #borrowed_cash <- 0 ## No trade is on
+  #borrowed_asset <- 0
+
+  ## While no trade on:
+  ## capital[t] = cash[t]
+
+  #cash <- system_account_table$cash[t - 1]
+  #capital <- system_account_table$capital[t - 1]
+
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # fix§0018
+  # Calculate `cash` for entire trade system and move `cash` from
+  # `position_tables` to `system_account_table`.
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  #account_value <- capital
+
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # fix§0037
+  # Fill unmodified columns for this row
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  #} ## closure of "if(latest_trade_direction != direction) {"
+
+  percentage_return <- f_percentage_returns(t, prices)
+  instrument_return <- f_price_returns(t, prices)
+
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  # fix§0040
+  # Calculate `subsystem_pandl`
+  # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+  ## Update P&L for subsystem
+  subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
+
+  final_columns <- list(
+    # time = inst_data$time[t],
+    # price = prices[t],
+    # instrument_risk = instrument_risk,
+    # instrument_risk_target = instrument_risk_target,
+    # raw_combined_signal = raw_combined_signal,
+    # rescaled_combined_signal = rescaled_combined_signal,
+    # clamped_raw_combined_signal = clamped_combined_signal,
+    # required_leverage_factor = required_leverage_factor,
+    # signal_div_mul = signal_div_mul,
+    # instrument_weight = instrument_weight,
+    # inst_div_mul = inst_div_mul,
+    # notional_exposure = notional_exposure,
+    # target_position_size_units = target_position_size_units,
+    # position_size_units = position_size_units,
+    # position_size_ccy = position_size_ccy,
+    direction = direction,
+    enter_or_exit = enter_or_exit,
+    t_last_position_entry = t_last_position_entry,
+    trade_on = trade_on,
+    final_target_pos_ccy = final_target_pos_ccy,
+    final_target_pos_units = final_target_pos_units,
+    final_unbuffered_pos_units = final_unbuffered_pos_units,
+    final_unbuffered_pos_ccy = final_unbuffered_pos_ccy,
+    buffer_size = buffer_size,
+    buffer_top = buffer_top,
+    buffer_bottom = buffer_bottom,
+    final_buffered_pos_ccy = final_buffered_pos_ccy,
+    final_pos_change_ccy = final_pos_change_ccy,
+    final_target_pos_change_units = final_target_pos_change_units,
+    final_pos_change_units = final_pos_change_units,
+    borrowed_asset_ccy = borrowed_asset_ccy,
+    percentage_return = percentage_return,
+    instrument_return = instrument_return,
+    subsystem_pandl = subsystem_pandl
+    #position_change_ccy = position_change_ccy
+  )
+
+  final_columns
+}
+
+
+
+#' Combine Portfolio Multipliers
+#'
+#' @description
+#' Calculates the combined output from multiple portfolio multiplier functions.
+#'    Multiplier values are combined according to the `combi_method`.
+#'
+#' @param portfolio_multipliers List of multipliers.
+#' @param mul_variable_param_vals Multiplier variable parameter values.
+#' @param combi_method Combination method.
+#'
+#' @details
+#' Each portfolio multiplier in the portfolio multipliers list contains a
+#'   portfolio multiplier specification list:
+#'
+#' ```R
+#' portfolio_multipliers = list(
+#'   list(
+#'     modifier_name = <multiplier-name-1>,
+#'     modifier_function = <multiplier-function-1>,
+#'     <fixed-params-1_1>,
+#'     <fixed-params-1_2>
+#'   ),
+#'   list(
+#'     modifier_name = <multiplier-name-2>,
+#'     modifier_function = <multiplier-function-2>,
+#'     <fixed-params-2_1>,
+#'     <fixed-params-2_2>
+#'   )
+#' )
+#' ```
+#'
+#' Portfolio multiplier functions are combined according to the method specified
+#'   in `my_system$config$portfolio_multiplier$combi_method`. The default is to
+#'   use the minimum value. Valid combination methods are `min`, `max`, `add`
+#'   and `multiply`.
+#'
+#' Each input portfolio multiplier specification list specifies a multiplier
+#'   name, a multiplier function and any number of fixed parameters. The parser
+#'   automatically determines which parameters of each multiplier function are
+#'   fixed parameters provided by the user, and which are variable parameters
+#'   provided by the system.
+#'
+#' First element in each input `portfolio_multipliers[[i]]` list is the
+#'   multiplier name, second element is the multiplier function definition
+#'   itself. Remaining elements are the fixed params.
+#'
+#' Note: You may provide any name as multiplier name. If the multiplier
+#'   function is assigned to a variable, you may put this variable as the
+#'   function definition. So the function name doesn't have to match the
+#'   multiplier name. The multiplier name is just a label for your convenience.
+#'
+#' Note: Variable params are not provided by user, i.e. do not appear
+#'   in multiplier list.
+#'
+#' @return List of combined portfolio multiplier output. First element is the
+#'   combined multiplier values, as specified by the `combi_method`. Remaining
+#'   elements are additional output from multiplier functions.
+#' @export
+#'
+#' @examples
+combine_portfolio_multipliers <- function(
+    portfolio_multipliers, ## list of multipliers
+    #mul_variable_param_vals,
+    system_vars,
+    combi_method = "min"
+) {
+
+  ## If no portfolio multipliers are provided, return a multiplier value of 1.
+  if(length(portfolio_multipliers) == 0) {
+    return(
+      list(comb_port_mul_vals = 1)
+    )
+  }
+
+  port_mult_names <- lapply(
+    portfolio_multipliers,
+    function(x) {
+      x[[1]]
+    }
+  )
+
+  multiplier_outputs <- lapply(
+    portfolio_multipliers,
+    function(portfolio_multiplier) {
+      mul_variable_param_vals <- get_portfolio_mul_var_param_vals(
+        portfolio_multiplier = portfolio_multiplier,
+        system_vars = system_vars
+      )
+
+      calculate_portfolio_multiplier(
+        portfolio_multiplier,
+        mul_variable_param_vals
+      )
+    }
+  )
+
+  port_mul_vals <- lapply(
+    multiplier_outputs,
+    function(x) {
+      x[[1]]
+    }
+  )
+  names(port_mul_vals) <- port_mult_names
+
+  comb_port_mul_out <- lapply(
+    multiplier_outputs,
+    function(x) {
+      x[-1]
+    }
+  )
+
+  port_mul_vals_vect <- unlist(port_mul_vals)
+  comb_port_mul_vals <- switch(
+    combi_method,
+    "min" = min(port_mul_vals_vect),
+    "max" = max(port_mul_vals_vect),
+    "multiply" = prod(port_mul_vals_vect),
+    "add" = sum(port_mul_vals_vect)
+  )
+
+  c(
+    list(comb_port_mul_vals = comb_port_mul_vals),
+    port_mul_vals = port_mul_vals,
+    comb_port_mul_out = comb_port_mul_out
+  )
+}
+
+
+#' Calculate Portfolio Multiplier
+#'
+#' @param portfolio_multiplier List of portfolio multiplier specifications.
+#' @param mul_variable_param_vals  Variable parameter values for portfolio
+#'   multiplier.
+#'
+#' @return List of portfolio multiplier outputs. First element is the multiplier
+#'   value.
+#' @export
+#'
+#' @examples
+calculate_portfolio_multiplier <- function(
+    portfolio_multiplier, ## Portfolio multiplier specification list
+    mul_variable_param_vals
+  ) {
+
+  ## Multiply position if multiplier list contains no NAs
+  if(!anyNA(portfolio_multiplier)){
+    if(names(mul_variable_param_vals[1]) != "t") {
+      stop("The first variable parameter must be t.")
+    }
+
+    ## Pass values from instrument data to variable params
+    variable_params <- mul_variable_param_vals
+
+    ## Assign the variable names to appropriate values
+    names(variable_params) <- names(portfolio_multiplier$variable_params)
+
+    params <- c(
+      variable_params, ## assign variable params
+      portfolio_multiplier$fixed_params ## fixed params
+    )
+
+    portfolio_multiplier_output <- do.call(
+      portfolio_multiplier$multiplier_function,
+      params
+    )
+  } else {
+    portfolio_multiplier_output <- list(multiplier_value = 1)
+  }
+
+  # if(test_port_mul(portfolio_multipliers)){
+  #   position_multipliers_output <- multiply_portfolio(
+  #     mul_variable_param_vals,
+  #     portfolio_multipliers
+  #   )
+  # } else {
+  #   portfolio_multipliers_output <- 1
+  # }
+
+
+  make_list_names_unique(portfolio_multiplier_output)
+}
+
+#' Apply Portfolio Multiplier To Positions
+#'
+#' @description
+#' Multiply position sizes by portfolio multiplier and update position tables.
+#'
+#' @param portfolio_multiplier_value Portfolio multiplier value.
+#' @param position_tables Position tables
+#' @param ...
+#'
+#' @return List of updated position tables
+#' @export
+#'
+#' @examples
+#'
+apply_portfolio_multiplier <- function(
+    t,
+    prices,
+    modified_target_pos_ccy,
+    portfolio_multiplier_value,
+    t_last_position_entry,
+    latest_trade_direction,
+    position_tables,
+    config
+  ) {
+  for(i in seq_along(position_tables)) {
+    final_target_pos_ccy <- modified_target_pos_ccy * portfolio_multiplier_value
+    final_positions <- finalize_positions(
+      #portfolio_multiplier_value = portfolio_multiplier_value,
+      #...
+      t = t,
+      prices = prices,
+      final_target_pos_ccy = final_target_pos_ccy,
+      t_last_position_entry = t_last_position_entry,
+      latest_trade_direction = latest_trade_direction,
+      position_table = position_tables[[i]],
+      config = config
+    )
+    position_tables[[i]][ , names(final_positions)] <- final_positions
+  }
+  position_tables
+}
 
 #' Execute Trade
 #'
@@ -2443,14 +2987,14 @@ save_tables <- function() {
 #' @description
 #' Get latest price from data frame in trade system list according to algo.
 #'
+#' @param t Time index.
 #' @param inst_data List of unique data frames.
 #' @param algo Algo list for a single expanded algo.
-#' @param t Time index.
 #'
 #' @return Single price
 #'
 #' @examples
-update_price <- function(inst_data, algo, t) {
+update_price <- function(t, inst_data, algo) {
   inst_data[[ algo$instrument ]]$price[t]
 }
 
@@ -2458,15 +3002,15 @@ update_price <- function(inst_data, algo, t) {
 #'
 #' Get latest time from data frame in `algo` list.
 #'
+#' @param t Time index.
 #' @param inst_data List of unique data frames.
 #' @param algo Algo list for a single expanded algo.
-#' @param t Time index.
 #'
 #' @return
 #' @export
 #'
 #' @examples
-update_time <- function(inst_data, algo, t) {
+update_time <- function(t, inst_data, algo) {
   inst_data[[ algo$instrument ]]$time[t]
 }
 

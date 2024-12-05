@@ -6,14 +6,14 @@
 #'
 #' @param t Time index.
 #' @param position_size_ccy Position size in account currenct.
-#' @param price A vector of prices in currency. Oldest first. Top to bottom:
+#' @param price (Variable param) A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer.
-#' @param instrument_risk Instrument risk at time t-1.
-#' @param stop_loss_fraction Stop loss fraction.
-#' @param t_trade_entry Time index of the time when current trade was entered.
-#' @param direction Was current trade long or short at time t-1? 1 for long, -1
+#' @param instrument_risk (Variable param) Instrument risk at time t-1.
+#' @param t_trade_entry (Variable param) Time index of the time when current trade was entered.
+#' @param direction (Variable param) Was current trade long or short at time t-1? 1 for long, -1
 #'   for short.
-#' @param rnd If TRUE, add small random amount to stop loss level. Negative if
+#' @param stop_loss_fraction (Fixed param) Stop loss fraction.
+#' @param rnd (Fixed param) If TRUE, add small random amount to stop loss level. Negative if
 #'   short.
 #'
 #' @return A named list containing:
@@ -29,8 +29,8 @@ p_stop_loss <- function(
     instrument_risk, # at time t
     t_last_position_entry, # at time t
     direction, # at time t
-    stop_loss_fraction = 0.5,
-    rnd = FALSE
+    stop_loss_fraction = 0.5, ## Fixed param
+    rnd = FALSE ## Fixed param
   ) {
 
   price_unit_vol <- f_price_unit_vol(price[t], instrument_risk)

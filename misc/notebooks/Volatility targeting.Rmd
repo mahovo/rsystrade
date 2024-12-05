@@ -862,7 +862,7 @@ ggplot(df, aes(x = nnn, y = diffs)) +
 
 
 ## SDM
-Signal multiplication multiplier
+Signal diversification multiplier
 
 ```{r}
 signal_1 <- round(rnorm(1000), 2)
@@ -2048,7 +2048,7 @@ ggplot(grid, aes(x = sigma, y = frac, color = as.factor(m))) +
 #### Conclusion
 
 - This shows precisely what we would expect: The contribution of $\mathbf{D}$ is exactly the standard deviation of the individual signal, when all signals are generated from the same distribution.  
-- So multiplying the combined signal by the signal multiplication multiplier,  
+- So multiplying the combined signal by the signal diversification multiplier,  
 $$\frac{1}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$
 is equivalent to multiplying the combined signal by   
 $$\frac{\sigma}{\sqrt{\mathbf{w}^T \mathbf{\Sigma} \mathbf{w}}}$$

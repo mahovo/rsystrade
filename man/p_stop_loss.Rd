@@ -20,20 +20,20 @@ p_stop_loss(
 
 \item{position_size_ccy}{Position size in account currenct.}
 
-\item{price}{A vector of prices in currency. Oldest first. Top to bottom:
+\item{price}{(Variable param) A vector of prices in currency. Oldest first. Top to bottom:
 Older to newer.}
 
-\item{instrument_risk}{Instrument risk at time t-1.}
+\item{instrument_risk}{(Variable param) Instrument risk at time t-1.}
 
-\item{direction}{Was current trade long or short at time t-1? 1 for long, -1
+\item{direction}{(Variable param) Was current trade long or short at time t-1? 1 for long, -1
 for short.}
 
-\item{stop_loss_fraction}{Stop loss fraction.}
+\item{stop_loss_fraction}{(Fixed param) Stop loss fraction.}
 
-\item{rnd}{If TRUE, add small random amount to stop loss level. Negative if
+\item{rnd}{(Fixed param) If TRUE, add small random amount to stop loss level. Negative if
 short.}
 
-\item{t_trade_entry}{Time index of the time when current trade was entered.}
+\item{t_trade_entry}{(Variable param) Time index of the time when current trade was entered.}
 }
 \value{
 A named list containing:

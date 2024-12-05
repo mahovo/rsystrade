@@ -968,7 +968,7 @@ number of observations?
 
 ## SDM
 
-Signal multiplication multiplier
+Signal diversification multiplier
 
 ``` r
 signal_1 <- round(rnorm(1000), 2)
@@ -1539,7 +1539,7 @@ How bad is it to use $\text{cor}[X]$ instead of $\text{cov}[X]$?
 - This shows precisely what we would expect: The contribution of
   $\mathbf{D}$ is exactly the standard deviation of the individual
   signal, when all signals are generated from the same distribution.  
-- So multiplying the combined signal by the signal multiplication
+- So multiplying the combined signal by the signal diversification
   multiplier,  
   $$\frac{1}{\sqrt{\mathbf{w}^T \mathbf{H} \mathbf{w}}}$$ is equivalent
   to multiplying the combined signal by  

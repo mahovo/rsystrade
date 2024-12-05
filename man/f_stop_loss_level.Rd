@@ -2,7 +2,7 @@
 % Please edit documentation in R/formulas-rules.R
 \name{f_stop_loss_level}
 \alias{f_stop_loss_level}
-\title{Stop loss level}
+\title{Moving Average Step}
 \usage{
 f_stop_loss_level(hwm, lwm, stop_loss_gap, direction = 0, rnd = FALSE)
 }
@@ -17,7 +17,88 @@ f_stop_loss_level(hwm, lwm, stop_loss_gap, direction = 0, rnd = FALSE)
 
 \item{rnd}{If TRUE, add small random amount to stop loss level. Negative if
 short.}
+
+\item{t}{Time index.}
+
+\item{data}{A vector, e.g. a column in a data frame. Newest first. Top to
+bottom: Newer to older.}
+
+\item{first_data_id}{Time index of the first observation in the window.}
+
+\item{last_data_id}{Time index of the last observation in the window.}
+
+\item{window_length}{Moving standard deviation window length.}
+
+\item{...}{}
+}
+\value{
+A single number. One step of a moving average.
+
+A vector of moving averages
+
+A single number. One step of a moving average.
+
+A vector of moving averages
 }
 \description{
-Stop loss level
+!!! Use \code{rolling_window_step()} instead with \code{func = f_average}. !!!
+
+Calculates average of $n$ items prior to time $t$ in data vector.
+$N$ (length of data vector) smaller than or equal to $n$ is accepted.
+This will not be the desired moving average, but will also not fail.
+
+\code{f_moving_average_step()} doesn't actually calculate a "moving" average. It
+only calculates one step of the moving average, i.e. the mean of the past $n$
+prices.
+
+If the length of the vector is shorter than the window length, the
+window length will be set to the length of the price vector, and a warning
+will be given. The function will not fail or abort in this case.
+
+!!! Use \code{rolling_window()} instead with \code{func = f_average}. !!!
+
+Calculates moving average for each element in a vector.
+\code{N} (length of price vector) smaller than or equal to \code{n} is accepted.
+This will not be the desired moving average, but will also not fail.
+
+!!! Use \code{moving_step()} instead with \code{func = f_sd}. !!!
+
+Calculates standard deviation of $n$ items prior to time $t$ in data vector.
+$N$ (length of data vector) smaller than or equal to $n$ is accepted.
+This will not be the desired moving average, but will also not fail.
+
+\code{f_moving_sd_step()} doesn't actually calculate a "moving" standard
+deviation. It only calculates one step of the moving average, i.e. the mean
+of the past $n$ prices.
+
+If the length of the vector is shorter than the window length, the
+window length will be set to the length of the price vector, and a warning
+will be given. The function will not fail or abort in this case.
+
+!!! Use \code{moving()} instead with \code{func = f_sd}. !!!
+
+Calculates moving standard deviation for each element in a vector.
+\code{N} (length of price vector) smaller than or equal to \code{n} is accepted.
+This will not be the desired moving average, but will also not fail.
+}
+\details{
+Note that in a typical use case, we want to calculate the average for the
+most recent observations. So if we are at time \code{t}, we want to calculate
+the average for the interval \eqn{[t - \text{window length}, t - 1]}.
+
+If \code{t} is given a value and \code{last_data_id} is \code{NA}, the last observation in
+the window will be \code{t - 1}. Alternatively one could set \code{last_data_id} and
+let \code{t} be \code{NA}. If \code{t} and \code{last_data_id} are both \code{NA}, \code{last_data_id}
+will be set to the length of the data vector. If \code{t} and \code{last_data_id} are
+both given a value, \code{t} will be ignored.
+
+Note that in a typical use case, we want to calculate the average for the
+most recent observations. So if we are at time \code{t}, we want to calculate
+the average for the interval \eqn{[t - \text{window length}, t - 1]}.
+
+If \code{t} is given a value and \code{last_data_id} is \code{NA}, the last observation in
+the window will be \code{t - 1}. Alternatively one could set \code{last_data_id} and
+let \code{t} be \code{NA}. If \code{t} and \code{last_data_id} are both \code{NA}, \code{last_data_id}
+will be set to the length of the data vector. If \code{t} and \code{last_data_id} are
+both given a value, \code{t} will be ignored.
 }

@@ -15,7 +15,7 @@ buffer_position(
 \arguments{
 \item{t}{Time index.}
 
-\item{position_size_ccy}{Position size in account currenct.}
+\item{position_size_ccy}{Position size in account currency.}
 
 \item{rel_buffer_size}{Relative buffer size.}
 

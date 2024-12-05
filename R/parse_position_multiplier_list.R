@@ -224,7 +224,7 @@
 #'    ),
 #'    list(
 #'      multiplier_name = "f4",
-#'      multiplierr_function = f4,
+#'      multiplier_function = f4,
 #'      variable_params = list(
 #'         x4 = "x4"
 #'      ),

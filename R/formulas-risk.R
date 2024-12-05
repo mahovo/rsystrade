@@ -22,7 +22,7 @@
 #'
 #' Note, the annual instrument volatility target can be calculated from a
 #'   system volatility target by dividing this by the Instrument Diversification
-#'   Diversifier.
+#'   Multiplier.
 #'
 #' @param instrument_risk_target Instrument volatility target
 #' @param instrument_risk Instrument volatility
@@ -44,7 +44,7 @@ f_required_leverage_factor <- function(
 #' Calculate the notional exposure.
 #'
 #' @param combined_signal Combined signal. Should be normalized to a an expected
-#'   absolute value of 1 and capped between -2 and 2.
+#'   absolute value of 1 and clipped between -2 and 2.
 #' @param capital Trading capital in account currency.
 #' @param required_leverage_factor Required leverage factor. Indstrument risk
 #'   target divided by instrument risk (in same units).
@@ -62,310 +62,6 @@ f_notional_exposure <- function(
     instrument_weight) {
   combined_signal * capital * required_leverage_factor * instrument_weight
 }
-
-## ST, p. 298
-#' Calculate Exponentially Weighted Average
-#'
-#' Calculate EWA of vector \eqn{x} at time \eqn{t} based on a lookback window.
-#'   If the length of the lookback window is \eqn{\lambda}, the range of the lookback
-#'   window is \eqn{[t-\lambda, t-1]}.
-#'
-#' @param x Vector. Top to bottom: Oldest to newest.
-#' @param lambda Smoothing parameter. If no lambda is provided, set lambda to  1 - (2 / (1 + L)).
-#' @param lookback Lookback window length as positive integer. If no `lookback`
-#'   is provided, the entire \eqn{x} vector will be used.
-#'
-#' @return Single exponentially weighted average value
-#' @export
-#'
-#' @details
-#' \deqn{E[X_t | X_{t-1}] = \frac{1}{\sum_{i=0}^{t-2}\lambda^i}\sum_{j=1}^{t-1}\lambda^{j-1} X_{t-j}}
-#'
-#' @examples
-#'
-#' @references Tsay: Analysis Of Financial Time Series
-f_ewa <- function(x, lambda = NA, lookback = NA) {
-
-  if(is.na(lookback)) {
-    L <- length(x)
-    x_window <- x
-  } else {
-    L <- lookback
-    x_window <- utils::tail(x, L)
-  }
-  if(!is.integer(L)) {stop("lookback must be an integer (e.g. 25L).")}
-  if(!(L >= 0L)) {stop("lookback must be zero or positive.")}
-
-  if(is.na(lambda)) {
-    lambda <- 1 - (2 / (1 + L))
-  }
-
-  ## Reversing the order of weights instead of reversing the order of observations.
-  w <- lambda^((L - 1):(0))
-  drop((w %*% x_window) / sum(w))
-}
-
-#' Exponential Weighted Standard Deviation
-#'
-#' @param x Input vector.
-#' @param lambda Smoothing parameter.
-#' @param lookback Length of lookback window.
-#'
-#' @return Single value
-#' @export
-#'
-#' @examples
-f_ewa_sd <- function(
-    x,
-    lambda = NA,
-    lookback = NA
-  ) {
-  if(is.na(lookback)) {
-    x_window <- x
-  } else {
-    x_window <- utils::tail(x, lookback)
-  }
-
-  mu_x <- f_ewa(x_window, lambda, lookback)
-
-  sqrt(
-    f_ewa(
-      (x_window - as.vector(mu_x))^2,
-      lambda,
-      lookback
-    )
-  )
-}
-
-#' Exponential Weighted Covariance
-#'
-#' @param x Vector.
-#' @param y Vector.
-#' @param lookback Integer. Lookback window length. If no `lookback` is
-#'   provided, the entire \eqn{x} and \eqn{y} vectors will be used.
-#'
-#' @return Number
-#' @export
-#'
-#' @examples
-f_ewa_cov <- function(
-    x,
-    y,
-    lambda = NA,
-    lookback = NA
-  ) {
-  if(is.na(lookback)) {
-    x_window <- x
-    y_window <- y
-  } else {
-    x_window <- utils::tail(x, lookback)
-    y_window <- utils::tail(y, lookback)
-  }
-  mu_x <- f_ewa(x_window, lambda, lookback)
-  mu_y <- f_ewa(y_window, lambda, lookback)
-  f_ewa(
-    (x_window - mu_x) * (y_window - mu_y),
-    lambda,
-    lookback
-  )
-}
-
-#' Exponential Weighted Covariance Matrix
-#'
-#' Exponentially Weighted Moving-Average estimate of the covariance matrix.
-#' See Tsay: Analysis Of Financial Time Series (3rd Ed., 10.1, p. 507)
-#'
-#' @param data Dataframe.
-#' @param lookback Integer. Lookback window length.
-#'
-#' @return Matrix
-#' @export
-#'
-#' @examples
-ew_cov_matrix <- function(data, lambda = NA, lookback = NA) {
-  if(is.na(lookback)) {
-    L <- nrow(data)
-    data_window <- data
-  } else {
-    L <- lookback
-    data_window <- utils::tail(data, L)
-  }
-  m <- ncol(data)
-  cor_mat <- matrix(0, ncol=m, nrow=m)
-  for (i in 1:m) {
-    for (j in 1:m) {
-      cov_mat[i, j] <- f_ewa_cov(
-        data_window[ , i], data_window[ , j],
-        lambda = lambda,
-        lookback = L
-      )
-    }
-  }
-  cov_mat
-}
-
-#' Signals Correlation Matrix
-#'
-#' @description
-#' Calculates the correlation matrix of signal vectors. Typically calculates the
-#'   correlation matrix for a subsystem of all the signal vectors affecting a
-#'   single instrument in the system.
-#'
-#' @param signals Dataframe where each column is a signal vector.
-#'
-#' @return Correlation matrix
-#' @export
-#'
-#' @examples
-f_signal_cor_mat <- function(
-    signals
-) {
-  stats::cor(signals)
-}
-
-
-#' Subsystem Returns Correlation Matrix
-#'
-#' @description
-#' Calculates the correlation matrix of vectors of subsystem (daily) percentage
-#'   returns. The subsystem returns are the returns produced by the subsystem in
-#'   backtesting. Notice, these are not the returns that we get directly from
-#'   the price series of the each instrument, but rather the returns we get from
-#'   applying the rules of the subsystem to the instrument of the subsystem. A
-#'   subsystem consists of one instrument and one or more rules applied to this
-#'   instrument.
-#'
-#' @param subsystem_returns Dataframe where each columns is a vector of
-#'   subsystem (daily) percentage returns.
-#' @param method Method.
-#' * `"Pearson"`, Pearsons Correlation Coefficient
-#' * `ewa`, Exponential Weighted Average
-#'   \deqn{E[X_t | X_{t-1}] = \frac{1}{\sum_{i=0}^{t-2}\lambda^i}\sum_{j=1}^{t-1}\lambda^{j-1} X_{t-j}}
-#'
-#' @return Correlation matrix
-#' @export
-#'
-#' @examples
-#'
-#' @references Tsay: Analysis Of Financial Time Series
-#'
-#' @seealso [f_ewa()]
-f_subsystem_ret_cor_mat <- function(
-    subsystem_returns,
-    method = "Pearson",
-    min_cor,
-    ...
-    ) {
-  cor_mat <- switch(
-    method,
-    "Pearson" = f_signal_cor_mat(subsystem_returns), #stats::cor(subsystem_returns),
-    "ewa" = f_ewa_cor(subsystem_returns, lambda, lookback)
-  )
-
-  ## Check if any correlation is NA
-  if(sum(is.na(cor_mat)) > 0) {
-    warning("NAs in correlation matrix have been replaced by min_cor value. NAs in a correlation matrix are common when previous returns are identical, resulting in standard deviations of zero.
-Replacing NAs in correlation matrix by min_cor value is supposed to fix this problem.")
-
-    ## Replace missing values (divide-by-zero NA's) with minimum correlation
-    cor_mat[is.na(cor_mat)] <- min_cor
-  }
-
-  cor_mat
-}
-
-
-#' Exponential Weighted Correlation
-#'
-#' @param x Vector.
-#' @param y Vector.
-#' @param lookback Integer. Lookback window length. If no `lookback` is
-#'   provided, the entire \eqn{x} and \eqn{y} vectors will be used.
-#'
-#' @details
-#'   \deqn{s^2(X) = \frac{1}{n - 1}\sum_i^n (X_i - \mu_X)^2}
-#'   \deqn{\text{COV}(X, Y) = \frac{1}{n - 1} \sum_i^n ((X_i - \mu_X)(Y_i - \mu_Y))}
-#'   \deqn{\text{COR}(X, Y) = \frac{1}{n - 1} \frac{\sum_i^n ((X_i - \mu_X)(Y_i - \mu_Y))}{s(X) s(Y)}}
-#'
-#' @return Number
-#' @export
-#'
-#' @examples
-f_ewa_cor <- function(x, y, lambda = NA, lookback = NA) {
-  if(is.na(lookback)) {
-    x_window <- x
-    y_window <- y
-  } else {
-    x_window <- utils::tail(x, lookback)
-    y_window <- utils::tail(y, lookback)
-  }
-  #mu_x <- f_ewa(x_window, lambda, lookback)
-  #mu_y <- f_ewa(y_window, lambda, lookback)
-
-  # num <- f_ewa(
-  #   (x_window - mu_x) * (y_window - mu_y),
-  #   lambda,
-  #   lookback
-  # )
-  num <- f_ewa_cov(
-    x_window,
-    y_window,
-    lambda,
-    lookback
-  )
-
-  # denom <- sqrt(
-  #   f_ewa(
-  #     (x_window - mu_x)^2,
-  #     lambda,
-  #     lookback
-  #   ) * f_ewa(
-  #         (y_window - mu_y)^2,
-  #         lambda,
-  #         lookback
-  #       ),
-  #   lambda,
-  #   lookback
-  # )
-  denom <- f_ewa_sd(x_window, lambda, lookback) * f_ewa_sd(y_window, lambda, lookback)
-
-  num / denom
-}
-
-#' Exponential Weighted Correlation Matrix
-#'
-#' Exponentially Weighted Moving-Average estimate of the correlation matrix.
-#' See Tsay: Analysis Of Financial Time Series (3rd Ed., 10.1, p. 507)
-#'
-#' @param data Dataframe.
-#' @param lookback Integer. Lookback window length.
-#'
-#' @return Matrix
-#' @export
-#'
-#' @examples
-ew_cor_matrix <- function(data, lambda = NA, lookback = NA) {
-  if(is.na(lookback)) {
-    L <- nrow(data)
-    data_window <- data
-  } else {
-    L <- lookback
-    data_window <- utils::tail(data, L)
-  }
-  m <- ncol(data)
-  cor_mat <- matrix(0, ncol=m, nrow=m)
-  for (i in 1:m) {
-    for (j in 1:m) {
-      cor_mat[i, j] <- f_ewa_cor(
-        data_window[ , i], data_window[ , j],
-        lambda = lambda,
-        lookback = L
-      )
-    }
-  }
-  cor_mat
-}
-
 
 ## ST F6 [p. 298]
 #' Instrument Risk In Units Of Percentage Of Price
@@ -429,10 +125,10 @@ f_instrument_risk_target <- function(system_risk_target, IDM) {
 #'
 #' @description
 #' \deqn{\text{IDM} = \frac{1}{\sqrt{W^{T}HW}}}
-#'    Where $H$ is the correlation matrix for returns in percentage terms, and
-#'    $W$ is the vector of instrument weights summing to one.
+#'    Where $H$ is the correlation matrix for subsystem returns in percentage
+#'    terms, and $W$ is the vector of instrument weights summing to one.
 #'
-#' @param inst_ret_cor_mat Instrument returns correlations matrix.
+#' @param inst_ret_cor_mat Subsystem returns correlations matrix.
 #' @param instrument_weights Vector of weights.
 #' @param min_cor Minimum value for each element in `inst_ret_cor_mat`
 #'   matrix.
@@ -442,7 +138,7 @@ f_instrument_risk_target <- function(system_risk_target, IDM) {
 #' @export
 #'
 #' @examples
-f_inst_div_mult <- function(
+f_inst_div_mul <- function(
     inst_ret_cor_mat,
     instrument_weights,
     min_cor = 0,
@@ -463,16 +159,18 @@ f_inst_div_mult <- function(
 #'
 #' @description
 #' \deqn{\text{SDM} = \frac{1}{\sqrt{W^{T}HW}}}
-#'    Where \eqn{H} is the correlation matrix for signals, and \eqn{W} is the vector
-#'    of instrument weights summing to one. We typically calculate the SDM for
-#'    each subsystem. E.g. for each instrument we calculate the SDM using all
-#'    the signals for that instrument instrument as input. The purpose is to
-#'    compensate for the reduction in volatility resulting from combining
+#'    Where \eqn{H} is the correlation matrix for signals, and \eqn{W} is the
+#'    vector of instrument weights summing to one. We typically calculate the
+#'    SDM for each subsystem. E.g. for each instrument we calculate the SDM
+#'    using all the signals for that instrument instrument as input. The purpose
+#'    is to compensate for the reduction in volatility resulting from combining
 #'    multiple signals into one when we want to reach a particular risk target.
 #'
-#' Recommended upper limit: 2.5.
+#' Recommended upper limit: 2.5. (Recommended by Robert Carver, not by the author
+#'   of rsystrade. See disclaimer in README.md.)
 #'
-#' Negative correlations should be floored at 0 before calculation of SDM.
+#' Negative correlations should be downwards clipped at 0 before calculation of
+#'   SDM.
 #'
 #' @param signal_correlations Correlations matrix for signals.
 #' @param signal_weights Vector of signal weights.
@@ -484,7 +182,7 @@ f_inst_div_mult <- function(
 #' @export
 #'
 #' @examples
-f_sig_div_mult <- function(
+f_sig_div_mul <- function(
     signal_correlations,
     signal_weights,
     min_cor = 0,
@@ -588,8 +286,8 @@ f_indiv_normalization_factor <- function(
 #' @param annualized TRUE if annualized output is desired.
 #' @param periods Number of periods per year. E.g. 252 for daily input.
 #' @param method Standard deviation calculation method (see details below).
-#'   * `return_rate_sd`
-#'   * `return_rate_ewsd`
+#'   * 1: `return_rate_sd`
+#'   * 2: `return_rate_ewsd`
 #'
 #' @details
 #' \eqn{p_t}, price in currency at time \eqn{t}.
@@ -605,12 +303,12 @@ f_indiv_normalization_factor <- function(
 #'   The input price vector must be of length at least `window_length` + 1.
 #'
 #' Methods
-#' * `return_rate_sd`
+#' * 1: `return_rate_sd`
 #' \deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
 #' \deqn{\overline{r_t} = \dfrac{1}{n} \sum_{t=2}^n r_t}
 #' \deqn{\sigma = \sqrt{\dfrac{1}{n-1}\sum_{t=2}^n \left(r_t - \overline{r}\right)^2}}
 #'
-#' * `return_rate_ewsd`
+#' * 2: `return_rate_ewsd`
 #' \deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
 #' \deqn{\mu_t \equiv E[r_t | r_{t-1}] = \frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} r_{t-j}}
 #' \deqn{\sigma_t^{\text{ewa}} =  \sqrt{\frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} (\mathbf{r}_{t-j} - \mu_{t-j})(\mathbf{r}_{t-j} - \mu_{t-j})^{'}}}
@@ -677,6 +375,30 @@ f_inst_risk <- function(
   sd_
 }
 
+
+
+# f_portfolio_risk <- function(
+#     notional_exposure,
+#     capital
+#   ) {
+#   ## Get instrument weights.
+#   w <- notional_exposure / capital
+#
+#
+#   ## Make matrix of price vectors. A column for each instrument.
+#
+#
+#   ## Calculate matrix Sigma of percentage returns. A column for each
+#   ## instrument.
+#
+#
+#   ## Estimate matrix of covariances for instruments percentage returns.
+#
+#
+#   ## Calculate portfolio risk
+#   portfolio_sd <- sqrt(crossprod(t(w %*% Sigma),  w))
+# }
+
 #' Minimum Exposure
 #'
 #' @param min_exposure Notional exposure of the minimum trade
@@ -690,6 +412,61 @@ f_inst_risk <- function(
 #'
 f_min_exposure <- function(min_exposure, inst_risk, instrument_risk_target) {
   (min_exposure * inst_risk) / instrument_risk_target
+}
+
+#' Subsystem Returns Correlation Matrix
+#'
+#' @description
+#' Calculates the correlation matrix of vectors of subsystem (daily) percentage
+#'   returns. The subsystem returns are the returns produced by the subsystem in
+#'   backtesting. Notice, these are not the returns that we get directly from
+#'   the price series of the each instrument, but rather the returns we get from
+#'   applying the rules of the subsystem to the instrument of the subsystem. A
+#'   subsystem consists of one instrument and one or more rules applied to this
+#'   instrument.
+#'
+#' @param subsystem_returns Dataframe where each columns is a vector of
+#'   subsystem (daily) percentage returns.
+#' @param method Method.
+#' * `"Pearson"`, Pearsons Correlation Coefficient
+#' * `ewa`, Exponential Weighted Average
+#'   \deqn{E[X_t | X_{t-1}] = \frac{1}{\sum_{i=0}^{t-2}\lambda^i}\sum_{j=1}^{t-1}\lambda^{j-1} X_{t-j}}
+#'
+#' @return Correlation matrix
+#' @export
+#'
+#' @examples
+#'
+#' @references Tsay: Analysis Of Financial Time Series
+#'
+#' @seealso [f_ewa()]
+f_subsystem_ret_cor_mat <- function(
+    subsystem_returns,
+    method = "Pearson",
+    ...
+) {
+  # cor_mat <- switch(
+  #   method,
+  #   "Pearson" = stats::cor(subsystem_returns), #stats::cor(subsystem_returns),
+  #   "ewa" = f_ewa_cor(subsystem_returns, lambda, lookback)
+  # )
+
+  cor_mat <- f_cor_mat(
+    data = subsystem_returns,
+    method = method,
+    ...
+  )
+
+  ## Check if any correlation is NA
+  if(sum(is.na(cor_mat)) > 0) {
+    warning("NAs in correlation matrix have been replaced by 1. NAs in a correlation matrix are common when previous returns are identical, resulting in standard deviations of zero.
+Replacing NAs in correlation matrix by 1 value is supposed to fix this problem.")
+
+  ## Replace any NA in cor mat by 1
+    cor_mat <- fix_cor_mat_NAs(cor_mat, 1)
+  }
+
+  cor_mat
 }
 
 ## LT F21
@@ -769,3 +546,10 @@ f_high_water_mark <- function (prices, t, t_trade_entry) {
 f_low_water_mark <- function (prices, t, t_trade_entry) {
   min(prices[t_trade_entry:t])
 }
+
+
+
+
+
+
+

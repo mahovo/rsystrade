@@ -79,8 +79,8 @@ test_that("parse_position_multipliers_list works", {
   x1 <- function(x) {x}
   x2 <- function(x) {x}
 
-  ## parse_position_modifiers_list() is supposed to ignore "inst3", because we only
-  ## have two instruments inour inst_names list
+  ## parse_position_modifiers_list() is supposed to ignore "inst5", because we only
+  ## have four instruments in our inst_names list
   inst_names <- c("inst1", "inst2", "inst3", "inst4")
 
   pos_muls <- list(

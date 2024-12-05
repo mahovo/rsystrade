@@ -30,15 +30,31 @@
 test_that("system works", {
 
   suppressWarnings(
-    my_test_system <- make_test_system()
+    my_test_system2 <- make_test_system2()
   )
-  my_expected_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
+  my_expected_system2 <- readRDS(test_path("fixtures", "my_expected_system2.rds"))
 
   expect_equal(
-    my_test_system,
-    my_expected_system
+    my_test_system2,
+    my_expected_system2
   )
 })
+
+
+
+# test_that("system works", {
+#
+#   suppressWarnings(
+#     my_test_system <- make_test_system()
+#   )
+#   my_expected_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
+#
+#   expect_equal(
+#     my_test_system,
+#     my_expected_system
+#   )
+# })
+
 
 
 

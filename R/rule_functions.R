@@ -20,7 +20,9 @@
 #'   inputs are in fact calculated as a moving averages. Any number or vector
 #'   will work.
 #'
-#' @param price A vector of prices in currency. Oldest first. Top to bottom:
+#' @param t Time index after the latest price in the windows. (Note that
+#'   the latest price is the same for both fast and slow window.)
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer. The last observation is time t.
 #' @param ma_fast A number. Fast _moving average_. Vector or single numeric.
 #' @param ma_slow A number. Slow _moving average_. Vector or single numeric.
@@ -28,18 +30,30 @@
 #'   check that the input value makes sense.
 #' @param n_slow A positive integer. It is the responsibility of the user to
 #'   check that the input value makes sense.
+#' @param ma_method Method for calculating moving average. Gigen as character
+#'   string. @seealso [f_average()]
+#'   * `"simple"` Simple average.
+#'   * `"ewa"` Exponentially weighted average. Additional parameters
+#'     * `lambda` and `lookback`. @seealso [f_ewa()].
 #' @param gap A positive integer. Gap size in same unit as the parameters above
 #'   (typically days).
 #' @param strict Boolean. If `strict=TRUE`, `n_slow` must be smaller than the
-#'   number of prices in the `price` vector, and `n_slow` must be greater than
+#'   number of prices in the `prices` vector, and `n_slow` must be greater than
 #'   `n_fast`.
 #' @param binary If `TRUE`: Binary mode. If `FALSE`: Proportional signal.
-#' In binary mode returns
-#' * 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
-#' * -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
-#' * 0 when abs(ma_fast - ma_slow) < gap.
+#'   In binary mode returns
+#'   * 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
+#'   * -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
+#'   * 0 when abs(ma_fast - ma_slow) < gap.
+#' @param mode Rolling mode
+#'   * `1` Time index range of window is \eqn{[t - window_length + 1, t]}.
+#'   * `2` Time index range of window is \eqn{[t - window_length, t - 1]}.
+#' @param ...
 #'
 #' 1 indicates uptrend i.e. go long. -1 indicates downtrend i.e. go short.
+#'
+#' @details
+#' @seealso [rolling_window()] and [rolling_window_step()].
 #'
 #' @returns A named list containing:
 #'   - `signal` Moving average crossover signal
@@ -55,9 +69,12 @@ r_mac <- function(
     ma_slow = NA,
     n_fast = 20L,
     n_slow = 80L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE) {
+    binary = FALSE,
+    mode = 1
+  ) {
 
   if(is.na(t)) {t = length(price)} ## Set t to last item if no t is provided
 
@@ -73,15 +90,37 @@ r_mac <- function(
       stopifnot(length(price) > n_slow + 1)
       stopifnot(n_slow > n_fast)
     }
-    ma_fast <- f_moving_average(
-      price,
-      t,
-      n_fast
+    # ma_fast <- f_moving_average_step(
+    #   t = t,
+    #   data = prices,
+    #   last_data_id = NA,
+    #   window_length = n_fast,
+    #   method = ma_method,
+    #   ...
+    # )
+    ma_fast <- rolling_window_step(
+      t = (if(mode == 2) {t} else {NA}),
+      x = price,
+      last_win_id = (if(mode == 1) {t} else {NA}),
+      window_length = n_fast,
+      func = f_average,
+      method = ma_method
     )
-    ma_slow <- f_moving_average(
-      price,
-      t,
-      n_slow
+    # ma_slow <- f_moving_average_step(
+    #   t = t,
+    #   data = prices,
+    #   last_data_id = NA,
+    #   window_length = n_slow,
+    #   method = ma_method,
+    #   ...
+    # )
+    ma_slow <- rolling_window_step(
+      t = (if(mode == 2) {t} else {NA}),
+      x = price,
+      last_win_id = (if(mode == 1) {t} else {NA}),
+      window_length = n_slow,
+      func = f_average,
+      method = ma_method
     )
   }
 

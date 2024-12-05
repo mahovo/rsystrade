@@ -29,8 +29,8 @@ Older to newer. The last observation is time \code{t-1}.}
 
 \item{method}{Standard deviation calculation method (see details below).
 \itemize{
-\item \code{return_rate_sd}
-\item \code{return_rate_ewsd}
+\item 1: \code{return_rate_sd}
+\item 2: \code{return_rate_ewsd}
 }}
 }
 \value{
@@ -54,11 +54,11 @@ The input price vector must be of length at least \code{window_length} + 1.
 
 Methods
 \itemize{
-\item \code{return_rate_sd}
+\item 1: \code{return_rate_sd}
 \deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
 \deqn{\overline{r_t} = \dfrac{1}{n} \sum_{t=2}^n r_t}
 \deqn{\sigma = \sqrt{\dfrac{1}{n-1}\sum_{t=2}^n \left(r_t - \overline{r}\right)^2}}
-\item \code{return_rate_ewsd}
+\item 2: \code{return_rate_ewsd}
 \deqn{r_t = \dfrac{p_t}{p_{t-1}} - 1}
 \deqn{\mu_t \equiv E[r_t | r_{t-1}] = \frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} r_{t-j}}
 \deqn{\sigma_t^{\text{ewa}} =  \sqrt{\frac{1}{\sum_{i=0}^{t-2} \lambda^i}\sum_{j=1}^{t-1} \lambda^{j-1} (\mathbf{r}_{t-j} - \mu_{t-j})(\mathbf{r}_{t-j} - \mu_{t-j})^{'}}}

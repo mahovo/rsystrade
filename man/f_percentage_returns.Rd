@@ -7,6 +7,8 @@
 f_percentage_returns(t, prices)
 }
 \arguments{
+\item{t}{Time index.}
+
 \item{prices}{A price vector containing at least the two prices we need for
 calculating returns. Oldest first. Top to bottom: Older to newer. The last
 observation is time t.}

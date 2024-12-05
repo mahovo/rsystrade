@@ -14,8 +14,15 @@ modify_position(
 )
 }
 \arguments{
-\item{position_size_ccy}{}
+\item{position_modifier}{Position modifier.}
+
+\item{position_size_ccy}{Position size in currency of account.}
+
+\item{variable_param_vals}{Variable parameter values.}
+}
+\value{
+List of unique position modifier outputs
 }
 \description{
-Modify Position
+Apply position modifier function.
 }

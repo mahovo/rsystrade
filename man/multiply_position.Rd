@@ -4,13 +4,13 @@
 \alias{multiply_position}
 \title{Multiply Position By Multiplier Functions}
 \usage{
-multiply_position(mult_variable_param_vals, position_multipliers)
+multiply_position(mul_variable_param_vals, position_multipliers)
 }
 \arguments{
-\item{mult_variable_param_vals}{Multiplier variable param values}
+\item{mul_variable_param_vals}{Multiplier variable param values.}
 
 \item{position_multipliers}{A list of multipliers affecting a single
-instrument position}
+instrument position.}
 }
 \value{
 List of multiplier function outputs. The first element must be the

@@ -9,9 +9,11 @@ test_that("p_stop_loss() works", {
       ma_slow = NA,
       n_fast = 2L,
       n_slow = 4L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     ),
     list(
       "mac_3_9",
@@ -20,9 +22,11 @@ test_that("p_stop_loss() works", {
       ma_slow = NA,
       n_fast = 3L,
       n_slow = 9L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     )
   )
 
@@ -60,6 +64,8 @@ test_that("p_stop_loss() works", {
   )
 
   my_test_stop_loss <- my_test_system$position_tables
+
+  ## Uncomment to generate expected data:
 
   # saveRDS(
   #   my_test_stop_loss,

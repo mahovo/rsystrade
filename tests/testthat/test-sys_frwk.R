@@ -198,9 +198,11 @@ test_that("modify_position() works", {
       ma_slow = NA,
       n_fast = 2L,
       n_slow = 4L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     )
   signal_generator_2 <- list(
       "mac_3_9",
@@ -209,9 +211,11 @@ test_that("modify_position() works", {
       ma_slow = NA,
       n_fast = 3L,
       n_slow = 9L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     )
 
   algos <- list(
@@ -335,7 +339,7 @@ test_that("modify_position() works", {
 
 test_that("buffer_position() works", {
 
-  position_table <- list(final_buffered_pos_size_ccy = c(100, 101))
+  position_table <- list(final_buffered_pos_ccy = c(100, 101))
   config <- list(rel_buffer_size = 0.1)
 
   my_test_buffered_positions <- buffer_position(
@@ -356,5 +360,52 @@ test_that("buffer_position() works", {
   expect_equal(
     my_test_buffered_positions,
     my_expected_buffered_positions
+  )
+})
+
+test_that("get_portfolio_mul_var_param_vals() work", {
+  variable_param_1_1 <- 0.2
+  variable_param_1_2 <- 0.1
+
+  return_one <- function(t, fixed_param_1, variable_param_1) {
+    multiplier_value <- fixed_param_1 + variable_param_1
+    list(
+      multiplier_value = multiplier_value,
+      additional_output = "add_out"
+    )
+  }
+
+  portfolio_multiplier <- list(
+    multiplier_name = "return_one",
+    multiplier_function = return_one,
+    fixed_params = list(fixed_param_1 = 0.4),
+    variable_params = list(
+      t = 11,
+      variable_param_1_1 = "variable_param_1_1",
+      variable_param_1_2 = "variable_param_1_2"
+    )
+  )
+
+  system_vars <- list(
+    variable_param_1_1 = variable_param_1_1,
+    variable_param_1_2 = variable_param_1_2,
+    dummy_var_1 = 1,
+    dummy_var_2 = 2
+  )
+
+  my_test_portfolio_mul_var_param_vals <- get_portfolio_mul_var_param_vals(
+    portfolio_multiplier = portfolio_multiplier,
+    system_vars = system_vars
+  )
+
+  my_expected_portfolio_mul_var_param_vals <- list(
+    t = 11,
+    variable_param_1_1 = 0.2,
+    variable_param_1_2 = 0.1
+  )
+
+  expect_equal(
+    my_test_portfolio_mul_var_param_vals,
+    my_expected_portfolio_mul_var_param_vals
   )
 })

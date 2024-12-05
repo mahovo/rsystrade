@@ -2,7 +2,7 @@
 % Please edit documentation in R/sys_frwk.R
 \name{get_pos_mod_var_param_vals}
 \alias{get_pos_mod_var_param_vals}
-\title{Get Position Midifier Variable Parameter Values}
+\title{Get Position Modifier Variable Parameter Values}
 \usage{
 get_pos_mod_var_param_vals(
   t,
@@ -27,5 +27,5 @@ get_pos_mod_var_param_vals(
 Named list of param values
 }
 \description{
-Get Position Midifier Variable Parameter Values
+Get Position Modifier Variable Parameter Values
 }

@@ -1,7 +1,7 @@
 
 s_mac_stoploss <- function(
     t = t,
-    price = price,
+    prices = prices,
     signal_table,
     position_table,
     config,
@@ -17,7 +17,7 @@ s_mac_stoploss <- function(
   combine_rules <- function() {
     mac_signal <- r_mac(
       t = t,
-      price = price,
+      prices = prices,
       ma_fast = NA,
       ma_slow = NA,
       n_fast = 25L,

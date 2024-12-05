@@ -21,6 +21,7 @@ make_test_algos <- function(
   )
 }
 
+## Test system without position modifiers and portfolio multipliers
 ## This test data is designed to remind us that low volatility will blow us up :-)
 make_test_system <- function() {
   #n = 20
@@ -73,9 +74,11 @@ make_test_system <- function() {
       ma_slow = NA,
       n_fast = 2L,
       n_slow = 4L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     ),
     list(
       "mac_3_9",
@@ -84,9 +87,11 @@ make_test_system <- function() {
       ma_slow = NA,
       n_fast = 3L,
       n_slow = 9L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     )
   )
 
@@ -146,7 +151,8 @@ make_test_system <- function() {
 
 
 
-## Change path to avoid mismatch between actual and expected:
+## Change path to avoid mismatch between actual and expected.
+## This is needed when running test with testthat (cmd+shift+E), not when running the test code in test_system.R.
 
 # my_expected_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 # my_expected_system$config$instrument_data_folder_path <- "fixtures/"

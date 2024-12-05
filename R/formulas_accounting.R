@@ -177,6 +177,7 @@ f_price_returns <- function(t, prices) {
 #' @description
 #' Calculate percentage returns (aka net returns).
 #'
+#' @param t Time index.
 #' @param prices A price vector containing at least the two prices we need for
 #'   calculating returns. Oldest first. Top to bottom: Older to newer. The last
 #'   observation is time t.

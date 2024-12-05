@@ -16,16 +16,21 @@ m_block_same_direction_entry(
 \arguments{
 \item{t}{Time index.}
 
-\item{prices}{Price vector.}
+\item{prices}{(Variable param) Price vector.}
 
-\item{direction}{Direction. 1 for long, -1 for short, 0 for flat.}
+\item{direction}{(Variable param) Direction. 1 for long, -1 for short, 0 for flat.}
 
-\item{t_last_position_entry}{Time index of last position entry.}
+\item{t_last_position_entry}{(Variable param) Time index of last position entry.}
 
-\item{position_table}{Position table.}
+\item{position_table}{(Variable param) Position table.}
 
-\item{mode}{Mode.}
+\item{mode}{(Fixed param) Mode. See details.}
 }
 \description{
 Position multiplier
+}
+\details{
+\code{mode=1} is \code{block_same_dir_entry()}.
+
+\code{mode=2} is \code{block_same_dir_entry_inside_watermarks()}.
 }

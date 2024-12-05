@@ -4,9 +4,11 @@
 \alias{combine_signals}
 \title{Combine Signals For Instrument Subsystem}
 \usage{
-combine_signals(signal_tables, algos, min_cor, max_sdm, t)
+combine_signals(t, signal_tables, algos, min_cor, max_sdm, correlation_method)
 }
 \arguments{
+\item{t}{Time index.}
+
 \item{signal_tables}{List of data frames. One data frame for each signal.}
 
 \item{algos}{List of parsed (expanded) algos.}
@@ -15,7 +17,7 @@ combine_signals(signal_tables, algos, min_cor, max_sdm, t)
 
 \item{max_sdm}{Maximum signal diversification multiplier.}
 
-\item{t}{Time index.}
+\item{correlation_method}{Correlation method. See \code{help(f_cor_mat())}.}
 }
 \value{
 List containing a vector of combined signals and a vector of signal

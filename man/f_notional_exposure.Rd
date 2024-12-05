@@ -13,7 +13,7 @@ f_notional_exposure(
 }
 \arguments{
 \item{combined_signal}{Combined signal. Should be normalized to a an expected
-absolute value of 1 and capped between -2 and 2.}
+absolute value of 1 and clipped between -2 and 2.}
 
 \item{capital}{Trading capital in account currency.}
 
