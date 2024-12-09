@@ -119,12 +119,12 @@ parse_portfolio_multipliers_list <- function(
       if(length(parsed_portmul_list) > 0) {
         parsed_portmul_list
       } else {list()},
-      list(
+      list(list(
         multiplier_name = multiplier_name,
         multiplier_function = multiplier_function,
         variable_params = variable_params,
         fixed_params = fixed_params
-      )
+      ))
     )
 
   }

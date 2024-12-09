@@ -3735,5 +3735,23 @@ gg(b = 4, a = 40)
 
 
 
+## Portfolio multiplier
+ff <- function(a, b) {b * a^2}
+gg <- function(a, b) {a * 2^b}
+pf_muls <- list(
+  list(
+    "multiplier-name-1",
+    ff,
+    "a",
+    "b"
+  ),
+  list(
+    "multiplier-name-2",
+    gg,
+    "a",
+    "b"
+  )
+)
 
+parsed_pf_muls <- parse_portfolio_multipliers_list(pf_muls)
 

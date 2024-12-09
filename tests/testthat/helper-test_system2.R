@@ -127,16 +127,14 @@ make_test_system2 <- function() {
       list(
         modifier_name = "o_limit_pf_risk",
         modifier_function = o_limit_pf_risk,
-        max_risk = 0.5,
-        capital = 1000,
+        max_risk = 0.1,
         cov_method = "Pearson"
       ),
       list(
         modifier_name = "o_limit_pf_shock_risk",
         modifier_function = o_limit_pf_shock_risk,
-        max_risk = 0.5,
+        max_risk = 0.1,
         sd_percentile = 0.99,
-        capital =  1000,
         sd_window_length = 5L,
         sd_method = "unbiased",
         cor_method = "Pearson"

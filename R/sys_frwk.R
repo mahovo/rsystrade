@@ -293,8 +293,9 @@ make_system <- function(
   ## of that instrument will not be modified.
   position_modifiers <- parse_position_modifiers_list(position_modifiers, inst_names)
 
-
   position_multipliers <- parse_position_multipliers_list(position_multipliers, inst_names)
+
+  portfolio_multipliers <- parse_portfolio_multipliers_list(portfolio_multipliers)
 
   ## Totals for entire system
   system_account_table <- data.frame(
@@ -340,6 +341,7 @@ make_system <- function(
     position_tables = position_tables,
     position_modifiers = position_modifiers,
     position_multipliers = position_multipliers,
+    portfolio_multipliers = portfolio_multipliers,
     system_account_table = system_account_table,
     # signal_cor_mat = signal_cor_mat,
     config = config
@@ -661,8 +663,9 @@ update_system <- function(
   combined_portfolio_multiplier <- combine_portfolio_multipliers(
     portfolio_multipliers = trade_system$portfolio_multipliers,
     system_vars = as.list(environment()),
-    combi_method = config$portfolio_multiplier$combi_method
+    combi_method = trade_system$config$portfolio_multiplier$combi_method
   )
+
   if(combined_portfolio_multiplier[[1]] != 1) {
     position_tables <- apply_portfolio_multiplier(
       t = t,
@@ -2887,7 +2890,8 @@ apply_portfolio_multiplier <- function(
       position_table = position_tables[[i]],
       config = config
     )
-    position_tables[[i]][ , names(final_positions)] <- final_positions
+
+        position_tables[[i]][t , names(final_positions)] <- final_positions
   }
   position_tables
 }
