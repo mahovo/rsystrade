@@ -659,6 +659,8 @@ update_system <- function(
     comment(position_tables[[i]]) <- inst_name
   }
 
+  system_account_table <- trade_system$system_account_table
+
   ## Apply portfolio risk overlay multiplier (aka portfolio multiplier)
   combined_portfolio_multiplier <- combine_portfolio_multipliers(
     portfolio_multipliers = trade_system$portfolio_multipliers,
@@ -678,8 +680,6 @@ update_system <- function(
       config = trade_system$config
     )
   }
-
-  system_account_table <- trade_system$system_account_table
 
   system_account_table[t, ] <- update_system_account_table_row(
     position_tables,
@@ -1860,7 +1860,17 @@ get_portfolio_mul_var_param_vals <- function(
   ) {
     vars <- lapply(
       portfolio_mul_param_names,
-      function(x) {eval(parse(text = paste0("system_vars$", x)))}
+      function(x) {
+        if(x %in% names(system_vars)) {
+          eval(parse(text = paste0("system_vars$", x)))
+        } else if(x %in% names(system_vars$system_account_table)) {
+          eval(parse(text = paste0("system_vars$system_account_table$", x)))
+        } else {
+          cat("\nVariable", x, "is not available to portfolio multiplier.\n")
+          cat("No portfolio multiplier applied.\n")
+          cat("\n")
+        }
+      }
     )
     names(vars) <- portfolio_mul_param_names
     vars
@@ -1873,7 +1883,7 @@ get_portfolio_mul_var_param_vals <- function(
 
   c(
     ## t must be the first variable param
-    list(t = portfolio_multiplier$variable_params[[1]]),
+    list(t = system_vars$t),
     portfolio_mul_params
   )
 }
@@ -2069,7 +2079,8 @@ get_position_weights <- function(
         with price column as input.")
       }
 
-      x$final_position_size_units[t] * x$price[t] / capital
+      #x$final_position_size_units[t] * x$price[t] / capital
+      x$final_buffered_pos_ccy[t] / capital[t - 1]
     }
   ))
 }

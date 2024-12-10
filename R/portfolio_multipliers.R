@@ -24,8 +24,8 @@ o_limit_pf_risk <- function(
     position_tables,
     max_risk = NA,
     capital,
-    cov_method,
-    ...
+    cov_method#,
+    #...
 ) {
 
   portfolio_returns <- lapply(
@@ -68,8 +68,8 @@ o_limit_pf_risk <- function(
 
   Sigma <- f_cov_mat(
     data = portfolio_returns_df,
-    method = cov_method,
-    ...
+    method = cov_method#,
+    #...
   )
 
   portfolio_risk <- drop(sqrt(w %*% Sigma %*%  w))
@@ -109,8 +109,8 @@ o_limit_pf_shock_risk <- function(
     capital,
     sd_window_length,
     sd_method = "unbiased",
-    cor_method = "Pearson",
-    ...
+    cor_method = "Pearson"#,
+    #...
   ) {
 
   if(is.na(max_risk)) {
@@ -187,8 +187,8 @@ o_limit_pf_shock_risk <- function(
   cor_mat <- as.matrix(data.frame(
     f_cor_mat(
       data = portfolio_returns_df,
-      method = cor_method,
-      ...
+      method = cor_method#,
+      #...
     )
   ))
 
