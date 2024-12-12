@@ -4,9 +4,6 @@
 ## It doesn't test if the numbers are correct!!!
 ## In fact the numbers look wrong...
 
-## *** IMPORTANT ***
-## This tests a system with no position modifiers.
-
 ## *** NOTE ***
 ## Rule functions need to be loaded into the package env.
 ## This is done in helper-test_system.R
@@ -30,13 +27,13 @@
 test_that("system works", {
 
   suppressWarnings(
-    my_test_system2 <- make_test_system2()
+    my_test_system <- make_test_system()
   )
-  my_expected_system2 <- readRDS(test_path("fixtures", "my_expected_system2.rds"))
+  my_expected_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 
   expect_equal(
-    my_test_system2,
-    my_expected_system2
+    my_test_system,
+    my_expected_system
   )
 })
 

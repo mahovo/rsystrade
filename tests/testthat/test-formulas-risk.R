@@ -3,8 +3,8 @@ test_that("method = \"equal\" in update_signal_normalization_factors() works", {
   ## Make testsystem ----
 
   set.seed(1)
-  #my_test_system <- make_test_system()
-  #saveRDS(my_test_system, file = test_path("fixtures/", "my_test_system.rds"), compress = FALSE)
+  # my_test_system <- make_test_system()
+  # saveRDS(my_test_system, file = test_path("fixtures/", "my_test_system.rds"), compress = FALSE)
   my_test_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 
   ## Generate output for test ----
@@ -20,7 +20,7 @@ test_that("method = \"equal\" in update_signal_normalization_factors() works", {
   ## Compare ----
   expect_equal(
     my_test_norm_fact_equal,
-    list(mac_2_4 = 0.12345, mac_3_9 = 0.12345)
+    list(mac_30_60 = 0.12345, mac_20_80 = 0.12345)
   )
 
 })

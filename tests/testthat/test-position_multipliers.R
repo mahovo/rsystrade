@@ -31,7 +31,7 @@ test_that("m_block_same_direction_entry() works", {
     )
   )
 
-  my_test_system <- make_system(
+  my_posmul_test_system <- make_system(
     algos = algos,
     init_capital = 1000000,
     system_risk_target = 0.12,
@@ -44,7 +44,7 @@ test_that("m_block_same_direction_entry() works", {
 
   pos_mods <- list(
     list(
-      instruments = list("testdata3", "testdata4"),
+      instruments = list("testdata3a", "testdata4a"),
       modifier = list(
         "p_stop_loss",
         p_stop_loss,
@@ -53,11 +53,11 @@ test_that("m_block_same_direction_entry() works", {
       )
     )
   )
-  my_test_system$position_modifiers <- expand_position_modifiers(pos_mods)
+  my_posmul_test_system$position_modifiers <- expand_position_modifiers(pos_mods)
 
   pos_muls <- list(
     list(
-      instruments = list("testdata3", "testdata4"),
+      instruments = list("testdata3a", "testdata4a"),
       multipliers = list(
         list(
           "m_block_same_direction_entry",
@@ -67,18 +67,18 @@ test_that("m_block_same_direction_entry() works", {
       )
     )
   )
-  my_test_system$position_multipliers <- expand_position_multipliers(pos_muls)
+  my_posmul_test_system$position_multipliers <- expand_position_multipliers(pos_muls)
 
   suppressWarnings(
-    my_test_system <- run_system(
-      my_test_system,
+    my_posmul_test_system <- run_system(
+      my_posmul_test_system,
       min_periods = min_periods,
       mode = "sim",
       instrument_data_folder_path = testthat::test_path("fixtures/")
     )
   )
 
-  my_test_pos_mul <- my_test_system$position_tables
+  my_test_pos_mul <- my_posmul_test_system$position_tables
 
   # saveRDS(
   #   my_test_pos_mul,

@@ -2071,6 +2071,7 @@ get_position_weights <- function(
   #     x$final_position_size_units[t] * x$price[t] / capital
   #   }
   # )))
+
   unlist(lapply(
     position_tables,
     function(x) {
@@ -2870,14 +2871,21 @@ calculate_portfolio_multiplier <- function(
 #' Multiply position sizes by portfolio multiplier and update position tables.
 #'
 #' @param portfolio_multiplier_value Portfolio multiplier value.
+#' @param t Positive integer. Time index.
+#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
+#' @param modified_target_pos_ccy A number. Modified target position in currency
+#'   amount.
+#' @param t_last_position_entry Positive integer. Time index of last previous
+#'   position entry.
+#' @param latest_trade_direction -1, 0 or 1. Latest trade direction.
+#' @param config Config list
 #' @param position_tables Position tables
-#' @param ...
 #'
 #' @return List of updated position tables
 #' @export
 #'
 #' @examples
-#'
 apply_portfolio_multiplier <- function(
     t,
     prices,

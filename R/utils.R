@@ -302,7 +302,7 @@ soft_clip_lower_exp <- function(
     z * b * log(b) * (e - k) - 1
   }
   min_valid_c <- 1e-12 ## c > 0
-  max_valid_c <- try(stat::uniroot(tau, interval = c(min_valid_c, c_max))$root, silent = TRUE)
+  max_valid_c <- try(stats::uniroot(tau, interval = c(min_valid_c, c_max))$root, silent = TRUE)
   if(!is.numeric(max_valid_c)) {
     stop("soft_clip_lower_exp() could not find a valid c value between 0 and c_max.
   Try increasing c_max.")

@@ -12,8 +12,7 @@ o_limit_pf_shock_risk(
   capital,
   sd_window_length,
   sd_method = "unbiased",
-  cor_method = "Pearson",
-  ...
+  cor_method = "Pearson"
 )
 }
 \arguments{

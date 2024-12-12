@@ -49,7 +49,7 @@ string. @seealso \code{\link[=f_average]{f_average()}}
 (typically days).}
 
 \item{strict}{Boolean. If \code{strict=TRUE}, \code{n_slow} must be smaller than the
-number of prices in the \code{price} vector, and \code{n_slow} must be greater than
+number of prices in the \code{prices} vector, and \code{n_slow} must be greater than
 \code{n_fast}.}
 
 \item{binary}{If \code{TRUE}: Binary mode. If \code{FALSE}: Proportional signal.

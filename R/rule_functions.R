@@ -22,7 +22,7 @@
 #'
 #' @param t Time index after the latest price in the windows. (Note that
 #'   the latest price is the same for both fast and slow window.)
-#' @param prices A vector of prices in currency. Oldest first. Top to bottom:
+#' @param price A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer. The last observation is time t.
 #' @param ma_fast A number. Fast _moving average_. Vector or single numeric.
 #' @param ma_slow A number. Slow _moving average_. Vector or single numeric.

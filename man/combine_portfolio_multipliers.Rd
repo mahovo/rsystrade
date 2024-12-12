@@ -51,6 +51,12 @@ in \code{my_system$config$portfolio_multiplier$combi_method}. The default is to
 use the minimum value. Valid combination methods are \code{min}, \code{max}, \code{add}
 and \code{multiply}.
 
+Each input portfolio multiplier specification list specifies a multiplier
+name, a multiplier function and any number of fixed parameters. The parser
+automatically determines which parameters of each multiplier function are
+fixed parameters provided by the user, and which are variable parameters
+provided by the system.
+
 First element in each input \code{portfolio_multipliers[[i]]} list is the
 multiplier name, second element is the multiplier function definition
 itself. Remaining elements are the fixed params.

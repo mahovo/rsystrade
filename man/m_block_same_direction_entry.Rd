@@ -6,7 +6,7 @@
 \usage{
 m_block_same_direction_entry(
   t,
-  prices,
+  price,
   direction,
   t_last_position_entry,
   position_table,
@@ -16,7 +16,7 @@ m_block_same_direction_entry(
 \arguments{
 \item{t}{Time index.}
 
-\item{prices}{(Variable param) Price vector.}
+\item{price}{(Variable param) Price vector.}
 
 \item{direction}{(Variable param) Direction. 1 for long, -1 for short, 0 for flat.}
 

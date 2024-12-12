@@ -4,7 +4,7 @@
 \alias{o_limit_pf_risk}
 \title{Limit Portfolio Risk}
 \usage{
-o_limit_pf_risk(t, position_tables, max_risk = NA, capital, cov_method, ...)
+o_limit_pf_risk(t, position_tables, max_risk = NA, capital, cov_method)
 }
 \arguments{
 \item{t}{Time index.}

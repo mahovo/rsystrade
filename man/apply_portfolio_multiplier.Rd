@@ -16,11 +16,24 @@ apply_portfolio_multiplier(
 )
 }
 \arguments{
+\item{t}{Positive integer. Time index.}
+
+\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
+Older to newer. The last observation is time t.}
+
+\item{modified_target_pos_ccy}{A number. Modified target position in currency
+amount.}
+
 \item{portfolio_multiplier_value}{Portfolio multiplier value.}
+
+\item{t_last_position_entry}{Positive integer. Time index of last previous
+position entry.}
+
+\item{latest_trade_direction}{-1, 0 or 1. Latest trade direction.}
 
 \item{position_tables}{Position tables}
 
-\item{...}{}
+\item{config}{Config list}
 }
 \value{
 List of updated position tables

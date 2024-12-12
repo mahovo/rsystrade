@@ -64,33 +64,39 @@ test_that("generate_signal() works", {
 test_that("update_signal_normalization_factors() works", {
 
   suppressWarnings(
-    my_test_system <- make_test_system()
+    my_update_signal_normalization_factors_system <- make_test_system()
   )
 
-  my_test_signal_normalization_factors_1 <- update_signal_normalization_factors(
-    my_test_system$algos,
-    my_test_system$signal_tables,
-    my_test_system$inst_data,
-    target = 1,
-    method = "equal",
-    args = list(equal_norm_factor = 1)
+  suppressWarnings(
+    my_test_signal_normalization_factors_1 <- update_signal_normalization_factors(
+      my_update_signal_normalization_factors_system$algos,
+      my_update_signal_normalization_factors_system$signal_tables,
+      my_update_signal_normalization_factors_system$inst_data,
+      target = 1,
+      method = "equal",
+      args = list(equal_norm_factor = 1)
+    )
   )
 
-  my_test_signal_normalization_factors_2 <- update_signal_normalization_factors(
-    my_test_system$algos,
-    my_test_system$signal_tables,
-    my_test_system$inst_data,
-    target = 1,
-    method = "pool_traded"
+  suppressWarnings(
+    my_test_signal_normalization_factors_2 <- update_signal_normalization_factors(
+      my_update_signal_normalization_factors_system$algos,
+      my_update_signal_normalization_factors_system$signal_tables,
+      my_update_signal_normalization_factors_system$inst_data,
+      target = 1,
+      method = "pool_traded"
+    )
   )
 
-  my_test_signal_normalization_factors_3 <- update_signal_normalization_factors(
-    my_test_system$algos,
-    my_test_system$signal_tables,
-    my_test_system$inst_data,
-    target = 1,
-    method = "median_pool_all",
-    args = list(min_periods_median_pool_all = 15)
+  suppressWarnings(
+    my_test_signal_normalization_factors_3 <- update_signal_normalization_factors(
+      my_update_signal_normalization_factors_system$algos,
+      my_update_signal_normalization_factors_system$signal_tables,
+      my_update_signal_normalization_factors_system$inst_data,
+      target = 1,
+      method = "median_pool_all",
+      args = list(min_periods_median_pool_all = 15)
+    )
   )
 
   my_test_signal_normalization_factors <- list(
@@ -220,14 +226,14 @@ test_that("modify_position() works", {
 
   algos <- list(
     list( ## We might name this "subset1"
-      instruments = list("testdata3", "testdata4"),
+      instruments = list("testdata3a", "testdata4a"),
       rules = list(
         rule1 = signal_generator_1,
         rule2 = signal_generator_2
       )
     ),
     list( ## We might name this "subset1"
-      instruments = list("testdata5", "testdata6"),
+      instruments = list("testdata3b", "testdata4b"),
       rules = list(
         rule1 = signal_generator_1,
         rule2 = signal_generator_2
@@ -237,7 +243,7 @@ test_that("modify_position() works", {
 
   pos_mods <- list(
     list(
-      instruments = list("testdata3", "testdata4"),
+      instruments = list("testdata3a", "testdata4a"),
       modifier = list(
         "pos_mod_test_function_1",
         pos_mod_test_function_1,
@@ -245,7 +251,7 @@ test_that("modify_position() works", {
       )
     ),
     list(
-      instruments = list("testdata5", "testdata6"),
+      instruments = list("testdata3b", "testdata4b"),
       modifier = list(
         "pos_mod_test_function_2",
         pos_mod_test_function_2,
@@ -257,7 +263,7 @@ test_that("modify_position() works", {
 
   pos_muls <- list(
     list(
-      instruments = list("testdata3", "testdata4"),
+      instruments = list("testdata3a", "testdata4a"),
       multipliers = list(
         list(
           "pos_mul_test_function_1",
@@ -272,7 +278,7 @@ test_that("modify_position() works", {
       )
     ),
     list(
-      instruments = list("testdata5", "testdata6"),
+      instruments = list("testdata3b", "testdata4b"),
       multipliers = list(
         list(
           "pos_mul_test_function_1",
@@ -288,7 +294,7 @@ test_that("modify_position() works", {
     )
   )
 
-  my_test_system <- make_system(
+  my_posmul_test_system <- make_system(
     algos = algos,
     init_capital = 1000000,
     system_risk_target = 0.12,
@@ -304,22 +310,22 @@ test_that("modify_position() works", {
 
   ## Put the parsed modifiers in the system (this is a hack for testing
   ## purposes.
-  #my_test_system$position_modifiers <- parse_position_modifiers(pos_mods)
+  # my_posmul_test_system$position_modifiers <- parse_position_modifiers_list(pos_mods, list("testdata3a", "testdata4a", "testdata3b", "testdata4b"))
 
   ## Put the parsed multipliers in the system (this is a hack for testing
   ## purposes.
-  #my_test_system$position_multipliers <- parse_position_multipliers(pos_muls)
+  # my_posmul_test_system$position_multipliers <- parse_position_multipliers_list(pos_muls, list("testdata3a", "testdata4a", "testdata3b", "testdata4b"))
 
   suppressWarnings(
-    my_test_system <- run_system(
-      my_test_system,
+    my_posmul_test_system <- run_system(
+      my_posmul_test_system,
       min_periods = min_periods,
       mode = "sim",
       instrument_data_folder_path = testthat::test_path("fixtures/")
     )
   )
 
-  my_test_modified_positions <- my_test_system$position_tables
+  my_test_modified_positions <- my_posmul_test_system$position_tables
 
   # saveRDS(
   #   my_test_modified_positions,
@@ -387,6 +393,7 @@ test_that("get_portfolio_mul_var_param_vals() work", {
   )
 
   system_vars <- list(
+    t = 11,
     variable_param_1_1 = variable_param_1_1,
     variable_param_1_2 = variable_param_1_2,
     dummy_var_1 = 1,

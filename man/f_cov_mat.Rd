@@ -4,7 +4,7 @@
 \alias{f_cov_mat}
 \title{Covariance Matrix}
 \usage{
-f_cov_mat(data, method, ...)
+f_cov_mat(data, method = "Pearson", ...)
 }
 \arguments{
 \item{data}{Data frame.}

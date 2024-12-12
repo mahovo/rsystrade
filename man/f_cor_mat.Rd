@@ -4,7 +4,7 @@
 \alias{f_cor_mat}
 \title{Correlation Matrix}
 \usage{
-f_cor_mat(data, method, ...)
+f_cor_mat(data, method = "Pearson", ...)
 }
 \arguments{
 \item{data}{Data frame.}
