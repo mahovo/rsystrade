@@ -1,41 +1,39 @@
-
 make_test_algos <- function(
     signal_generator_1, ## list
     signal_generator_2 ## list
-  ) {
+) {
   list(
-      list( ## We might name this "subset1"
-        instruments = list("testdata3"),
-        rules = list(
-            rule1 = signal_generator_1,
-            rule2 = signal_generator_2
-          )
-      ),
-      list( ## We might name this "subset2"
-        instruments = list("testdata4"),
-        rules = list(
-          rule1 = signal_generator_1,
-          rule2 = signal_generator_2
-        )
+    list( ## We might name this "subset1"
+      instruments = list("testdata5"),
+      rules = list(
+        rule1 = signal_generator_1,
+        rule2 = signal_generator_2
       )
+    ),
+    list( ## We might name this "subset2"
+      instruments = list("testdata6"),
+      rules = list(
+        rule1 = signal_generator_1,
+        rule2 = signal_generator_2
+      )
+    )
   )
 }
 
-## This test data is designed to remind us that low volatility will blow us up :-)
 make_test_system <- function() {
-  #n = 20
-  min_periods <- 10L
+  #n = 100L
+  min_periods <- 25L
 
   ## *** Generate instrument data ***
 
-  # #times <- timeDate::as.timeDate(seq(from = as.Date("2000-01-01"), by = "day", length.out = n))
-  # times <- 1:20
+  #times <- timeDate::as.timeDate(seq(from = as.Date("2000-01-01"), by = "day", length.out = n))
+  # times <- 1:n
   #
-  # prices1 <- 100 + c(0, 1, 2, 3, 4, 5, 4, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5)/100
-  # prices2 <- 100 + c(0, -2, -4, -6, -4, -2, 0, 2, 4, 6, 8, 10, 8, 6, 4, 2, 0, -2, 0, 2)/100
+  # prices1 <- round(100 + cumsum(rnorm(n, 0, 0.5)), 2)
+  # prices2 <- round(100 + cumsum(rnorm(n, 0, 0.5)), 2)
   #
-  # # plot(prices1, ylim = c(99.94, 100.1), pch = 16, cex = 0.3, col = "red")
-  # # points(prices2, pch = 16, cex = 0.3, col = "blue")
+  # plot(prices1, ylim = c(min(c(prices1, prices2)), max(c(prices1, prices2))), pch = 16, cex = 0.3, col = "red")
+  # points(prices2, pch = 16, cex = 0.3, col = "blue")
   # #
   # # cor(prices1, prices2)
   # # sd(prices1)
@@ -62,70 +60,86 @@ make_test_system <- function() {
   # )
   # names(df2) <- c("time", "price")
   # names(df2)
-  # write.csv(df1, testthat::test_path("fixtures/", "testdata3.csv"), row.names=FALSE)
-  # write.csv(df2, testthat::test_path("fixtures/", "testdata4.csv"), row.names=FALSE)
+  # write.csv(df1, testthat::test_path("fixtures/", "testdata7.csv"), row.names=FALSE)
+  # write.csv(df2, testthat::test_path("fixtures/", "testdata8.csv"), row.names=FALSE)
 
   algos <- make_test_algos(
     list(
-      "mac_2_4",
+      "mac_30_60",
       r_mac,
       ma_fast = NA,
       ma_slow = NA,
-      n_fast = 2L,
-      n_slow = 4L,
+      n_fast = 30L,
+      n_slow = 60L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     ),
     list(
-      "mac_3_9",
+      "mac_20_80",
       r_mac,
       ma_fast = NA,
       ma_slow = NA,
-      n_fast = 3L,
-      n_slow = 9L,
+      n_fast = 20L,
+      n_slow = 80L,
+      ma_method = "simple",
       gap = 0,
       strict = TRUE,
-      binary = FALSE
+      binary = FALSE,
+      mode = 1
     )
   )
-
-  # parsed_algos <- parse_algos(algos)
-  #
-  # inst_data <- load_instrument_data_sets(
-  #   parsed_algos = parsed_algos,
-  #   #instrument_data_folder_path = "~/git/rsystrade/misc/temp/data/"
-  #   instrument_data_folder_path = testthat::test_path("fixtures")
-  # )
-  # names(inst_data) <- unlist(get_unique_inst_names_from_parsed_algos_list(parsed_algos))
-  #
-  # rule_functions <- load_rule_functions(parsed_algos)
-  # names(rule_functions) <- get_unique_rule_function_names_by_parsed_algo(parsed_algos)
-  #
-  # num_signals <- get_num_rules_from_parsed_algos_list(parsed_algos)
-  # signal_tables <- list()
-  # for(i in 1:num_signals) {
-  #   ## One table for each algo (i.e each instrument + rule combination)
-  #   signal_tables[[i]] <- data.frame(
-  #     time = inst_data[[parsed_algos[[i]]$instrument]]$time[1:min_periods],
-  #     price = inst_data[[parsed_algos[[i]]$instrument]]$price[1:min_periods],
-  #     raw_signal = rep(NA, min_periods),
-  #     normalized_signal = rep(NA, min_periods),
-  #     clamped_signal = rep(NA, min_periods),
-  #     signal_weight = rep(NA, min_periods)
-  #   )
-  # }
-
 
   my_test_system <- make_system(
     algos = algos,
     init_capital = 1000000,
     system_risk_target = 0.12,
-    risk_window_length = 5,
-    position_modifiers = list(),
+    risk_window_length = 20,
     min_periods = min_periods,
     mode = "sim",
-    instrument_data_folder_path = testthat::test_path("fixtures/")
+    instrument_data_folder_path = testthat::test_path("fixtures/"),
+    position_multipliers <- list(
+      list(
+        instruments = list("testdata5", "testdata6"),
+        multipliers = list(
+          list(
+            "m_block_same_direction_entry",
+            m_block_same_direction_entry,
+            mode = 2
+          )
+        )
+      )
+    ),
+    position_modifiers = list(
+      list(
+        instruments = list("testdata5", "testdata6"),
+        modifier = list(
+          "p_stop_loss",
+          p_stop_loss,
+          stop_loss_fraction = 0.5,
+          rnd = FALSE
+        )
+      )
+    ),
+    portfolio_multipliers = list(
+      list(
+        modifier_name = "o_limit_pf_risk",
+        modifier_function = o_limit_pf_risk,
+        max_risk = 0.1,
+        cov_method = "Pearson"
+      ),
+      list(
+        modifier_name = "o_limit_pf_shock_risk",
+        modifier_function = o_limit_pf_shock_risk,
+        max_risk = 0.1,
+        sd_percentile = 0.99,
+        sd_window_length = 5L,
+        sd_method = "unbiased",
+        cor_method = "Pearson"
+      )
+    )
   )
 
   my_test_system <- run_system(
@@ -139,118 +153,17 @@ make_test_system <- function() {
 }
 
 
-
-## *** NOTE *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## This part is not used!
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-##
-## Rule functions need to be loaded into the package env to work with tests.
-## This is done here when doing shift+cmd+L.
-## This is only true for testing. In normal use, rule functions need to be in
-## the global env.
-## The test system written to disk has been modified, so that the rule
-## functions are in the package env (not the global env).
-## This is done by commenting out the code at the bottom of this document.
-## This only needs to be done again, if the test system on disk is overwritten.
-# mac_2_4 <- function(
-#     prices
-#   ) {
-#   mac_rule(
-#     prices,
-#     t = t,
-#     ma_fast = NA,
-#     ma_slow = NA,
-#     n_fast = 2L,
-#     n_slow = 4L,
-#     gap = 0,
-#     strict = TRUE,
-#     binary = FALSE
-#   )
-# }
-# mac_3_6 <- function(
-#     prices
-# ) {
-#   mac_rule(
-#     prices,
-#     t = t,
-#     ma_fast = NA,
-#     ma_slow = NA,
-#     n_fast = 3L,
-#     n_slow = 6L,
-#     gap = 0,
-#     strict = TRUE,
-#     binary = FALSE
-#   )
-# }
-#
-#
-# mac_2_4 <- rlang::set_env(mac_2_4, rlang::global_env())
-# mac_3_6 <- rlang::set_env(mac_3_6, rlang::global_env())
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-
-
 ## Write expected system to disk
+
 # my_test_system <- make_test_system()
 # saveRDS(my_test_system, file = test_path("fixtures/", "my_expected_system.rds"), compress = FALSE)
 
-## Change path to avoid mismatch between actual and expected:
+
+
+## Change path to avoid mismatch between actual and expected.
+## This is needed when running test with testthat (cmd+shift+E), not when running the test code in test_system.R.
+
 # my_expected_system <- readRDS(test_path("fixtures", "my_expected_system.rds"))
 # my_expected_system$config$instrument_data_folder_path <- "fixtures/"
 # saveRDS(my_expected_system, file = test_path("fixtures/", "my_expected_system.rds"), compress = FALSE)
 
-
-
-## *** NOTE *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## This part is not used!
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-##
-## * IMPORTANT *
-## Rule functions need to be loaded in the test env.
-## Do shift+cmd+L once with these lines uncommented.
-## This will fix the env of the rule functions in the my_expected_system
-## written to disk.
-# mac_2_4 <- function(
-#     prices,
-#     signal_table,
-#     position_table,
-#     t
-# ) {
-#   mac_rule(
-#     prices,
-#     t = t,
-#     ma_fast = NA,
-#     ma_slow = NA,
-#     n_fast = 2L,
-#     n_slow = 4L,
-#     gap = 0,
-#     strict = TRUE,
-#     binary = FALSE
-#   )
-# }
-# mac_3_6 <- function(
-#     prices,
-#     signal_table,
-#     position_table,
-#     t
-# ) {
-#   mac_rule(
-#     prices,
-#     t = t,
-#     ma_fast = NA,
-#     ma_slow = NA,
-#     n_fast = 3L,
-#     n_slow = 6L,
-#     gap = 0,
-#     strict = TRUE,
-#     binary = FALSE
-#   )
-# }
-# my_expected_system_2 <- readRDS("~/git/rsystrade/tests/testthat/fixtures/my_test_system.rds")
-# my_expected_system_2$rule_functions$mac_2_4 <- rlang::set_env(mac_2_4, rlang::current_env())
-# my_expected_system_2$rule_functions$mac_3_6 <- rlang::set_env(mac_3_6, rlang::current_env())
-# saveRDS(my_expected_system_2, file = "~/git/rsystrade/tests/testthat/fixtures/my_test_system.rds")
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-## *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***

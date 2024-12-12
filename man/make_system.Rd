@@ -10,6 +10,8 @@ make_system(
   system_risk_target = 0.12,
   risk_window_length = 25,
   position_modifiers = list(),
+  position_multipliers = list(),
+  portfolio_multipliers = list(),
   min_periods = 1,
   min_signal = -2,
   max_signal = 2,
@@ -105,7 +107,7 @@ If present, the stop loss rule is applied in the positions stage.
 }\if{html}{\out{</div>}}
 }
 \description{
-\code{config} contains
+By default \code{config} contains
 \itemize{
 \item \code{init_capital}
 \item \code{system_risk_target}
@@ -113,13 +115,14 @@ If present, the stop loss rule is applied in the positions stage.
 \item \code{min_periods}
 \item \code{min_signal}
 \item \code{max_signal}
+\item \code{correlation_method}
 \item \code{min_cor} Default is \code{0}.
 \item \code{max_sdm} Default is \code{2.5}.
 \item \code{same_direction_trade_allowed} Default is \code{FALSE}.
 \item \code{instrument_data_folder_path}
 \item \code{signal_weight_calculation_method} Default is \code{"equal"}.
 \item \code{inst_weight_calculation_method} Default is \code{"equal"}.
-\item \code{target_normalization_factor} Default is \code{1},
+\item \code{normalization_factor_target} Default is \code{1},
 \item \code{signal_normalization_factors_method} Default is \code{"equal"}.
 \item \code{signal_normalization_factors_args} A list of additional arguments for
 each method in \code{update_signal_normalization_factors()}.
@@ -128,5 +131,7 @@ each method in \code{update_signal_normalization_factors()}.
 \item Additional argument for method \code{"median_pool_all"} is
 \code{min_periods_median_pool_all}.
 }
+\item \code{rel_buffer_size} Default is \code{0.1}
+\item \code{portfolio_multiplier}
 }
 }

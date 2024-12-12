@@ -2,21 +2,42 @@
 % Please edit documentation in R/formulas-risk.R
 \name{f_instrument_risk_target}
 \alias{f_instrument_risk_target}
-\title{Instrument Risk Target}
+\title{Instrument Risk In Units Of Percentage Of Price}
 \usage{
 f_instrument_risk_target(system_risk_target, IDM)
 }
 \arguments{
-\item{system_risk_target}{Annualized volatility target in percentages}
+\item{system_risk_target}{Annualized volatility target in percentages.}
 
-\item{IDM}{Instrument Diversification Multiplier
+\item{IDM}{Instrument Diversification Multiplier.
 \deqn{\text{IDM} = \frac{1}{\sqrt{W^{T}HW}}}
 where \eqn{H} is the correlation matrix for returns, and \eqn{W} is the vector
 of instrument weights summing to one.}
+
+\item{current_price}{Current price.}
+
+\item{last_ewma}{Last exponential weighted moving average.}
+
+\item{window_length}{Window length.}
 }
 \value{
+Instrument risk in units of percentage of price
+Instrument Risk Target
+
 Decimal fraction (percentage divided by 100)
 }
 \description{
-Instrument Risk Target
+Price Volatility as Exponentially Weighted Moving Average (EWMA)
+\itemize{
+\item \eqn{E_{t}}: EWMA til tid \eqn{t}
+\item \eqn{P_{t}}: Price at time \eqn{t}
+\item \eqn{a}: Smoothing Parameter
+\item \eqn{L}: Window length
+\deqn{a = \frac{2}{1 + L}}
+\deqn{E_{t} = a \cdot P_{t} + E_{t - 1}(1 - a)}
+}
+
+At \eqn{t_0} use \code{last_ewma} = \code{current_price}.
+
+Calculate instrument risk target.
 }

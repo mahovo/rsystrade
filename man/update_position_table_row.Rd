@@ -9,10 +9,11 @@ update_position_table_row(
   inst_data,
   position_table,
   position_modifier,
+  position_multipliers,
   raw_combined_signal,
-  signal_div_mult,
+  signal_div_mul,
   instrument_weight,
-  inst_div_mult,
+  inst_div_mul,
   instrument_risk_target,
   subsystem_ret_cor_mat,
   system_account_table,
@@ -30,7 +31,7 @@ update_position_table_row(
 
 \item{raw_combined_signal}{Raw combined signal value.}
 
-\item{signal_div_mult}{Signal diversification multiplier.}
+\item{signal_div_mul}{Signal diversification multiplier.}
 
 \item{subsystem_ret_cor_mat}{Subsystem returns correlation matrix.}
 

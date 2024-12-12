@@ -7,9 +7,11 @@ test_that("expand_algos() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -18,9 +20,11 @@ test_that("expand_algos() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -70,9 +74,11 @@ test_that("get_unique_inst_paths_from_expanded_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -81,9 +87,11 @@ test_that("get_unique_inst_paths_from_expanded_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -109,7 +117,11 @@ test_that("get_unique_inst_paths_from_expanded_algos_list() works", {
   )
 
   # ## Write expected output to file
-  my_expected_unique_inst_paths <- my_test_unique_inst_paths
+
+  # ## *** Uncomment to prepare for individual test: ***
+  # my_expected_unique_inst_paths <- my_test_unique_inst_paths
+
+  # ## *** Uncomment to prepare for devtools::test(): ***
   # my_expected_unique_inst_paths <- list(
   #   "fixtures/testdata1.csv",
   #   "fixtures/testdata2.csv",
@@ -149,9 +161,11 @@ test_that("get_inst_names_by_parsed_algo() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -160,9 +174,11 @@ test_that("get_inst_names_by_parsed_algo() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -219,9 +235,11 @@ test_that("get_unique_inst_names_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -230,9 +248,11 @@ test_that("get_unique_inst_names_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -289,9 +309,11 @@ test_that("get_num_inst_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -300,9 +322,11 @@ test_that("get_num_inst_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -364,9 +388,11 @@ test_that("get_num_rules_per_inst_from_parsed_algos() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -375,9 +401,11 @@ test_that("get_num_rules_per_inst_from_parsed_algos() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -426,9 +454,11 @@ test_that("get_rule_function_names_by_parsed_algo() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -437,9 +467,11 @@ test_that("get_rule_function_names_by_parsed_algo() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -491,9 +523,11 @@ test_that("get_unique_rule_names_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -502,9 +536,11 @@ test_that("get_unique_rule_names_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -550,9 +586,11 @@ test_that("get_rule_names_by_parsed_algo() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -561,9 +599,11 @@ test_that("get_rule_names_by_parsed_algo() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -615,9 +655,11 @@ test_that("get_unique_rule_names_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -626,9 +668,11 @@ test_that("get_unique_rule_names_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -674,9 +718,11 @@ test_that("get_num_rules_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -685,9 +731,11 @@ test_that("get_num_rules_from_parsed_algos_list() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(
@@ -730,9 +778,11 @@ test_that("get_signal_normalization_factors_by_algos() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
   rule2 <- list(
     "mac_3_9",
@@ -741,9 +791,11 @@ test_that("get_signal_normalization_factors_by_algos() works", {
     ma_slow = NA,
     n_fast = 2L,
     n_slow = 4L,
+    ma_method = "simple",
     gap = 0,
     strict = TRUE,
-    binary = FALSE
+    binary = FALSE,
+    mode = 1
   )
 
   algos <- list(

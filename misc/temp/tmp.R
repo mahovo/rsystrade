@@ -573,7 +573,7 @@ g <- function() {
   y
 }
 f()
-
+y
 
 ##
 
@@ -619,7 +619,75 @@ g <- function(y, ...) {
 }
 
 f(x = "x", y = "y")
-f(x = "x", y = "y", z = "zz")
+f(x = "x", y = "y", z1 = "zzzzz", z2 = "ZZZZZ") ## nej!
+
+
+##
+f <- function(x, y, ...) {
+  print(x)
+
+  g <- function(y, z, ...) {
+    print(y)
+    print(z)
+    h1 <- function(z1 = "z1") {
+      print(z1)
+    }
+    h2 <- function(z2 = "z2") {
+      print(z2)
+    }
+    h1(...)
+    h2(...)
+  }
+
+  g(y, ...)
+}
+
+f(x = "x", y = "y", z = "z")
+f(x = "x", y = "y", z = "z", z1 = "zzzzz", z2 = "ZZZZZ") ## nej!
+
+
+##
+
+f <- function(x, use_g, ...) {
+  print(x)
+  g <- function(y) {
+    print(y)
+  }
+
+  if(use_g) {g(...)}
+}
+f(10, FALSE)
+f(10, TRUE, y = 20)
+
+
+##
+
+g <- function(y) {
+  print(y)
+}
+f <- function(x, use_g, ...) {
+  print(x)
+
+  if(use_g) {g(...)}
+}
+f(10, FALSE)
+f(10, TRUE, y = 20)
+
+
+##
+
+g <- function(y, z = 30) {
+  print(y)
+  print(z)
+}
+f <- function(x, use_g, ...) {
+  print(x)
+
+  if(use_g) {g(...)}
+}
+f(10, FALSE)
+f(10, TRUE, y = 20)
+f(10, TRUE, y = 20, z = 40)
 
 
 ##
@@ -666,7 +734,21 @@ update_signal_normalization_factors(
   args = config$signal_normalization_factors_args[[config$signal_normalization_factors_method]]
 )
 
+##
 
+f1 <- function(x, ...) {
+  print(x)
+  f2(...)
+}
+f2 <- function(x, y, ...) {
+  print(y)
+  f3(...)
+}
+f3 <- function(z) {
+  print(z)
+}
+
+f1(x = 1, y = 2, z = 3)
 
 # Pipes ----
 
@@ -1223,7 +1305,7 @@ calculate_equal_inst_weights(parsed_algos)
 # Exponential Weighted Average ----
 
 n <- 200
-L <- 25
+L <- 25L
 x <- rnorm(n, 0, 4)
 A <- 2 / (1 + n)
 
@@ -1292,6 +1374,12 @@ ewcor_matrix <- function(data, lookback = NA) {
 data <- data.frame(x, y)
 ewcor_matrix(data, 25)
 
+
+## Same
+
+(x[200] - mu_x) * (y[200] - mu_y)
+
+((x - mu_x) * (y - mu_y))[200]
 
 
 
@@ -2614,7 +2702,7 @@ inst_names <- c("inst1", "inst2")
 ## Input list
 
 ## make_position_modifiers_list() is supposed to ignore "inst3", because we only
-## have two instruments inour inst_names list
+## have two instruments in our inst_names list
 position_modifiers <- list(
   list(
     instruments = list("inst1", "inst2", "inst3"),
@@ -2815,3 +2903,855 @@ my_test_system <- run_system(
   mode = "sim",
   instrument_data_folder_path = testthat::test_path("fixtures/")
 )
+
+
+
+## Parse position multipliers ----
+
+f1 <- function(x1, y1) {x1 + y1}
+f2 <- function(x2, y2) {x2 - y2}
+f3 <- function(x3, y3) {x3 * y3}
+f4 <- function(x4, y4) {x4^y4}
+
+pm <- list(
+  list(
+    instruments = list("inst1", "inst2"),
+    multipliers = list(
+     list(
+       "f1",
+        f1,
+        y1 = 10
+     ),
+     list(
+       "f2",
+        f2,
+        y2 = 20
+     )
+    )
+  ),
+  list(
+    instruments = list("inst3", "inst4"),
+    multipliers = list(
+     list(
+       "f3",
+        f3,
+        y3 = 30
+     ),
+     list(
+       "f4",
+        f4,
+        y4 = 40
+     )
+   )
+  )
+)
+
+ppm <- parse_position_multipliers(pm)
+ppm
+
+
+
+## make_position_multipliers_list() ----
+
+make_position_multipliers_list(
+    position_multipliers = pm,
+    list("inst2", "inst3")
+)
+
+
+## Multiply list elements ----
+
+m1 <- function(x) {x}
+m2 <- function(x) {x}
+m3 <- function(x) {x}
+ll <- list(m1 = m1(1), m2 = m2(2), m3 = m3(3))
+
+prod(unlist(ll))
+
+
+
+## Instrument duplicates in position multiplier input list ----
+
+## 1: No duplicates
+
+x1 <- function(x) {x}
+x2 <- function(x) {x}
+
+pos_muls_1 <- list(
+  list(
+    instruments = list("inst1", "inst2"),
+    multipliers = list(
+      list("mult1", x1),
+      list("mult2", x2)
+    )
+  ),
+  list(
+    instruments = list("inst3", "inst4"),
+    multipliers = list(
+      list("mult1", x1),
+      list("mult2", x2)
+    )
+  )
+)
+
+parsed_pos_muls_1 <- parse_position_multipliers(pos_muls_1)
+names(parsed_pos_muls_1)
+
+
+
+
+## 2: With duplicates
+
+x1 <- function(x) {x}
+x2 <- function(x) {x}
+
+pos_muls_2 <- list(
+  list(
+    instruments = list("inst1", "inst2"),
+    multipliers = list(
+      list("mult1", x1),
+      list("mult2", x2)
+    )
+  ),
+  list(
+    instruments = list("inst3", "inst4"),
+    multipliers = list(
+      list("mult1", x1),
+      list("mult2", x2)
+    )
+  ),
+  list(
+    instruments = list("inst1", "inst3"),
+    multipliers = list(
+      list("mult3", x1),
+      list("mult4", x2)
+    )
+  )
+)
+
+parsed_pos_muls_2 <- parse_position_multipliers(pos_muls_2)
+parsed_pos_muls_2
+names(parsed_pos_muls_2)
+
+t_parsed_pos_muls_2 <- tapply(parsed_pos_muls_2, names(parsed_pos_muls_2), FUN = c)
+t_parsed_pos_muls_2_unique <- lapply(t_parsed_pos_muls_2, FUN = make_list_names_unique)
+
+## This (above) is not quite doing what we want...
+
+## Try this:
+
+split_list <- split(
+  t_parsed_pos_muls_2,
+  names(t_parsed_pos_muls_2)
+)
+
+merged_list <- lapply(
+  split(
+    t_parsed_pos_muls_2,
+    names(t_parsed_pos_muls_2)
+  ),
+  function(x) {
+    if (length(x) > 1) {
+      list(unlist(x))
+    } else {
+      x
+    }
+  }
+)
+
+## Not quite doing what we wanted either...
+
+## Let's parse the position multiplier list so that duplicates are handled
+## in the parser:
+
+## Algorithm
+## 1) Make a list of unique instrument names.
+## 2) For each unique instrument name:
+## 3)   For each user provided multiplier list:
+## 4)     For each instrument:
+## 5)       If the element matches the unique instrument in 1):
+## 6)         Apply the multiplier to the list of multipliers for the unique
+##              instrument.
+## 7)
+
+
+
+parsed_pos_muls_2b <- parse_position_multipliers(pos_muls_2)
+
+
+
+## EWSD
+
+returns <- rep(c(0, 2), 10)
+prices <- f_prices_from_returns(returns, 1)
+
+lambda_1 <- 1 - 2/21
+lambda_1_sum <- sum(lambda_1^(0:19))
+mu_1 <- (lambda_1^0 * 2 + 0 +
+           lambda_1^2 * 2 + 0 +
+           lambda_1^4 * 2 + 0 +
+           lambda_1^6 * 2 + 0 +
+           lambda_1^8 * 2 + 0 +
+           lambda_1^10 * 2 + 0 +
+           lambda_1^12 * 2 + 0 +
+           lambda_1^14 * 2 + 0 +
+           lambda_1^16 * 2 + 0 +
+           lambda_1^18 * 2 + 0) / lambda_1_sum
+sd_1 <- sqrt(
+  (lambda_1^0 * (2 - mu_1)^2 + lambda_1^1 * (-mu_1)^2 +
+           lambda_1^2 * (2 - mu_1)^2 + lambda_1^3 * (-mu_1)^2 +
+           lambda_1^4 * (2 - mu_1)^2 + lambda_1^5 * (-mu_1)^2 +
+           lambda_1^6 * (2 - mu_1)^2 + lambda_1^7 * (-mu_1)^2 +
+           lambda_1^8 * (2 - mu_1)^2 + lambda_1^9 * (-mu_1)^2 +
+           lambda_1^10 * (2 - mu_1)^2 + lambda_1^11 * (-mu_1)^2 +
+           lambda_1^12 * (2 - mu_1)^2 + lambda_1^13 * (-mu_1)^2 +
+           lambda_1^14 * (2 - mu_1)^2 + lambda_1^15 * (-mu_1)^2 +
+           lambda_1^16 * (2 - mu_1)^2 + lambda_1^17 * (-mu_1)^2 +
+           lambda_1^18 * (2 - mu_1)^2 + lambda_1^19 * (-mu_1)^2) / lambda_1_sum
+  )
+sd_1
+# 0.99874921777191
+
+
+lambda_2 <- 1 - 2/11
+lambda_2_sum <- sum(lambda_2^(0:9))
+mu_2 <- (lambda_2^0 * 2 + 0 +
+           lambda_2^2 * 2 + 0 +
+           lambda_2^4 * 2 + 0 +
+           lambda_2^6 * 2 + 0 +
+           lambda_2^8 * 2 + 0) / lambda_2_sum
+sd_2 <- sqrt(
+  (lambda_2^0 * (2 - mu_2)^2 + lambda_2^1 * (-mu_2)^2 +
+     lambda_2^2 * (2 - mu_2)^2 + lambda_2^3 * (-mu_2)^2 +
+     lambda_2^4 * (2 - mu_2)^2 + lambda_2^5 * (-mu_2)^2 +
+     lambda_2^6 * (2 - mu_2)^2 + lambda_2^7 * (-mu_2)^2 +
+     lambda_2^8 * (2 - mu_2)^2 + lambda_2^9 * (-mu_2)^2) / lambda_2_sum
+)
+sd_2
+# 0.99498743710662
+
+
+## Chaos ----
+
+n <- 1000
+x_0 <- 0.1
+lambda <- 3.569946
+
+## Calculate x_n
+## Set n so that x_n is beyond the transition
+kaos <- function(x_0, n,lambda) {
+  x_n <- x_0
+  for(i in 1:n) {
+    x_n <- lambda * x_n * (1 - x_n)
+  }
+  x_n
+}
+
+lambda_vals <- 10000:40000 / 10000
+x_n_vals <- kaos(x_0, 1000, lambda_vals)
+
+plot(lambda_vals, x_n_vals, cex = 0.05, pch = 16, xlab = "lambda", ylab = "x_n")
+
+
+
+## Sigmoid risk control ----
+
+x <- 1:10000 / 1000
+
+leverage <- function(
+    x,
+    mid_x,
+    min_y,
+    max_y,
+    shape
+  ) {
+  (max_y - min_y) * (exp(shape * (x - mid_x))) / (1 + exp(shape * (x - mid_x))) + min_y
+}
+leverage2 <- function(
+    x,
+    mid_x,
+    min_y,
+    max_y,
+    shape
+) {
+  (max_y - min_y) / (1 + exp(shape * (mid_x - x))) + min_y
+}
+
+y <- leverage(
+  x = x,
+  mid_x = 5,
+  min_y = 5,
+  max_y = 10,
+  shape = 1
+)
+z <- leverage(
+  x = x,
+  mid_x = 5,
+  min_y = 5,
+  max_y = 10,
+  shape = 2
+)
+w <- leverage(
+  x = x,
+  mid_x = 5,
+  min_y = 5,
+  max_y = 10,
+  shape = -1
+)
+v <- leverage2(
+  x = x,
+  mid_x = 5,
+  min_y = 5,
+  max_y = 10,
+  shape = 0.5
+)
+
+plot(x, y, pch = 16, cex = 0.1, col = "blue")
+lines(x, z, pch = 16, cex = 0.1, col = "red")
+lines(x, w, pch = 16, cex = 0.1, col = "green")
+lines(x, v, pch = 16, cex = 0.1, col = "orange")
+
+
+
+## matrix multiplication ====
+m1 <- matrix(c(2, 0, 0, 3), nrow = 2, byrow = FALSE)
+m1
+m2 <- matrix(c(1, 2, 3, 4), nrow = 2, byrow = FALSE)
+m2
+m1 %*% m2 %*% m1
+
+
+m1 <- matrix(c(2, 0, 0, 3), nrow = 2, byrow = TRUE)
+m1
+m2 <- matrix(c(1, 2, 3, 4), nrow = 2, byrow = TRUE)
+m2
+m1 %*% m2 %*% m1
+
+
+
+
+## Validation ----
+
+validate_1 <- function(x) {
+  calling_env <- parent.frame()
+  a <- exists(x, where = calling_env)
+  if(a) {print("x exists")} else {print("x does not exist")}
+  if(a){
+    b <- !is.null(
+      eval(
+        parse(text = x),
+        envir = calling_env
+      )
+    )
+    if(b) {print("x is not null")} else {print("x is null")}
+  } else {b <- FALSE}
+  a && b
+}
+
+rm(x)
+validate_1("x")
+x <- 10
+validate_1("x")
+x <- list()[1][[1]]
+validate_1("x")
+x
+
+
+f1 <- function(y) {validate_1("y")}
+
+x <- 10
+f1(x)
+
+x <- list()[1][[1]]
+f1(x)
+
+rm(x)
+f1(x) # fails because f1 needs an input (see f2())
+
+f2 <- function(y) {
+  rm(y)
+  validate_1("y")
+}
+f2(x)
+
+x <- list()[1] # this will return TRUE, which is tricky...
+validate_1("x")
+
+validate_2 <- function(x) {
+  calling_env <- parent.frame()
+  a <- exists(x, where = calling_env)
+  if(a) {print("x exists")} else {print("x does not exist")}
+  if(a){
+    b <- !is.null(
+      eval(
+        parse(text = x),
+        envir = calling_env
+      )
+    )
+    if(b) {print("x is not null")} else {print("x is null")}
+    c <- length(
+      eval(
+        parse(text = x),
+        envir = calling_env
+      )
+    ) > 0
+    if(c) {print("x is not empty")} else {print("x is empty")}
+  } else {b <- FALSE; c <- FALSE}
+  a && b && c
+}
+
+x <- list()
+validate_2("x")
+
+x <- c()
+validate_2("x")
+
+x <- data.frame() # empty because no cols
+validate_2("x")
+
+x <- data.frame(a = c(), b = c()) # empty because cols are empty
+validate_2("x")
+
+x <- data.frame(a = list(), b = list()) # empty because cols are empty
+validate_2("x")
+colnames(x)
+
+
+## Note, length of data frame is number of cols
+length(x) # 0
+ncol(x) # 0
+
+x <- data.frame(a = c(1,2,3), b = c(4, 5, 6))
+length(x) # 2 (not 3!)
+ncol(x) # same
+validate_2("x")
+colnames(x)
+
+## It seems we don't need to make a special case for data frames.
+x
+
+## Test f_moving_average() ----
+x <- cumsum(rnorm(500))
+y1 <- f_moving_average(x, first_data_id = 1, window_length = 50L, method = "simple")
+y2 <- f_moving_average(x, first_data_id = 1, window_length = 50L, method = "ewa")
+plot(x, pch = 16, cex = 0.3, col = "gray")
+points(y1, pch = 16, cex = 0.3, col = "blue")
+points(y2, pch = 16, cex = 0.3, col = "orange")
+
+
+
+## Test moving() with f_average() ----
+
+x <- cumsum(rnorm(500))
+y1 <- rolling_window(
+  x = x,
+  first_t = 1,
+  last_t = NA,
+  window_length = 50L,
+  func = f_average,
+  method = "simple"
+)
+y2 <- rolling_window(
+  x = x,
+  first_t = 1,
+  last_t = NA,
+  window_length = 50L,
+  func = f_average,
+  method = "ewa"
+)
+plot(x, pch = 16, cex = 0.3, col = "gray")
+points(y1, pch = 16, cex = 0.3, col = "blue")
+points(y2, pch = 16, cex = 0.3, col = "orange")
+
+
+## Test r_mac() simple ----
+x <- cumsum(rnorm(500))
+y <- list()
+for(t in 1:500) {
+  y[[t]] <- r_mac(
+      t = t,
+      price = x,
+      ma_fast = NA,
+      ma_slow = NA,
+      n_fast = 20L,
+      n_slow = 80L,
+      ma_method = "simple",
+      gap = 0,
+      strict = TRUE,
+      binary = FALSE
+  )
+}
+
+y_fast <- unlist(lapply(y, function(y_n) {y_n$ma_fast}))
+y_slow <- unlist(lapply(y, function(y_n) {y_n$ma_slow}))
+y_signal <- unlist(lapply(y, function(y_n) {y_n$signal}))
+z <- c(y_signal, y_fast, y_slow)
+
+plot(x, pch = 16, cex = 0.3, col = "gray", ylim = c(min(z), max(z)))
+points(y_fast, pch = 16, cex = 0.3, col = "blue")
+points(y_slow, pch = 16, cex = 0.3, col = "orange")
+points(y_signal, pch = 16, cex = 0.3, col = ifelse(y_signal > 0, "green", "red"))
+
+## Test r_mac() ewa ----
+x <- cumsum(rnorm(500))
+y <- list()
+for(t in 1:500) {
+  y[[t]] <- r_mac(
+    t = t,
+    price = x,
+    ma_fast = NA,
+    ma_slow = NA,
+    n_fast = 20L,
+    n_slow = 80L,
+    ma_method = "ewa",
+    gap = 0,
+    strict = TRUE,
+    binary = FALSE,
+    lambda = 0.8
+  )
+}
+
+y_fast <- unlist(lapply(y, function(y_n) {y_n$ma_fast}))
+y_slow <- unlist(lapply(y, function(y_n) {y_n$ma_slow}))
+y_signal <- unlist(lapply(y, function(y_n) {y_n$signal}))
+z <- c(y_signal, y_fast, y_slow)
+
+plot(x, pch = 16, cex = 0.3, col = "gray", ylim = c(min(z), max(z)))
+points(y_fast, pch = 16, cex = 0.3, col = "blue")
+points(y_slow, pch = 16, cex = 0.3, col = "orange")
+#points(y_signal, pch = 16, cex = 0.3, col = "gray")
+points(y_signal, pch = 16, cex = 0.3, col = ifelse(y_signal > 0, "green", "red"))
+
+
+## Covariance ----
+set.seed(871263)
+v1 <- 1:100#cumsum(rnorm(100, 0, 0.00000000001))
+v2 <- 100:1#cumsum(rnorm(100, 0, 0.00000000001))
+
+V1 <- var(v1)
+V2 <- var(v2)
+cov_ <- cov(v1, v2)
+m <- matrix(
+  c(
+    V1, cov_,
+    cov_, V2
+  ), nrow = 2, byrow = TRUE
+)
+
+w <- c(-0.5, -0.5)
+
+crossprod(t(w %*% m), w)
+
+check_pos_def <- function(matrix) {
+  min(eigen(matrix)$values) > 0
+}
+check_pos_def(m)
+
+cor_ <- cor(v1, v2)
+cov_2 <- cor_ * V1 * V2
+cov_2
+m2 <- matrix(
+  c(
+    V1, cov_2,
+    cov_2, V2
+  ), nrow = 2, byrow = TRUE
+)
+
+m2
+check_pos_def(m2)
+
+m3 <- matrix(
+  c(
+    1, cov_2/1000000,
+    cov_2/1000000, 1
+  ), nrow = 2, byrow = TRUE
+)
+m3
+
+check_pos_def(m3)
+
+
+## Dot products vs matrix products ----
+
+x <- list(a = 1, b = 2)
+m <- as.matrix(data.frame(x))
+m %*% t(m)
+str(m)
+crossprod(t(m), t(m))
+
+v <- unlist(x)
+v
+str(v)
+z <- matrix(c(1,2,3,4), nrow = 2)
+v %*% z
+m %*% z
+crossprod(v %*% z, v)
+str(v %*% z)
+str(v)
+v %*% z %*% v
+str(v %*% z)
+crossprod(m %*% z, m)
+str(m)
+str(m %*% z)
+crossprod(m %*% z, t(m))
+
+
+str(v)
+
+## vectorize
+
+f <- function(x) {
+  if(x > 0) {1} else {0}
+}
+f(1:10 - 5)
+f <- Vectorize(f)
+f(1:10 - 5)
+
+
+f <- function(x) {
+  f <- function(x) {
+    if(x > 0) {1} else {0}
+  }
+  f <- Vectorize(f)
+  f(x)
+}
+f(1:10 - 5)
+
+f <- Vectorize(function(x) {
+  if(x > 0) {1} else {0}
+})
+f(1:10 - 5)
+f(-4)
+
+
+
+## soft_clip_lower_exp()
+
+f <- Vectorize(soft_clip_lower_exp)
+b <- 0.01
+x <- 1:1000 / 10000
+mode = 1
+f(x, b, softness = 0.1, k = 10, c_max = 100, lambda = 0, mode = mode)
+plot(
+  x,
+  f(x, b, softness = 0.1, k = 10, c_max = 100, lambda = 0, mode = mode),
+  pch=16,
+  cex=0.3,
+  log = "xy",
+  xlab = "x",
+  ylab = "y",
+  ylim = c(0.008, 0.06)
+)
+ll <-  c(0.25, 0.5, 0.75, 1)
+colors <- c("orange", "green", "blue", "gray")
+for(i in 1:4) {
+  points(
+    x,
+    f(x, b, softness = 0.1, k = 10, c_max = 100, lambda = ll[i], mode = mode),
+    pch=16,
+    cex=0.3,
+    col=colors[i]
+  )
+}
+lines(x, x, col = "red")
+
+
+
+## soft_clip_lower_quad
+
+f <- Vectorize(soft_clip_lower_quad)
+b <- 0.01
+x <- 1:1000 / 10000
+plot(
+  x,
+  f(x, b, softness = 0),
+  pch=16,
+  cex=0.3,
+  log = "xy",
+  xlab = "x",
+  ylab = "y",
+  ylim = c(0.008, 0.02)
+)
+softness <- 1:4/100
+colors <- c("orange", "green", "blue", "gray")
+for(i in 1:4) {
+  points(
+    x,
+    f(x, b, softness = softness[i]),
+    pch=16,
+    cex=0.3,
+    col=colors[i]
+  )
+}
+lines(x, x, col = "red")
+
+
+
+## soft_clip_upper_exp()
+
+
+f <- Vectorize(soft_clip_upper_exp)
+b <- 0.05
+x <- 1:400 / 1000
+plot(
+  x,
+  f(x, b, softness = 0, lambda = 1),
+  pch=16,
+  cex=0.3,
+  #log = "xy",
+  xlab = "x",
+  ylab = "y",
+  ylim = c(0.01, 0.06)
+)
+softness <-  1:10
+colors <- c("magenta","orange", "green", "blue", "gray", "magenta", "orange", "green", "blue", "gray")
+for(i in 1:10) {
+  points(
+    x,
+    f(x, b, softness = softness[i], lambda = 1),
+    pch=16,
+    cex=0.3,
+    col=colors[i]
+  )
+}
+lines(x, x, col = "red")
+
+
+f <- Vectorize(soft_clip_upper_exp)
+b <- 0.05
+x <- 400:600 / 10000
+plot(
+  x,
+  f(x, b, softness = 0, lambda = 1),
+  pch=16,
+  cex=0.3,
+  #log = "xy",
+  xlab = "x",
+  ylab = "y",
+  ylim = c(0.04, 0.06)
+)
+softness <-  1:10
+colors <- c("magenta","orange", "green", "blue", "gray", "magenta", "orange", "green", "blue", "gray")
+for(i in 1:10) {
+  points(
+    x,
+    f(x, b, softness = softness[i], lambda = 1),
+    pch=16,
+    cex=0.3,
+    col=colors[i]
+  )
+}
+lines(x, x, col = "red")
+
+
+f <- Vectorize(soft_clip_upper_exp)
+b <- 4
+x <- 1:2000 / 100
+plot(
+  x,
+  f(x, b, softness = 0, lambda = 1),
+  pch=16,
+  cex=0.3,
+  #log = "xy",
+  xlab = "x",
+  ylab = "y",
+  ylim = c(0.01, 5)
+)
+softness <-  1:10
+colors <- c("magenta","orange", "green", "blue", "gray", "magenta", "orange", "green", "blue", "gray")
+for(i in 1:10) {
+  points(
+    x,
+    f(x, b, softness = softness[i], lambda = 1,),
+    pch=16,
+    cex=0.3,
+    col=colors[i]
+  )
+}
+lines(x, x, col = "red")
+
+
+## soft_clip_upper_quad
+
+f <- Vectorize(soft_clip_upper_quad)
+b <- 0.05
+x <- 400:600 / 10000
+plot(
+  x,
+  f(x, b, softness = 0),
+  pch=16,
+  cex=0.3,
+  log = "xy",
+  xlab = "x",
+  ylab = "y",
+  ylim = c(0.04, 0.06)
+)
+softness <- 1:4/100
+colors <- c("orange", "green", "blue", "gray")
+for(i in 1:4) {
+  points(
+    x,
+    f(x, b, softness = softness[i]),
+    pch=16,
+    cex=0.3,
+    col=colors[i]
+  )
+}
+lines(x, x, col = "red")
+
+
+
+## lin to log scale ====
+
+x <- lin_to_log(1:10, 1, 10,1, 10)
+x
+log_to_lin(x, 1, 10,1, 10)
+
+
+
+
+
+## uniroot() ----
+
+b <- 0.1
+k <- 6
+e <- exp(1)
+tau <- function(c) {
+  c * b * log(b) * (e - k) - 1
+}
+uniroot(tau, interval = c(1e-8, 10))
+
+
+
+
+## Dot dot dot ... ----
+
+ff <- function(a) {a^2}
+gg <- function(b, ...) {
+  a = 1
+  ff(a = a) * b
+}
+gg(b = 4, a = 40)
+
+
+
+## Portfolio multiplier
+ff <- function(a, b) {b * a^2}
+gg <- function(a, b) {a * 2^b}
+pf_muls <- list(
+  list(
+    "multiplier-name-1",
+    ff,
+    "a",
+    "b"
+  ),
+  list(
+    "multiplier-name-2",
+    gg,
+    "a",
+    "b"
+  )
+)
+
+parsed_pf_muls <- parse_portfolio_multipliers_list(pf_muls)
+

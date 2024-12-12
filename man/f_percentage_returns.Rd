@@ -4,9 +4,11 @@
 \alias{f_percentage_returns}
 \title{Calculate Percentage Returns}
 \usage{
-f_percentage_returns(prices, t)
+f_percentage_returns(t, prices)
 }
 \arguments{
+\item{t}{Time index.}
+
 \item{prices}{A price vector containing at least the two prices we need for
 calculating returns. Oldest first. Top to bottom: Older to newer. The last
 observation is time t.}
@@ -15,5 +17,8 @@ observation is time t.}
 Percentage as decimal fraction
 }
 \description{
-Calculate percentage returns.
+Calculate percentage returns (aka net returns).
+}
+\details{
+\deqn{R_t = \frac{P_t - P_{t-1}}{P_{t-1}}}
 }

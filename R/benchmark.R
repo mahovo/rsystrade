@@ -125,7 +125,7 @@ run_benchmark <- function(
 }
 
 ## Force plot legends to present methods in order of time
-order_graphs <- function(df) {
+order_graphs <- function(df, method) {
   dplyr::mutate(df, method = forcats::fct_reorder(method, .x = dplyr::desc(time)))
 }
 
@@ -141,26 +141,27 @@ plot_bm <- function(df, nrow_or_ncol = "nrow", mean_or_median = mean) {
   # Instead of doing this, we use "@importFrom purr" in `R/pkg-package.R`.
   #`%>%` <- purrr::`%>%` ## Import the pipe operator
 
-  log10_labels <- scales::trans_format("log10", scales::math_format(10^.x))
+  #log10_labels <- scales::trans_format("log10", scales::math_format(10^.x))
+  log10_labels <- scales::trans_format("log10", scales::label_math(expr = 10^.x, format = force))
 
   ggplot2::ggplot(
     df %>% dplyr::filter(time > 0),
     aes_string(x = nrow_or_ncol, y = "time", colour = "method")
   ) +
-    geom_point() +
-    stat_summary(aes(group = method), fun = mean_or_median, geom = "line") +
-    scale_y_log10(
-      breaks = log10_breaks, labels = log10_labels, minor_breaks = log10_mbreaks
-    ) +
-    scale_x_log10(
-      breaks = log10_breaks, labels = log10_labels, minor_breaks = log10_mbreaks
-    ) +
-    labs(
-      x = paste0("Number of ", if (nrow_or_ncol == "nrow") "rows" else "columns"),
-      y = "Time (s)"
-    ) +
-    theme_bw() +
-    theme(aspect.ratio = 1, legend.justification = "top")
+  geom_point() +
+  stat_summary(aes(group = method), fun = mean_or_median, geom = "line") +
+  scale_y_log10(
+    breaks = log10_breaks, labels = log10_labels, minor_breaks = log10_mbreaks
+  ) +
+  scale_x_log10(
+    breaks = log10_breaks, labels = log10_labels, minor_breaks = log10_mbreaks
+  ) +
+  labs(
+    x = paste0("Number of ", if (nrow_or_ncol == "nrow") "rows" else "columns"),
+    y = "Time (s)"
+  ) +
+  theme_bw() +
+  theme(aspect.ratio = 1, legend.justification = "top")
 }
 
 

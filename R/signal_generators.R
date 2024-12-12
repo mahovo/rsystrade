@@ -1,4 +1,35 @@
 
+
+#' Moving Average Crossover Stop Loss
+#'
+#' @param t Time index after the latest price in the windows. (Note that
+#'   the latest price is the same for both fast and slow window.)
+#' @param price A vector of prices in currency. Oldest first. Top to bottom:
+#'   Older to newer. The last observation is time t.
+#' @param signal_table Signal table
+#' @param position_table Position table
+#' @param config Config list
+#' @param ma_fast A number. Fast _moving average_. Vector or single numeric.
+#' @param ma_slow A number. Slow _moving average_. Vector or single numeric.
+#' @param n_fast A positive integer. It is the responsibility of the user to
+#'   check that the input value makes sense.
+#' @param n_slow A positive integer. It is the responsibility of the user to
+#'   check that the input value makes sense.
+#' @param gap A positive integer. Gap size in same unit as the parameters above
+#'   (typically days).
+#' @param strict Boolean. If `strict=TRUE`, `n_slow` must be smaller than the
+#'   number of prices in the `prices` vector, and `n_slow` must be greater than
+#'   `n_fast`.
+#' @param binary If `TRUE`: Binary mode. If `FALSE`: Proportional signal.
+#'   In binary mode returns
+#'   * 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
+#'   * -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
+#'   * 0 when abs(ma_fast - ma_slow) < gap.
+#'
+#' @return
+#' @export
+#'
+#' @examples
 s_mac_stoploss <- function(
     t = t,
     price = price,
@@ -28,7 +59,7 @@ s_mac_stoploss <- function(
     )
 
     stop_loss_signal <- r_stop_loss(
-      prices,
+      price,
       t = NA,
       position_table$instrument_risk[t - 1],
       config$stop_loss_fraction,

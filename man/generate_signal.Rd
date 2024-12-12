@@ -7,16 +7,9 @@
 generate_signal(variable_param_vals, algo)
 }
 \arguments{
-\item{algo}{Single algo from the expanded algos list.}
+\item{variable_param_vals}{List. The first param must be t.}
 
-\item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
-Older to newer. The last observation is time t.}
-
-\item{signal_table}{Signal table. Last row is time t-1.}
-
-\item{position_table}{Position table. Last row is time t-1.}
-
-\item{t}{}
+\item{algo}{Single parsed algo from the algos list.}
 }
 \value{
 Single signal value

@@ -4,14 +4,14 @@
 \alias{update_time}
 \title{Update time}
 \usage{
-update_time(inst_data, algo, t)
+update_time(t, inst_data, algo)
 }
 \arguments{
+\item{t}{Time index.}
+
 \item{inst_data}{List of unique data frames.}
 
 \item{algo}{Algo list for a single expanded algo.}
-
-\item{t}{Time index.}
 }
 \description{
 Get latest time from data frame in \code{algo} list.

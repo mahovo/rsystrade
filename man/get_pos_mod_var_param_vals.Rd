@@ -2,7 +2,7 @@
 % Please edit documentation in R/sys_frwk.R
 \name{get_pos_mod_var_param_vals}
 \alias{get_pos_mod_var_param_vals}
-\title{Get Position Modification Variable Parameter Values}
+\title{Get Position Modifier Variable Parameter Values}
 \usage{
 get_pos_mod_var_param_vals(
   t,
@@ -24,8 +24,8 @@ get_pos_mod_var_param_vals(
 \item{pos_table_vars}{Variables passed from update_position_table_row()}
 }
 \value{
-Named list
+Named list of param values
 }
 \description{
-Get Position Modification Variable Parameter Values
+Get Position Modifier Variable Parameter Values
 }

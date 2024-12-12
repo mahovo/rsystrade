@@ -4,14 +4,14 @@
 \alias{update_price}
 \title{Update Price}
 \usage{
-update_price(inst_data, algo, t)
+update_price(t, inst_data, algo)
 }
 \arguments{
+\item{t}{Time index.}
+
 \item{inst_data}{List of unique data frames.}
 
 \item{algo}{Algo list for a single expanded algo.}
-
-\item{t}{Time index.}
 }
 \value{
 Single price

@@ -7,11 +7,11 @@
 f_min_capital(min_exposure, inst_risk, instrument_risk_target)
 }
 \arguments{
-\item{min_exposure}{Minimum exposure.}
+\item{min_exposure}{Minimum exposure}
 
-\item{inst_risk}{Instrument risk.}
+\item{inst_risk}{Instrument risk}
 
-\item{instrument_risk_target}{Instrument risk target.}
+\item{instrument_risk_target}{Instrument risk target}
 }
 \description{
 Calculate minimum capital required to trade the system.

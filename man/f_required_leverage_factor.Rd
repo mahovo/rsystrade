@@ -25,5 +25,5 @@ percentages.
 
 Note, the annual instrument volatility target can be calculated from a
 system volatility target by dividing this by the Instrument Diversification
-Diversifier.
+Multiplier.
 }

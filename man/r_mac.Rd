@@ -11,12 +11,17 @@ r_mac(
   ma_slow = NA,
   n_fast = 20L,
   n_slow = 80L,
+  ma_method = "simple",
   gap = 0,
   strict = TRUE,
-  binary = FALSE
+  binary = FALSE,
+  mode = 1
 )
 }
 \arguments{
+\item{t}{Time index after the latest price in the windows. (Note that
+the latest price is the same for both fast and slow window.)}
+
 \item{price}{A vector of prices in currency. Oldest first. Top to bottom:
 Older to newer. The last observation is time t.}
 
@@ -30,11 +35,21 @@ check that the input value makes sense.}
 \item{n_slow}{A positive integer. It is the responsibility of the user to
 check that the input value makes sense.}
 
+\item{ma_method}{Method for calculating moving average. Gigen as character
+string. @seealso \code{\link[=f_average]{f_average()}}
+\itemize{
+\item \code{"simple"} Simple average.
+\item \code{"ewa"} Exponentially weighted average. Additional parameters
+\itemize{
+\item \code{lambda} and \code{lookback}. @seealso \code{\link[=f_ewa]{f_ewa()}}.
+}
+}}
+
 \item{gap}{A positive integer. Gap size in same unit as the parameters above
 (typically days).}
 
 \item{strict}{Boolean. If \code{strict=TRUE}, \code{n_slow} must be smaller than the
-number of prices in the \code{price} vector, and \code{n_slow} must be greater than
+number of prices in the \code{prices} vector, and \code{n_slow} must be greater than
 \code{n_fast}.}
 
 \item{binary}{If \code{TRUE}: Binary mode. If \code{FALSE}: Proportional signal.
@@ -43,9 +58,15 @@ In binary mode returns
 \item 1 when ma_fast > ma_slow, and abs(ma_fast - ma_slow) > gap.
 \item -1 when ma_fast < ma_slow, and abs(ma_fast - ma_slow) > gap.
 \item 0 when abs(ma_fast - ma_slow) < gap.
-}
+}}
 
-1 indicates uptrend i.e. go long. -1 indicates downtrend i.e. go short.}
+\item{mode}{Rolling mode
+\itemize{
+\item \code{1} Time index range of window is \eqn{[t - window_length + 1, t]}.
+\item \code{2} Time index range of window is \eqn{[t - window_length, t - 1]}.
+}}
+
+\item{...}{1 indicates uptrend i.e. go long. -1 indicates downtrend i.e. go short.}
 }
 \value{
 A named list containing:
@@ -73,4 +94,7 @@ but can be vectors.
 On a side note, \code{r_mac()} doesn't check that \code{ma_fast} and \code{ma_slow}
 inputs are in fact calculated as a moving averages. Any number or vector
 will work.
+}
+\seealso{
+\code{\link[=rolling_window]{rolling_window()}} and \code{\link[=rolling_window_step]{rolling_window_step()}}.
 }

@@ -1,11 +1,11 @@
-test_that("make_position_modifiers_list works", {
+test_that("parse_position_modifiers_list works", {
   f1 <- function(x1, y1) {x1^2 + y1}
   f2 <- function(x2, y2) {x2^3 + y2}
   inst_names <- c("inst1", "inst2")
 
   ## Input list
 
-  ## make_position_modifiers_list() is supposed to ignore "inst3", because we only
+  ## parse_position_modifiers_list() is supposed to ignore "inst3", because we only
   ## have two instruments inour inst_names list
   position_modifiers <- list(
     list(
@@ -46,7 +46,7 @@ test_that("make_position_modifiers_list works", {
   # )
 
 
-  my_test_pos_mod_list <- make_position_modifiers_list(
+  my_test_pos_mod_list <- parse_position_modifiers_list(
     position_modifiers = position_modifiers,
     inst_names = inst_names
   )

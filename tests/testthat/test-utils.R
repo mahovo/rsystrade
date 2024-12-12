@@ -1,3 +1,34 @@
+
+test_that("rolling_window() works", {
+  my_test_window_simple <- rolling_window(
+    x = 1:10,
+    first_t = 6,
+    last_t = NA,
+    window_length = 5L,
+    func = f_average,
+    method = "simple"
+  )
+  my_test_window_ewa <- round(
+    rolling_window(
+      x = 1:10,
+      first_t = 6,
+      last_t = NA,
+      window_length = 5L,
+      func = f_average,
+      method = "ewa"
+    )
+  )
+  my_test_window <- c(my_test_window_simple, my_test_window_ewa)
+  my_expected_window_simple <- c(rep(NA, 5), 4:8)
+  my_expected_window_ewa <- c(rep(NA, 5), 5:9)
+  my_expected_window <- c(my_expected_window_simple, my_expected_window_ewa)
+
+  expect_equal(
+    my_test_window,
+    my_expected_window
+  )
+})
+
 test_that("clamp_signal() works", {
   expect_equal(
     clamp_signal(

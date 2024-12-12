@@ -556,7 +556,7 @@ get_rule_variation_names_by_parsed_algo <- function(parsed_algos) {
     #   parsed_algos[[i]]$rule,
     #   function(x) {x}
     # )
-    rule_variation_names[[i]] <- parsed_algos[[i]]$rule
+    rule_variation_names[[i]] <- parsed_algos[[i]]$rule$rule_variation
   }
   rule_variation_names
 }
@@ -704,7 +704,9 @@ get_signal_normalization_factors_by_algos <- function(
   for(i in seq_along(parsed_algos)) {
     sig_norm_fact_by_algos[[i]] <- signal_normalization_factors[rule_names_by_parsed_algo[[i]]][[1]]
   }
-  rlang::flatten(sig_norm_fact_by_algos)
+  #rlang::flatten(sig_norm_fact_by_algos)
+  purrr::list_flatten(sig_norm_fact_by_algos)
 }
+
 
 

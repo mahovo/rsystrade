@@ -11,28 +11,29 @@ systematic trading strategies.
 
 ## Warning and disclaimer
 
-This software is in early development and is highly experimental!
+This software is in early development and is highly experimental!  
+Anything may change at any time without any warning!
 
+- This software is intended as a personal learning project only.  
 - Do not expect this software to run properly.
-- This software is not safe for live trading.
+- This software is not safe for trading or as a guide in any kind of
+  investment decision.
 - This software comes with no guarantees or warranties.  
 - This software is for expert use only.  
+- The documentation for this project is incomplete and may
+  unintentionally be faulty or misleading.  
 - No support is provided.  
-- This software was written as a personal learning project.  
 - If you trade, invest and/or speculate you may lose a lot of money even
   if you know what you are doing, and much more so if you don’t know
   what you are doing. You may very well lose all or more than you have.
 
-It takes considerable effort to do live trading with rsystrade. If you
-do so, it is clear that you did it with intent and against good
-judgement.
-
-The advice above is the only advice I will offer on rsystrade.
+I offer no advice on investing. Howefter I am happy to discuss the
+rsystrade project. Comments and questions are welcome via GitHub.
 
 ## About this version
 
 - This version should install from GitGub.
-- Only `sim` mode is supported.
+- Only `sim` mode is currently being developed. No live trading yet.  
 - Produces all the expected tables with rudimentary functionality.
 - All tables are built row by row each time the system is run. I am
   sticking with this structure for now, as I constantly want to check
