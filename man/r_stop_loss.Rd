@@ -24,13 +24,13 @@ Older to newer.}
 
 \item{stop_loss_fraction}{Stop loss fraction.}
 
+\item{t_last_position_entry}{Time index of the time when current trade was entered.}
+
 \item{direction}{Was current trade long or short at time t-1? 1 for long, -1
 for short.}
 
 \item{rnd}{If TRUE, add small random amount to stop loss level. Negative if
 short.}
-
-\item{t_trade_entry}{Time index of the time when current trade was entered.}
 }
 \value{
 A named list containing:

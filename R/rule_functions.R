@@ -169,7 +169,7 @@ r_mac <- function(
 #'   Older to newer.
 #' @param instrument_risk Instrument risk at time t-1.
 #' @param stop_loss_fraction Stop loss fraction.
-#' @param t_trade_entry Time index of the time when current trade was entered.
+#' @param t_last_position_entry Time index of the time when current trade was entered.
 #' @param direction Was current trade long or short at time t-1? 1 for long, -1
 #'   for short.
 #' @param rnd If TRUE, add small random amount to stop loss level. Negative if

@@ -6,11 +6,7 @@
 \usage{
 apply_portfolio_multiplier(
   t,
-  prices,
-  modified_target_pos_ccy,
   portfolio_multiplier_value,
-  t_last_position_entry,
-  latest_trade_direction,
   position_tables,
   config
 )
@@ -18,22 +14,22 @@ apply_portfolio_multiplier(
 \arguments{
 \item{t}{Positive integer. Time index.}
 
+\item{portfolio_multiplier_value}{Portfolio multiplier value.}
+
+\item{position_tables}{Position tables}
+
+\item{config}{Config list}
+
 \item{prices}{A vector of prices in currency. Oldest first. Top to bottom:
 Older to newer. The last observation is time t.}
 
 \item{modified_target_pos_ccy}{A number. Modified target position in currency
 amount.}
 
-\item{portfolio_multiplier_value}{Portfolio multiplier value.}
-
 \item{t_last_position_entry}{Positive integer. Time index of last previous
 position entry.}
 
 \item{latest_trade_direction}{-1, 0 or 1. Latest trade direction.}
-
-\item{position_tables}{Position tables}
-
-\item{config}{Config list}
 }
 \value{
 List of updated position tables

@@ -7,11 +7,11 @@
 finalize_positions(
   t,
   prices,
-  final_target_pos_ccy,
-  t_last_position_entry,
+  target_pos_ccy,
   latest_trade_direction,
   position_table,
-  config
+  config,
+  prefix = ""
 )
 }
 \arguments{
@@ -19,16 +19,16 @@ finalize_positions(
 
 \item{prices}{Price vector.}
 
-\item{final_target_pos_ccy}{Final target position size in currency of
+\item{target_pos_ccy}{Final target position size in currency of
 account.}
-
-\item{t_last_position_entry}{Time index of last position entry.}
 
 \item{latest_trade_direction}{Latest trade direction.}
 
 \item{position_table}{Position table.}
 
 \item{config}{Config list.}
+
+\item{t_last_position_entry}{Time index of last position entry.}
 }
 \value{
 List of final column entries for row \code{t}

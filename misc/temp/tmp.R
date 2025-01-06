@@ -3755,3 +3755,11 @@ pf_muls <- list(
 
 parsed_pf_muls <- parse_portfolio_multipliers_list(pf_muls)
 
+## Backfill columns ----
+
+n_rows <- 10
+tmp_df <- data.frame(a = 1:10, b = (1:10)*2)
+tmp_cols <- c("c", "d", "e", "f")
+tmp_df[1:n_rows, tmp_cols] <- rep(NA, n_rows)
+tmp_df
+

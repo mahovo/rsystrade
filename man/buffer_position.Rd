@@ -4,13 +4,7 @@
 \alias{buffer_position}
 \title{Buffer Position Modifier}
 \usage{
-buffer_position(
-  t,
-  position_size_ccy,
-  rel_buffer_size,
-  t_last_position_entry,
-  position_table
-)
+buffer_position(t, position_size_ccy, rel_buffer_size, position_table)
 }
 \arguments{
 \item{t}{Time index.}
@@ -19,9 +13,9 @@ buffer_position(
 
 \item{rel_buffer_size}{Relative buffer size.}
 
-\item{t_last_position_entry}{Time index of last position entry.}
-
 \item{position_table}{Position table.}
+
+\item{t_last_position_entry}{Time index of last position entry.}
 }
 \description{
 Buffer Position Modifier

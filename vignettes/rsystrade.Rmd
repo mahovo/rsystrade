@@ -471,7 +471,7 @@ A signal is an output number from a trade rule. The signal indicates whether we 
 
 * `r_` is the prefix for *rule* function names.  
 * `s_` is the prefix for *signal generator* function names.  
-* `p_` is the prefix for  *position modifier* function names.  
+* `p_` is the prefix for *position modifier* function names.  
 * `m_` is the prefix for *position multiplier* function names.  
 * `o_` is the prefix for  *portfolio multiplier* function names.  
 

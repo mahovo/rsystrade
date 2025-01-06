@@ -416,3 +416,33 @@ test_that("get_portfolio_mul_var_param_vals() work", {
     my_expected_portfolio_mul_var_param_vals
   )
 })
+
+
+test_that("finalize_positions() works", {
+  test_position_table <- readRDS(test_path("fixtures", "my_expected_system.rds"))$position_tables[[1]]
+
+  my_test_final_positions <- finalize_positions(
+    t = 50,
+    prices = test_position_table$price,
+    final_target_pos_ccy = test_position_table$final_target_pos_ccy[50],
+    t_last_position_entry = test_position_table$t_last_position_entry[50],
+    latest_trade_direction = test_position_table$direction[49],
+    test_position_table,
+    config = list(rel_buffer_size = 0.1),
+    prefix = "test_"
+  )
+
+  # saveRDS(
+  #   my_test_final_positions,
+  #   file=test_path("fixtures/", "my_expected_final_positions.RData")
+  # )
+
+  my_expected_final_positions <- readRDS(test_path("fixtures", "my_expected_final_positions.RData"))
+
+
+  ## Test ----
+  expect_equal(
+    my_test_final_positions,
+    my_expected_final_positions
+  )
+})

@@ -4,13 +4,13 @@
 \alias{backfill_table}
 \title{Backfill Table With NAs}
 \usage{
-backfill_table(table, new_row)
+backfill_table(table, new_row, value = NA)
 }
 \arguments{
 \item{new_row}{New row containing elements beyond the columns in the signal
 table}
 
-\item{signal_table}{Signal table}
+\item{value}{Value to fill with. Default is NA.}
 }
 \value{
 A named list

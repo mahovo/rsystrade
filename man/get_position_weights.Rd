@@ -4,7 +4,7 @@
 \alias{get_position_weights}
 \title{Get Position Weights}
 \usage{
-get_position_weights(t, position_tables, capital)
+get_position_weights(t, position_tables, capital, prefix = "pre_")
 }
 \arguments{
 \item{t}{Time index.}

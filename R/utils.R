@@ -1,3 +1,17 @@
+#' Evaluate Function From String
+#'
+#' @description
+#' Evaluate a function given a function name as a character string.
+#'
+#' @param function_name Function name as a character string.
+#'
+#' @return Function
+#' @export
+#'
+#' @examples
+eval_function_from_string <- function(function_name) {
+  eval(parse(text = function_name))
+}
 
 #' Apply Function To A Rolling Window
 #'

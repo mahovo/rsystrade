@@ -9,7 +9,7 @@
 #' @param price (Variable param) A vector of prices in currency. Oldest first. Top to bottom:
 #'   Older to newer.
 #' @param instrument_risk (Variable param) Instrument risk at time t-1.
-#' @param t_trade_entry (Variable param) Time index of the time when current trade was entered.
+#' @param t_last_position_entry (Variable param) Time index of the time when current trade was entered.
 #' @param direction (Variable param) Was current trade long or short at time t-1? 1 for long, -1
 #'   for short.
 #' @param stop_loss_fraction (Fixed param) Stop loss fraction.

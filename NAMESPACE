@@ -2,6 +2,7 @@
 
 export("%>%")
 export(apply_portfolio_multiplier)
+export(backfill_columns)
 export(backfill_table)
 export(benchmark)
 export(buffer_position)

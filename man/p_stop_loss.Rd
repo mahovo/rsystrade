@@ -25,6 +25,8 @@ Older to newer.}
 
 \item{instrument_risk}{(Variable param) Instrument risk at time t-1.}
 
+\item{t_last_position_entry}{(Variable param) Time index of the time when current trade was entered.}
+
 \item{direction}{(Variable param) Was current trade long or short at time t-1? 1 for long, -1
 for short.}
 
@@ -32,8 +34,6 @@ for short.}
 
 \item{rnd}{(Fixed param) If TRUE, add small random amount to stop loss level. Negative if
 short.}
-
-\item{t_trade_entry}{(Variable param) Time index of the time when current trade was entered.}
 }
 \value{
 A named list containing:
