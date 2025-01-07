@@ -302,6 +302,7 @@ make_system <- function(
     # fix§0023
     # Calculate total `account_pandl` and save in `system_account_table`.
     # §§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§
+    time = position_tables[[1]]$time,
     total_positions_value = numeric(min_periods),
     total_returns = numeric(min_periods),
     account_pandl = numeric(min_periods),
@@ -1208,6 +1209,7 @@ update_system_account_table_row <- function(
   capital <- f_capital(system_account_table, account_pandl, t)
 
   list(
+    time = position_tables[[1]]$time[t],
     total_positions_value = total_positions_value,
     total_returns = total_returns,
     account_pandl = account_pandl,
