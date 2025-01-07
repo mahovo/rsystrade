@@ -226,14 +226,14 @@ make_system <- function(
         0,
         f_percentage_returns(
           2:min_periods,
-          signal_tables[[i]]$price[2:min_periods]
+          signal_tables[[i]]$price[1:min_periods]
         )
       ),
       instrument_return = c(
         0,
         f_price_returns(
           2:min_periods,
-          signal_tables[[i]]$price[2:min_periods]
+          signal_tables[[i]]$price[1:min_periods]
         )
       ),
       instrument_risk = rep(NA, min_periods),
@@ -650,9 +650,10 @@ update_system <- function(
       config = trade_system$config
     )
 
-    if(length(new_position_row) == ncol(position_tables[[i]])) {
-      position_tables[[i]][t, ] <- new_position_row
-    } else {
+    if(length(new_position_row) <= ncol(position_tables[[i]])) {
+      ## Fill in new row, except output from portfolio multiplier
+      position_tables[[i]][t, names(new_position_row)] <- new_position_row
+    } else if(length(new_position_row) > ncol(position_tables[[i]])) {
       position_tables[[i]] <- backfill_table(
         table = position_tables[[i]],
         new_row = new_position_row
@@ -942,6 +943,7 @@ update_position_table_row <- function(
   pre_columns <- finalize_positions(
     t = t,
     price = prices[t],
+    instrument_return = instrument_return,
     target_pos_ccy = target_pos_ccy,
     #t_last_position_entry = t_last_position_entry,
     latest_trade_direction = latest_trade_direction,
@@ -974,6 +976,7 @@ update_position_table_row <- function(
   post_columns <- finalize_positions(
     t = t,
     price = prices[t],
+    instrument_return = instrument_return,
     target_pos_ccy = position_modifier_output[[1]],
     #t_last_position_entry = t_last_position_entry,
     latest_trade_direction = latest_trade_direction,
@@ -2567,6 +2570,7 @@ multiply_position <- function(
 finalize_positions <- function(
     t,
     price,
+    instrument_return,
     target_pos_ccy,
     #t_last_position_entry,
     latest_trade_direction,
@@ -2709,8 +2713,7 @@ finalize_positions <- function(
 
 
   # subsystem_pandl <- f_subsystem_pandl(position_table, position_table[[i]]$instrument_return[t], t)
-  subsystem_pandl <- f_subsystem_pandl(position_table, position_table$instrument_return[t], t)
-
+  subsystem_pandl <- f_subsystem_pandl(position_table, instrument_return, t)
 
 
   columns <- list(
@@ -2989,6 +2992,7 @@ apply_portfolio_multiplier <- function(
       #...
       t = t,
       price = position_tables[[i]]$price[t],
+      instrument_return = position_tables[[i]]$instrument_return[t],
       target_pos_ccy = modified_target_pos_ccy,
       #t_last_position_entry = t_last_position_entry,
       latest_trade_direction = position_tables[[i]]$latest_trade_direction[t],
