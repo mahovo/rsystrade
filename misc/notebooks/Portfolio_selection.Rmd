@@ -1,0 +1,866 @@
+---
+title: "Portfolio selection"
+author: Martin Hoshi Vognsen
+header-includes:
+   - \usepackage[default]{sourcesanspro}
+   - \usepackage[T1]{fontenc}
+   - \usepackage[fontsize=8pt]{scrextend}
+mainfont: SourceSansPro
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    keep_md: yes
+  # pdf_document:
+  #   toc: true
+  #   toc_depth: 3
+#fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
+date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
+---
+
+```{r chunk1, setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(reticulate) 
+#py_install("tslearn")
+```
+
+## Getting data
+
+Here are a few examples of how to get some free data.  
+For the present analysis we will download a data set from Kaggle, but first a few other examples...
+
+### Yahoo Finance
+
+Use screener to find tickers:  
+https://finance.yahoo.com/research-hub/screener/ 
+
+#### quantmod
+
+```{r chunk2, results='hide', message=FALSE}
+library(tidyverse)
+library(quantmod)
+library(ggplot2)
+```
+ 
+Simplest call. "AAPL" object will be created
+
+```{r chunk3, eval=FALSE}
+getSymbols("AAPL")
+AAPL %>% head
+```
+
+```{r chunk4, eval=FALSE}
+getSymbols(c("AAPL", "IBM"))
+IBM %>% head
+AAPL %>% head
+```
+
+Example without auto assign
+```{r chunk5, eval=FALSE}
+d <- getSymbols("AAPL", auto.assign = F)
+d %>% head
+```
+ 
+Specifying from/to dates
+```{r chunk6, eval=FALSE} 
+d <- getSymbols("AAPL", auto.assign = F, from = "2020-01-01", to = "2020-06-01")
+d %>% head 
+```
+ 
+Specifying return class
+```{r chunk7, eval=FALSE}
+d <- getSymbols("AAPL", auto.assign = F, from = "2020-01-01", to = "2020-06-01", return.class='data.frame')
+d %>% head  
+```
+
+#### yahoofinancer
+
+```{r chunk8, eval=FALSE, message=FALSE}
+library(yahoofinancer)
+```
+
+https://yahoofinancer.rsquaredacademy.com/ 
+
+https://cloud.r-project.org/web/packages/yahoofinancer/yahoofinancer.pdf
+
+```{r chunk9, eval=FALSE}
+aapl <- Ticker$new('aapl')
+```
+
+```{r chunk10, eval=FALSE}
+names(aapl)
+```
+
+
+```{r chunk11, eval=FALSE}
+aapl$regular_market_price
+```
+
+```{r chunk12, eval=FALSE}
+names(aapl$technical_insights)
+```
+
+
+
+```{r chunk13, eval=FALSE}
+aapl$fifty_two_week_high
+```
+
+```{r chunk14, eval=FALSE}
+aapl$previous_close
+```
+
+
+```{r chunk15, eval=FALSE}
+nifty_50 <- Index$new('^NSEI')
+head(nifty_50$get_history(start = '2024-01-20', interval = '1d'))
+```
+
+```{r chunk16, eval=FALSE}
+head(currency_converter('GBP', 'USD', '2024-01-20', '2024-01-30'))
+```
+
+```{r chunk17, eval=FALSE}
+head(aapl$get_history(start = '2024-10-20', interval = '1d'))
+```
+
+```{r chunk18, eval=FALSE}
+get_trending(country = "US", count = 10)
+```
+
+
+```{r chunk19, eval=FALSE}
+wheat <- Ticker$new('CWDH25.CBT')
+wheat$fifty_two_week_high
+```
+
+
+
+### Alpha Vantage
+
+See Alpha Vantage SPI documentation:  
+https://www.alphavantage.co/documentation/
+
+NOTE  
+25 requests per day limit  
+https://www.alphavantage.co/premium/
+
+#### Without `alphavantager`:
+
+```{r chunk20, eval=FALSE, message=FALSE}
+library(tidyverse)
+library(jsonlite)
+library(httr)
+ 
+symbol = "AMZN"
+av_key = ""
+ 
+url <- str_c("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=", symbol ,"&apikey=", av_key, "&datatype=csv")
+ 
+d <- read_csv(url)
+ 
+d %>% head
+```
+
+#### With `alphavantager` package
+
+SETUP API KEY
+```{r chunk21, eval=FALSE}
+av_api_key(av_key)
+```
+
+
+TIME SERIES INTRADAY
+```{r chunk22, eval=FALSE}
+av_get("MSFT", av_fun = "TIME_SERIES_INTRADAY", interval = "5min", outputsize = "full")
+```
+
+Get market cap of Amazon
+```{r chunk23, eval=FALSE}
+d <- av_get(symbol = "AMZN", av_fun = "OVERVIEW")
+d$value[which(d$rank_group == "MarketCapitalization")]
+```
+
+## Top market cap tickers
+
+Got 480 top market cap tickers from  
+https://www.marketwatch.com/tools/screener/stock?exchange=all&skip=0&orderbyfield=Symbol&direction=asc&visiblecolumns=Symbol&marketcapmin=25000.0&marketcapmax=10000000.0
+
+NOTE  
+Cap data is available from  
+- https://www.nasdaq.com/market-activity/stocks/screener?page=1&rows_per_page=25  
+	- See here: `/Users/mhvpbp13/Library/Mobile Documents/com~apple~CloudDocs/Data research/_data/ticker symbols`
+
+Then manually copy-pasted tickers into csv. (Could not figure out how to scrape.)
+
+```{r chunk24}
+top_mcap_tickers <- as.vector(read.csv("/Users/mhvpbp13/Library/Mobile\ Documents/com~apple~CloudDocs/Data\ research/aktieanalyser/top_marketcap.csv"))[[1]]
+```
+
+```{r chunk25}
+top_mcap_tickers
+```
+
+
+Many data sets are not available, because the data only runs until 2018.
+
+```{r chunk26, warning=FALSE, results='hide'}
+top_mcap_data <- lapply(top_mcap_tickers, function(ticker) {
+  try(
+    df <- read.csv(
+      paste0(
+        "/Users/mhvpbp13/Library/Mobile\ Documents/com~apple~CloudDocs/Data\ research/_data/kaggle/full_history/", ticker, ".csv"
+      )
+    )
+  )
+})
+
+names(top_mcap_data) <- top_mcap_tickers
+```
+
+
+How many data sets succeded?
+
+```{r chunk27}
+test_ticker_data <- as.vector(t(as.data.frame(lapply(top_mcap_data, function(x) {
+    is.data.frame(x) && nrow(x) != 0
+  }))))
+sum(test_ticker_data)
+```
+
+Make list of only successful tickers
+```{r chunk28}
+top_mcap_data_valid <- top_mcap_data[which(test_ticker_data)]
+```
+
+
+Make a list of price series for all valid tickers (close prices).  
+Data sets are in order newest at the top, so read in reverse order.  
+```{r chunk29}
+top_mcap_prices_list <- lapply(top_mcap_data_valid, function(data) {
+    zoo::read.zoo(data.frame(
+      date = rev(data$date),
+      price = rev(data$close)
+    ))
+  }
+)
+```
+
+Combine the data frames of prices.  
+Merging will put the each price in the the correct (time) row, because we
+converted each data frame to a zoo object above.
+```{r chunk30}
+top_mcap_prices_df <- do.call(merge, top_mcap_prices_list)
+```
+
+Make a list of log-returs for all valid tickers (close prices)
+```{r chunk31}
+log_returns_from_prices <- function(prices) {
+  N <- length(prices)
+  log(utils::tail(prices, N - 1) / utils::head(prices, N - 1))
+}
+
+top_mcap_returns_list <- lapply(top_mcap_data_valid, function(data) {
+    zoo::read.zoo(data.frame(
+      date = rev(data$date)[-1],
+      logreturn = log_returns_from_prices(rev(data$close))
+    ))
+  }
+)
+```
+
+
+Combine the data frames of logreturns.  
+Merging will put the each logreturn in the the correct (time) row, because we
+converted each data frame to a zoo object above.
+```{r chunk32}
+top_mcap_returns_df <- do.call(merge, top_mcap_returns_list)
+```
+
+
+We want all series to start at the first date of the shortest series.  
+Which elements in each series are not NA? Pick the first.
+```{r chunk33}
+first_dates <- lapply(top_mcap_returns_df, function(x) {which(!is.na(x))[1]})
+```
+
+Which of all the _first dates_ is the latest one?
+```{r chunk34}
+first_date <- first_dates[which(first_dates == max(unlist(first_dates)))]
+first_date
+```
+
+Let's start the data there...
+```{r chunk35}
+top_mcap_returns_df_short <- top_mcap_returns_df[unlist(first_date):(nrow(top_mcap_returns_df))]
+```
+
+Only two rows!  
+Let's omit LIN...
+```{r chunk36}
+first_dates <- lapply(top_mcap_returns_df[, -which(names(top_mcap_returns_df) == "LIN")], function(x) {which(!is.na(x))[1]})
+```
+
+Which of all the _first dates_ is NOW the latest one?
+```{r chunk37}
+first_date <- first_dates[which(first_dates == max(unlist(first_dates)))]
+first_date
+```
+
+Let's omit PDD as well...
+Repeating this process some times gives us...
+```{r chunk38}
+omitted <- c(
+  which(names(top_mcap_returns_df) == "LIN"),
+  which(names(top_mcap_returns_df) == "PDD"),
+  which(names(top_mcap_returns_df) == "KDP"),
+  which(names(top_mcap_returns_df) == "SPOT"),
+  which(names(top_mcap_returns_df) == "ZS"),
+  which(names(top_mcap_returns_df) == "EQNR"),
+  which(names(top_mcap_returns_df) == "MUFG"),
+  which(names(top_mcap_returns_df) == "SE"),
+  which(names(top_mcap_returns_df) == "VICI"),
+  which(names(top_mcap_returns_df) == "ARGX"),
+  which(names(top_mcap_returns_df) == "CVNA"),
+  which(names(top_mcap_returns_df) == "TTD"),
+  which(names(top_mcap_returns_df) == "FTV"),
+  which(names(top_mcap_returns_df) == "TEAM"),
+  which(names(top_mcap_returns_df) == "RACE"),
+  which(names(top_mcap_returns_df) == "HPE"),
+  which(names(top_mcap_returns_df) == "KHC"),
+  which(names(top_mcap_returns_df) == "PYPL"),
+  which(names(top_mcap_returns_df) == "AXON"),
+  which(names(top_mcap_returns_df) == "SHOP"),
+  which(names(top_mcap_returns_df) == "GDDY"),
+  which(names(top_mcap_returns_df) == "QSR"),
+  which(names(top_mcap_returns_df) == "KEYS"),
+  which(names(top_mcap_returns_df) == "HUBS"),
+  which(names(top_mcap_returns_df) == "BABA"),
+  which(names(top_mcap_returns_df) == "SYF"),
+  which(names(top_mcap_returns_df) == "FWONK"),
+  which(names(top_mcap_returns_df) == "ANET"),
+  which(names(top_mcap_returns_df) == "JD"),
+  which(names(top_mcap_returns_df) == "ARES"),
+  which(names(top_mcap_returns_df) == "HLT"),
+  which(names(top_mcap_returns_df) == "VEEV"),
+  which(names(top_mcap_returns_df) == "FI"),
+  which(names(top_mcap_returns_df) == "CDW"),
+  which(names(top_mcap_returns_df) == "IQV"),
+  which(names(top_mcap_returns_df) == "ZTS"),
+  which(names(top_mcap_returns_df) == "FWONA"),
+  which(names(top_mcap_returns_df) == "ABBV"),
+  which(names(top_mcap_returns_df) == "MPLX"),
+  which(names(top_mcap_returns_df) == "FANG"),
+  which(names(top_mcap_returns_df) == "WDAY"),
+  which(names(top_mcap_returns_df) == "PANW"),
+  which(names(top_mcap_returns_df) == "NOW"),
+  which(names(top_mcap_returns_df) == "PSX"),
+  which(names(top_mcap_returns_df) == "XYL"),
+  which(names(top_mcap_returns_df) == "MPC"),
+  which(names(top_mcap_returns_df) == "APO"),
+  which(names(top_mcap_returns_df) == "HCA"),
+  which(names(top_mcap_returns_df) == "KMI"),
+  which(names(top_mcap_returns_df) == "TRGP"),
+  which(names(top_mcap_returns_df) == "GM"),
+  which(names(top_mcap_returns_df) == "LPLA"),
+  which(names(top_mcap_returns_df) == "COR"),
+  which(names(top_mcap_returns_df) == "NXPI"),
+  which(names(top_mcap_returns_df) == "KKR"),
+  which(names(top_mcap_returns_df) == "ET"),
+  which(names(top_mcap_returns_df) == "UBS"),
+  which(names(top_mcap_returns_df) == "VST")
+  
+)
+        
+first_dates <- lapply(top_mcap_returns_df[ , -omitted], function(x) {which(!is.na(x))[1]})
+
+first_date <- first_dates[which(first_dates == max(unlist(first_dates)))]
+first_date
+```
+
+Also removing UBS and VST, which look weird.
+
+Ok, this gives us a bit more than 8 years of data...
+```{r chunk39}
+top_mcap_returns_df_short <- top_mcap_returns_df[unlist(first_date):(nrow(top_mcap_returns_df)), -omitted]
+top_mcap_prices_df_short <- top_mcap_prices_df[(unlist(first_date) - 1):(nrow(top_mcap_prices_df)), -omitted]
+
+cat(paste0("Number of rows: ", nrow(top_mcap_returns_df_short), "\n"))
+cat(paste0("Number of assets: ", ncol(top_mcap_returns_df_short)))
+```
+
+How many NAs?
+```{r chunk40}
+sum(is.na(top_mcap_returns_df_short))
+```
+
+Ok then.
+
+Interpolate NAs with zoo...  
+```{r chunk41}
+# replace trailing NA with previous value
+replace_trailing_NAs <- function(x) {
+  for(i in seq_along(x)) {
+    if(is.na(x[i])) {x[i] <- x[i - 1]}
+  }
+  x
+}
+
+top_mcap_returns_df_short_filled <- top_mcap_returns_df_short
+
+for(i in 1:ncol(top_mcap_returns_df_short)) {
+  col <- top_mcap_returns_df_short[, i]
+  if(sum(is.na(col)) > 0) {
+    top_mcap_returns_df_short_filled[, i] <- zoo::na.approx(col, na.rm = FALSE)
+    
+    # cat(sum(is.na(col)), "\n")
+    # cat(sum(is.na(top_mcap_returns_df_short_filled[, i])), "\n")
+
+    if(sum(is.na(col)) == sum(is.na(top_mcap_returns_df_short_filled[, i]))) {
+      # We should have removed all leading NAs, so any remaining NAs must be trailing...
+      top_mcap_returns_df_short_filled[, i] <- replace_trailing_NAs(top_mcap_returns_df_short_filled[, i])
+    }
+  }
+}
+```
+
+```{r chunk42}
+sum(is.na(top_mcap_returns_df_short_filled))
+```
+
+
+
+
+
+## Clusters vs sectors
+
+Now, let's try k-Sharp...
+
+
+See 
+
++ https://www.rdocumentation.org/packages/dtwclust/versions/3.1.1/topics/dtwclust  
++ https://journal.r-project.org/archive/2019/RJ-2019-023/RJ-2019-023.pdf  
+
+
+This can not be installed... (Fails to compile dependencies)  
+Maybe try Linux box...?  
+```{r chunk43, eval=FALSE, message=FALSE}
+#library(dtwclust)
+```
+
+
+```{r chunk44, eval=FALSE}
+# tsclust(top_mcap_returns_df[ ,-1], k = 4L, seed = 8L,
+# distance = "sbd", centroid = "shape")
+```
+
+
+
+#### Sectors
+
+We would like to get the sector for each ticker symbol.
+
+We could try getting the data with `alphavantager` package...
+
+SETUP API KEY
+```{r  chunk46, eval=FALSE}
+av_api_key(av_key)
+```
+
+
+TIME SERIES INTRADAY
+```{r  chunk47, eval=FALSE}
+av_get("MSFT", av_fun = "TIME_SERIES_INTRADAY", interval = "5min", outputsize = "full")
+```
+
+Get market cap of Amazon
+```{r  chunk48, eval=FALSE}
+d <- av_get(symbol = "AMZN", av_fun = "OVERVIEW")
+d$value[which(d$rank_group == "MarketCapitalization")]
+```
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
+OBS!  
+Alpha Vantage had max 25 requests per day.  
+Cluster 1 has 45 symbols - so 45 requests!!  
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
+
+```{r chunk49}
+range_of_symbols_to_get <- 1:2
+```
+
+```{r chunk50, eval=FALSE}
+symbols_1 <- names(top_mcap_prices_df_short)[which(py$mcap_clusters == 0)]
+overviews <- lapply(symbols_1[range_of_symbols_to_get], function(x) {av_get(symbol = x, av_fun = "OVERVIEW")})
+sectors <- lapply(overviews, function(x) {x$value[which(x$rank_group == "Sector")]})
+```
+
+
+Instead we can download the data for free as csv here:
+
+https://www.nasdaq.com/market-activity/stocks/screener?page=1&rows_per_page=25 
+
+```{r chunk51}
+nasdaq_table <- read.csv("/Users/mhvpbp13/Library/Mobile\ Documents/com~apple~CloudDocs/Data\ research/_data/ticker\ symbols/nasdaq_tickers.csv")
+nyse_table <- read.csv("/Users/mhvpbp13/Library/Mobile\ Documents/com~apple~CloudDocs/Data\ research/_data/ticker\ symbols/nyse_tickers.csv")
+#ticker_table <- rbind(nasdaq_table[, c("Symbol", "Sector")], nyse_table[, c("Symbol", "Sector")])
+ticker_table <- rbind(nasdaq_table, nyse_table)
+```
+
+
+
+### Python in R with Reticulate
+
+See https://rstudio.github.io/cheatsheets/html/reticulate.html
+
+
+```{r}
+num_clusters <- 10L
+```
+
+
+Note that runtime for k-Shape is linear in $n$, the number of time series, and linear in $k$, the number of clusters, but increases as $m^3$ for $m$ elements in each data set. The algorithm gets slow for $m > n$, 
+
+```{python chunk54, warning=FALSE}
+import tslearn.clustering as clust
+```
+
+For some reason it seems we have to transpose...
+```{r chunk55}
+top_mcap_returns_df_short_filled_matrix <- as.matrix(t(top_mcap_returns_df_short_filled))
+```
+
+
+Generate k-Shape clusters
+```{python chunk56}
+mcap_clusters_model = clust.KShape(n_clusters=r.num_clusters, max_iter=100, n_init=1, random_state=0)
+
+mcap_clusters = mcap_clusters_model.fit_predict(r.top_mcap_returns_df_short_filled_matrix)
+```
+```{r chunk52, results='asis'}
+## Cluster numbers start with 0.
+## For presentation starting with 1 may make more sense.
+## So if the input cluster is 0, the printed cluster number will be 1
+group_by_sectors <- function(cluster_num, verbose = FALSE) {
+  symbols <- names(top_mcap_prices_df_short)[which(py$mcap_clusters == cluster_num)]
+  sectors <- ticker_table[which(ticker_table$Symbol %in% symbols), ]
+  sectors_list <- lapply(unique(sectors$Sector), function(x) {
+      list(sectors$Symbol[which(sectors$Sector == x)])
+    }
+  )
+  names(sectors_list) <- unique(sectors$Sector)
+  
+  cat("\n")
+  cat("====== Cluster ", cluster_num + 1, " ======\n")
+  
+  if(verbose == TRUE) {
+    for(i in seq_along(sectors_list)) {
+      cat("\n")
+      cat(names(sectors_list[i]), ":\n")
+      cat("\n")
+      cat(unlist(sectors_list[i]), "\n")
+      cat("\n")
+    }
+  }
+  
+  sectors_list
+}
+```
+
+
+```{r chunk53, results='asis'}
+for(i in 0:(num_clusters - 1)) {
+  sector_lists <- group_by_sectors(cluster_num = i, verbose = TRUE)
+}
+```
+
+
+```{python chunk57}
+centroids = mcap_clusters_model.cluster_centers_
+centroids.shape
+```
+
+
+```{r chunk58}
+dim(py$centroids)
+```
+
+```{r chunk59}
+centroids <- as.data.frame(t(py$centroids[,,1]))
+```
+
+
+It seems the Python function KShape doesn't provide the label of the centroids,
+so we find the centroid ticker symbols by minimizing sum of square differences
+between centroids (scaled by KShape) and return vectors for each cluster.
+```{r chunk61}
+find_centroid_ticker <- function(centroiddf) {
+  
+  centroid_symbols <- list()
+
+  for(i in seq_along(centroiddf)) {
+    
+    id <- which(py$mcap_clusters == i - 1)
+    cluster_symbols <-  names(top_mcap_returns_df_short)[id]
+    cluster_returns <- scale(top_mcap_returns_df_short[, id])
+    
+    sum_sq_diffs <- numeric(ncol(cluster_returns))
+    for(j in 1:ncol(cluster_returns)) {
+      sq_diffs <- unlist((cluster_returns[, j] - centroiddf[, i])^2)
+      sum_sq_diffs[[j]] <- sum(sq_diffs)
+    }
+
+    id <- which(sum_sq_diffs == min(sum_sq_diffs))
+    centroid_symbols[i] <- if(length(cluster_symbols[id]) > 0) {
+      cluster_symbols[id]} else {NA}
+  }
+ centroid_symbols
+}
+
+get_table_by_tickers <- function(tickers, tickertable) {
+  tickertable1 <- tickertable[tickertable$Symbol %in% tickers, ]
+  tickertable1[!is.na(tickertable1$Symbol), ]
+}
+```
+
+
+Note: Why is one of them NA?
+```{r chunk62}
+centroid_symbols <- unlist(find_centroid_ticker(centroids))
+centroid_symbols
+```
+
+
+```{r chunk63}
+centroid_table <- get_table_by_tickers(centroid_symbols[!is.na(centroid_symbols)], ticker_table)
+knitr::kable(centroid_table, digits = 3)
+#centroid_table
+```
+
+
+
+
+```{r chunk64, results='hide', message=FALSE}
+library(corrplot)
+```
+
+
+```{r chunk65}
+centroid_correlations <- cor(centroids)
+corrplot(centroid_correlations, method = "circle", tl.cex = 0.3)
+```
+
+```{r chunk66}
+range(centroid_correlations[centroid_correlations != 1])
+```
+
+
+
+```{r chunk67}
+centroid_symbols_ids <- which(names(top_mcap_prices_df_short) %in% centroid_symbols)
+ggplot(
+  aes(x = Index, y = Value, colour = Series), 
+  data = fortify(scale(top_mcap_prices_df_short[, centroid_symbols_ids]), melt = TRUE)) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Scaled centroid prices", x ="Time", y = "Price") +
+    theme(legend.position="none")
+```
+
+Plot weighted portfolio average of centroid stocks.  
+```{r chunk68}
+sds <- lapply(top_mcap_prices_df_short[, centroid_symbols_ids], function(x) {sd(x, na.rm = TRUE)})
+weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+
+centroid_pf_prices <- as.matrix(top_mcap_prices_df_short[, centroid_symbols_ids]) %*% unname(unlist(weights))
+
+
+centroid_portfolio <- data.frame(
+  date = index(top_mcap_prices_df_short),
+  price = centroid_pf_prices
+)
+  
+  
+ggplot(aes(x = date, y = price), data = centroid_portfolio) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Avg. of centroid prices", x ="Time", y = "Price") +
+    theme(legend.position="none")
+```
+
+## Cluster plots
+
+```{r chunk45}
+logreturn_sd <- unlist(lapply(top_mcap_returns_df_short_filled, sd))
+logreturn_mean <- unlist(lapply(top_mcap_returns_df_short_filled, mean))
+```
+
+```{r chunk69}
+topcapplotter <- function(cluster_num) {
+  id <- which(py$mcap_clusters == cluster_num)
+  max_sd <- max(logreturn_sd[id])
+  
+  tickers <- names(top_mcap_prices_df_short)[id]
+  ticker_table <- get_table_by_tickers(tickers[!is.na(tickers)], ticker_table)
+  
+  if(length(id) > 0) {
+    
+    if(length(id) > 1) {
+      correlations <- stats::cor(top_mcap_returns_df_short[, id])
+      correlations_plot <- function() {corrplot(correlations, method = "circle", tl.cex = 0.3)}
+    } else {
+      correlations <- 1
+      correlations_plot <- function() {NA}
+    }
+    
+    price_plot <- ggplot(
+        aes(x = Index, y = Value, colour = Series), 
+        data = fortify(top_mcap_prices_df_short[, id], melt = TRUE)) +
+      geom_line(linewidth = 0.2) +
+      labs(title = paste0("Cluster ", cluster_num + 1), x ="Time", y = "Price") +
+      theme(legend.position="none")
+  
+    index_plot <- ggplot(
+         aes(x = Index, y = Value, colour = Series),
+         data = fortify(100 * exp(cumsum(top_mcap_returns_df_short[, id])), melt = TRUE)) +
+       geom_line(linewidth = 0.2) +
+       labs(title = paste0("Cluster ", cluster_num + 1, " - indexed prices"), x ="Time", y = "Price index") +
+       theme(legend.position="none")
+  
+    norm_ret_plot <- ggplot(
+        aes(x = Index, y = Value, colour = Series),
+        data = fortify(100 * exp(cumsum(scale(top_mcap_returns_df_short[, id]) * max_sd)), melt = TRUE)) +
+      geom_line(linewidth = 0.2) +
+      labs(title = paste0("Cluster ", cluster_num + 1, " - indexed prices from z-normalized logreturns"), x ="Time", y = "Price index") +
+      theme(legend.position="none")
+  
+    norm_plot <- ggplot(
+        aes(x = Index, y = Value, colour = Series),
+        data = fortify(scale(100 * exp(cumsum(top_mcap_returns_df_short[, id]))), melt = TRUE)) +
+      geom_line(linewidth = 0.2) +
+      labs(title = paste0("Cluster ", cluster_num + 1, " - normalized indexed prices"), x ="Time", y = "Price index") +
+      theme(legend.position="none")
+  } else {
+    tickers = NA
+    id = NA
+    price_plot = NA
+    index_plot = NA
+    norm_ret_plot = NA
+    norm_plot = NA
+    correlations = NA
+    correlations_plot = function() {NA}
+    ticker_table = NA
+  }
+
+  list(
+    tickers = tickers,
+    id = id,
+    price_plot = price_plot,
+    index_plot = index_plot,
+    norm_ret_plot = norm_ret_plot,
+    norm_plot = norm_plot,
+    correlations = correlations,
+    correlations_plot = correlations_plot,
+    ticker_table = ticker_table
+  )
+}
+```
+
+
+
+
+```{r chunk69b, results='asis', eval=FALSE, include=FALSE, message=FALSE}
+# Doesn't work, don't know why: Some chunks in the child doc work, but not all.  
+# It works if I move the chunks from the child doc to the parent doc.  
+library(here)
+individual_cluster_plots <- lapply(
+  1:num_clusters,
+  function(i) {
+    knitr::knit_child(
+      here("misc", "notebooks", "Getting-data_clusterplots.Rmd"),
+      envir = environment(), 
+      quiet = TRUE
+    )
+  }
+)
+
+cat(unlist(individual_cluster_plots), sep = '\n')
+```
+
+```{r chunk70}
+plots <- lapply(0:(num_clusters - 1), function(i) {topcapplotter(i)})
+```
+
+```{r chunk70a, eval=FALSE}
+plots[[i]]$correlations_plot()
+```
+
+```{r chunk71, eval=FALSE}
+cat("\n")
+cat("Range of correlations: ", range(plots[[i]]$correlations[plots[[i]]$correlations != 1]), "\n")
+cat("\n")
+```
+
+
+```{r chunk72, eval=FALSE}
+cat(plots[[i]]$tickers)
+```
+
+```{r chunk73, eval=FALSE}
+print(knitr::kable(plots[[i]]$ticker_table, digits = 3))
+# plots$ticker_table
+```
+
+
+```{r chunk74, eval=FALSE}
+print(plots[[i]]$price_plot)
+```
+
+```{r chunk75, eval=FALSE}
+print(plots[[i]]$index_plot)
+```
+
+```{r chunk76, eval=FALSE}
+print(plots[[i]]$norm_ret_plot)
+```
+
+```{r chunk77, eval=FALSE}
+print(plots[[i]]$norm_plot)
+```
+
+
+```{r results='asis'}
+
+for(i in 1:num_clusters) {
+  cat("\n")
+  cat("### Cluster ", i, "\n")
+  cat("\n")
+  if(length(plots[[i]]$tickers) > 0) {
+
+    <<chunk70a>>
+    cat("\n")
+    <<chunk71>>
+    cat("\n")
+    <<chunk73>>
+    cat("\n")
+    <<chunk74>>
+    cat("\n")
+    <<chunk75>>
+    cat("\n")
+    <<chunk76>>
+    cat("\n")
+    <<chunk77>>
+    cat("\n")
+    
+  } else {
+    cat("\n")
+    cat("Cluster ", i, " is empty.")
+    cat("\n")
+  }
+}
+
+```
+
+
+
+
