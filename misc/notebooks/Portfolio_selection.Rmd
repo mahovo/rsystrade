@@ -673,9 +673,12 @@ ggplot(
 ```
 
 Plot weighted portfolio average of centroid stocks.  
+
 ```{r chunk68}
 sds <- lapply(top_mcap_prices_df_short[, centroid_symbols_ids], function(x) {sd(x, na.rm = TRUE)})
-weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+#weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+weights <- unlist(lapply(sds, function(x) {1/x}))
+weights <- weights / sum(weights)
 
 centroid_pf_prices <- as.matrix(top_mcap_prices_df_short[, centroid_symbols_ids]) %*% unname(unlist(weights))
 
@@ -688,7 +691,7 @@ centroid_portfolio <- data.frame(
   
 ggplot(aes(x = date, y = price), data = centroid_portfolio) + 
     geom_line(linewidth = 0.2) + 
-    labs(title = "Avg. of centroid prices", x ="Time", y = "Price") +
+    labs(title = "Weighted avg. of centroid prices", x ="Time", y = "Price") +
     theme(legend.position="none")
 ```
 
@@ -1336,14 +1339,16 @@ ggplot(
 
 5) Normalize the weighted portfolio to the desired volatility target. 
 
-
+TODO: Implement safe guards for risk weighting.
 ```{r}
 sds <- lapply(top_mcap_prices_df_short[, selected_symbols_ids], function(x) {sd(x, na.rm = TRUE)})
-risk_normalized_weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+#risk_normalized_weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+risk_adjusted_weights <- unlist(lapply(sds, function(x) {1/x}))
+risk_normalized_weights <- risk_adjusted_weights/sum(risk_adjusted_weights)
 
-selected_pf_prices <- as.matrix(top_mcap_prices_df_short[, selected_symbols_ids]) %*% unname(unlist(risk_normalized_weights))
+selected_pf_prices <- as.matrix(top_mcap_prices_df_short[, selected_symbols_ids]) %*% unname(risk_normalized_weights)
 
-unlist(risk_normalized_weights)
+risk_normalized_weights
 ```
 
 Plot weighted portfolio average of selected stocks.  
@@ -1359,8 +1364,6 @@ ggplot(aes(x = date, y = price), data = selected_portfolio) +
     labs(title = "Avg. of selected portfolio", x ="Time", y = "Price") +
     theme(legend.position="none")
 ```
-
-
 
 
 
