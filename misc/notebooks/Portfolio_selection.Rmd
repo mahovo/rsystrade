@@ -1293,6 +1293,8 @@ for(i in 1:num_stocks) {
 coord_for_each_selected_stock
 ```
 
+
+
 4) Weight each stock $S_i$ by the ratio given by the stock's contribution to the corresponding $PC_i$ (given as absolute coordinate) divided by the product of stock $S_i$'s contribution to $PC_1$ and the eigenvalue of $PC_i$, then normalized to sum to 1. (I.e. ignoring the stock's contribution to others PC's.)
   - The idea is balance the amount of variance contributed by each $PC_i|_{i>1}$ (each PC represented by one stock), and then adjust for each stock's contribution to the market risk represented by $PC_1$.
   
@@ -1312,10 +1314,55 @@ names(weights) <- selected_symbols
 weights
 ```
 
-5) Normalize the weighted portfolio to the desired volatility target. 
 ```{r}
-
+selected_symbols_ids <- which(names(top_mcap_prices_df_short) %in% selected_symbols)
+ggplot(
+  aes(x = Index, y = Value, colour = Series), 
+  data = fortify(top_mcap_prices_df_short[, selected_symbols_ids], melt = TRUE)) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Prices of selected stocks, yr 1+2", x ="Time", y = "Price") +
+    theme(legend.position="none")
 ```
+
+```{r}
+selected_symbols_ids <- which(names(top_mcap_prices_df_short) %in% selected_symbols)
+ggplot(
+  aes(x = Index, y = Value, colour = Series), 
+  data = fortify(scale(top_mcap_prices_df_short[, selected_symbols_ids]), melt = TRUE)) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Scaled prices of selected stocks, yr 1+2", x ="Time", y = "Price") +
+    theme(legend.position="none")
+```
+
+5) Normalize the weighted portfolio to the desired volatility target. 
+
+
+```{r}
+sds <- lapply(top_mcap_prices_df_short[, selected_symbols_ids], function(x) {sd(x, na.rm = TRUE)})
+risk_normalized_weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+
+selected_pf_prices <- as.matrix(top_mcap_prices_df_short[, selected_symbols_ids]) %*% unname(unlist(risk_normalized_weights))
+
+unlist(risk_normalized_weights)
+```
+
+Plot weighted portfolio average of selected stocks.  
+```{r}
+selected_portfolio <- data.frame(
+  date = index(top_mcap_prices_df_short),
+  price = selected_pf_prices
+)
+  
+  
+ggplot(aes(x = date, y = price), data = selected_portfolio) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Avg. of selected portfolio", x ="Time", y = "Price") +
+    theme(legend.position="none")
+```
+
+
+
+
 
 
 
