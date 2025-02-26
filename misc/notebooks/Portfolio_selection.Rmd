@@ -270,12 +270,16 @@ top_mcap_returns_list <- lapply(top_mcap_data_valid, function(data) {
 ```
 
 
-Combine the data frames of logreturns.  
+Combine the data frames (actually zoo matrices) of logreturns.  
 Merging will put the each logreturn in the the correct (time) row, because we
 converted each data frame to a zoo object above.
 ```{r chunk32}
 top_mcap_returns_df <- do.call(merge, top_mcap_returns_list)
 ```
+
+NOTE  
+To turn a zoo matrix into a data frame with a "data" column, we could extract the matrix containing core data of the zoo object with `coredata()` and the time vector with `index()`.
+
 
 
 We want all series to start at the first date of the shortest series.  
@@ -861,6 +865,457 @@ for(i in 1:num_clusters) {
 
 ```
 
+
+## PCA
+
+References:  
+- https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/#eigenvalues-variances
+- https://ir.canterbury.ac.nz/server/api/core/bitstreams/a7b99f2d-5d9b-4212-a947-31c1d162d1c4/co
+
+### Window length
+
+Use KMO (Kaiser-Meyer-Olkin) statistic to test optimal window length.  
+KMO is the ratio of correlations between stocks and those of the partial correlations.
+
+```{r}
+library(EFAtools) ## For KMO
+```
+
+2 is the smallest whole number of years that doesn't produce a singular correlation matrix.
+```{r}
+num_years <- 2
+cor_matrix <- cor(top_mcap_returns_df_short[1:round(252 * num_years), ])
+```
+
+Find near perfect correlations, which make correlation matrix singular.
+```{r}
+perfect_correlations <- list()
+for(i in 1:ncol(cor_matrix)) {
+  perfect_correlations[[i]] <- which(cor_matrix[, i] > 0.99) != i
+}
+which(unlist(perfect_correlations))
+```
+
+
+Remove highly correlated stocks.  
+
+```{r}
+## TODO: Only remove one of each correlated pair.  
+#symbols_to_remove <- names(unlist(perfect_correlations)[which(unlist(perfect_correlations))]) 
+
+## Remove manually
+symbols_to_remove <- "GOOG" 
+
+cor_matrix_nonsingular <- cor_matrix[
+  -which(rownames(cor_matrix) %in% (symbols_to_remove)), 
+  -which(colnames(cor_matrix) %in% (symbols_to_remove))
+]
+```
+
+
+
+Calculate KMO for different window lengths
+```{r}
+KMO(cor_matrix)
+```
+
+### Perform PCA
+```{r}
+pca_output <- prcomp(top_mcap_returns_df_short[1:504, ])
+```
+
+```{r}
+summary(pca_output)
+```
+
+```{r}
+library(FactoMineR)
+```
+
+
+
+Calculating PCA with z-normalization (centering and scaling).
+```{r}
+pca_output <- PCA(top_mcap_returns_df_short[1:504, ], scale.unit = TRUE, ncp = 10, graph = TRUE, axes = c(1,2))
+```
+```{r}
+print(pca_output)
+```
+
+"cos2" is the quality of representation for variables on the factor map.  
+"contrib" or "ctr" is the contributions of the variables.
+
+```{r}
+summary(pca_output)
+```
+
+
+
+### Scree plot
+
+```{r}
+library(factoextra)
+```
+
+The first PC captures half the total variation. The first PC is considered to capture systematic variation (market variation).  
+
+The the first 10 PCs catches 60 percent of the total variation, and only 10 percent of the non-systematic variance, if the first PC represents the market variation.  
+
+To capture 90 percent of the variation we would need 125 PCs.  
+
+So the diversification provided by the first 10 PCs is not great.  
+
+Following Kaiser's rule we would have to keep no more than 48 PCs (eigenvalue > 1).
+
+```{r}
+head(get_eigenvalue(pca_output), 125)
+```
+
+
+```{r}
+fviz_eig(pca_output, addlabels = TRUE)
+```
+
+### Variables (individual stocks)
+
+```{r}
+library("corrplot")
+```
+
+
+
+
+```{r}
+variables <- get_pca_var(pca_output)
+```
+
+
+Plot contribution of representation of the variables on factor map.  
+Plotting the top 20 highest contributors to PC1.  
+
+```{r}
+top_pca_contrib_var <- head(variables$contrib[order(variables$contrib[, 1], decreasing=TRUE), ], 20)
+# top_pca_variables <- lapply(variables, function(x) {
+#   x[1:20, ]
+# })
+corrplot(top_pca_contrib_var, is.corr=FALSE)
+```
+
+Which stock contributes most to each of the first 10 PCs?
+```{r}
+top_contributing_stocks <- list()
+for(i in 1:ncol(variables$contrib)) {
+  top_contributing_stock_id <- which(variables$contrib[ ,i] == max(variables$contrib[,i]))
+  top_contributing_stocks[[i]] <- variables$contrib[top_contributing_stock_id, i]
+  names(top_contributing_stocks[[i]]) <- rownames(variables$contrib)[top_contributing_stock_id]
+}
+```
+
+```{r}
+head(top_contributing_stocks, 10)
+```
+
+
+
+Plot quality of representation of the variables on factor map.  
+Plotting the top 20 highest contributors to PC1 and omitting PC1 in the plot, which otherwise dominates the plot.  
+```{r}
+top_pca_cor2_var <- head(variables$cos2[order(variables$contrib[, 1], decreasing=TRUE), ], 20)
+# top_pca_variables <- lapply(variables, function(x) {
+#   x[1:20, ]
+# })
+corrplot(top_pca_cor2_var[, -1], is.corr=FALSE)
+```
+
+Total cos2 of variables on dim. 1:
+```{r}
+fviz_cos2(pca_output, choice = "var", axes = 1) +
+  theme(axis.text.x = element_blank())
+```
+
+Total contrib of variables on dim. 1.  
+Red dashed is average.
+```{r}
+fviz_contrib(pca_output, choice = "var", axes = 1) +
+  theme(axis.text.x = element_blank())
+```
+
+
+Total cos2 of variables on dim. 2:
+```{r}
+fviz_cos2(pca_output, choice = "var", axes = 2) +
+  theme(axis.text.x = element_blank())
+```
+
+Total contrib of variables on dim. 2.  
+```{r}
+fviz_contrib(pca_output, choice = "var", axes = 2) +
+  theme(axis.text.x = element_blank())
+```
+
+
+Total cos2 of variables on dim. 3:
+```{r}
+fviz_cos2(pca_output, choice = "var", axes = 3) +
+  theme(axis.text.x = element_blank())
+```
+
+Total contrib of variables on dim. 3.  
+```{r}
+fviz_contrib(pca_output, choice = "var", axes = 3) +
+  theme(axis.text.x = element_blank())
+```
+
+
+Total cos2 of variables on dim 4 thru 10.
+```{r}
+fviz_cos2(pca_output, choice = "var", axes = 4:10) +
+  theme(axis.text.x = element_blank())
+```
+
+Total contrib of variables on dim. 4 thru 10.  
+```{r}
+fviz_contrib(pca_output, choice = "var", axes = 4:10) +
+  theme(axis.text.x = element_blank())
+```
+
+
+We see that a lot of variables (stocks) contribute to PC1, but only a few higher PC numbers.
+
+
+
+
+### Bi-plot
+
+Reference:  
+https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/#biplot 
+
+Arrow colors represent cluster numbers from k-Sharp clustering.
+
+Roughly speaking a bi-plot can be interpreted as follows:  
+
+- An individual that is on the same side of a given variable has a high value for this variable;  
+- An individual that is on the opposite side of a given variable has a low value for this variable.  
+
+
+
+Dim 1+2
+```{r}
+fviz_pca_biplot(
+    pca_output,
+    axes = c(1,2),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+
+```{r}
+fviz_pca_var(
+  pca_output, 
+  axes = c(1,2),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"  
+)
+```
+
+
+
+
+Dim 3+4
+```{r}
+fviz_pca_biplot(
+    pca_output,
+    axes = c(3,4),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+
+```{r}
+fviz_pca_var(
+  pca_output, 
+  axes = c(3,4),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"  
+)
+```
+
+
+Dim 5+6
+```{r}
+fviz_pca_biplot(
+    pca_output,
+    axes = c(5,6),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+```{r}
+fviz_pca_var(
+  pca_output, 
+  axes = c(5,6),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"   
+)
+```
+
+
+Dim 7+8
+```{r}
+fviz_pca_biplot(
+    pca_output,
+    axes = c(7,8),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+```{r}
+fviz_pca_var(
+  pca_output, 
+  axes = c(7,8),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"  
+)
+```
+
+
+Dim 9+10
+```{r}
+fviz_pca_biplot(
+    pca_output,
+    axes = c(9,10),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+
+```{r}
+fviz_pca_var(
+  pca_output, 
+  axes = c(9,10),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none" 
+)
+```
+
+## Strategy ideas
+
+### Idea 1
+
+Grouping by clusters as an alternative to grouping by sector or industry.  
+
+1) Group stocks into clusters using k-Sharp algorithm. Number of clusters is subject to budget constraints.  
+2) From each cluster, select the stock closest to the centroid.  
+3) Weight the stocks according to equal risk.  
+
+
+
+### Idea 2
+
+1) Each year, Apply PCA to the correlation matrix of a data set.  based on the previous two years of daily data.  
+2) Exclude $PC_1$, as all stocks will have some degree of correlation with market risk ($PC_1$).  
+3) Identify one stock for each used $PC_i$. Yang (see also Joliffe) offers this procedure:  
+  1. Associate one variable with the highest coefficient in absolute value with each of the last $m_1$ principal components that have eigenvalue less than a certain level $l$ which we call the deletion criteria, then delete those $m_1$ variables. For example, one can use Kaiser’s rule. Recall that in the case of a correlation matrix, a principal component with eigenvalues smaller than 1 contains less information than one of the original variables.  
+  2. A second PCA is performed on remaining variables. The same procedure was applied that associates one variable with each $m_2$ principal components that have an eigenvalue less than $l$, and delete those $m_2$ variables.  
+  3. The procedure is repeated until no further deletions are considered necessary based on a stopping criteria. One can decide to stop the selection procedure based on the eigenvalue of the last principal component. For example, the stopping criteria can be delete variables until the retaining variables all have eigenvalue not less than 0.7.  
+  - Alternative, simpler stock (variable) selection method (see Jolliffe, p 108):
+    - Associate one variable with each of the first $m$ PCs, namely the variable not already chosen, with the highest coefficient, in absolute value, in each successive PC. These $m$ variables are retained, and the remaining $m^* = p - m$ are deleted. (This method is said to produce more "best" choices and more "bad" choices, while fewer "moderate" choices.)
+4) Weight each stock $S_i$ by the ratio given by the stock's contribution to the corresponding $PC_i$ (given as contribution or coordinate) divided by the product of stock $S_i$'s contribution to $PC_1$ and the eigenvalue of $PC_i$, then normalized to sum to 1. (I.e. ignoring the stock's contribution to others PC's.)
+  - The idea is balance the amount of variance contributed by each $PC_i|_{i>1}$ (each PC represented by one stock), and then adjust for each stock's contribution to the market risk represented by $PC_1$.  
+5) Normalize the weighted portfolio to the desired volatility target.  
+
+
+#### Implementation of idea 2
+
+Assume that we are limited by budget constraints to 9 stocks. This implies including 10 PCs.
+
+1) Each year, perform PCA based on the previous two years of daily data.  
+```{r}
+num_years_offset <- 0
+pca_output <- PCA(top_mcap_returns_df_short[1:504 + (num_years_offset * 252), ], scale.unit = TRUE, ncp = 10, graph = TRUE, axes = c(1,2))
+```
+
+3) Identify one stock for each used $PC_i$. Yang (see also Joliffe) offers this procedure:  
+  1. For each $PC_j|_{1<j\leq m}$ select the variable (stock) with the highest absolute coordinate value:
+```{r}
+num_stocks <- ncol(pca_output$var$coord) - 1
+coord_for_each_selected_stock <- numeric(num_stocks)
+for(i in 1:num_stocks) {
+  max_coord_i <- max(abs(pca_output$var$coord[ ,i+1]))
+  coord_for_each_selected_stock[i] <- max_coord_i
+  names(coord_for_each_selected_stock)[i] <- row.names(pca_output$var$coord)[which(abs(pca_output$var$coord[ ,i+1]) == max_coord_i)][1] ## Select the first if multiple stocks have exactly same coordinates
+}
+coord_for_each_selected_stock
+```
+
+4) Weight each stock $S_i$ by the ratio given by the stock's contribution to the corresponding $PC_i$ (given as absolute coordinate) divided by the product of stock $S_i$'s contribution to $PC_1$ and the eigenvalue of $PC_i$, then normalized to sum to 1. (I.e. ignoring the stock's contribution to others PC's.)
+  - The idea is balance the amount of variance contributed by each $PC_i|_{i>1}$ (each PC represented by one stock), and then adjust for each stock's contribution to the market risk represented by $PC_1$.
+  
+```{r}
+weights <- numeric(length(coord_for_each_selected_stock))
+pc1_coords <- pca_output$var$coord[ ,1]
+selected_symbols <- names(coord_for_each_selected_stock)
+for(i in seq_along(coord_for_each_selected_stock)) {
+  stock_coord <- coord_for_each_selected_stock[i]
+  weight_in_pc1 <- pc1_coords[which(row.names(pca_output$var$coord) == selected_symbols[i])]
+  eigenvalue <- pca_output$eig[i + 1, 1]
+  weights[i] <- stock_coord / (weight_in_pc1 * eigenvalue)
+}
+weights <- weights / sum(weights)
+names(weights) <- selected_symbols
+
+weights
+```
+
+5) Normalize the weighted portfolio to the desired volatility target. 
+```{r}
+
+```
 
 
 
