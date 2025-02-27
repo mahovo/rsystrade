@@ -15,7 +15,7 @@ output:
   #   toc: true
   #   toc_depth: 3
 #fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
-date: "10:40 19 February 2025"
+date: "22:09 27 February 2025"
 ---
 
 
@@ -357,13 +357,17 @@ top_mcap_returns_list <- lapply(top_mcap_data_valid, function(data) {
 ```
 
 
-Combine the data frames of logreturns.  
+Combine the data frames (actually zoo matrices) of logreturns.  
 Merging will put the each logreturn in the the correct (time) row, because we
 converted each data frame to a zoo object above.
 
 ```r
 top_mcap_returns_df <- do.call(merge, top_mcap_returns_list)
 ```
+
+NOTE  
+To turn a zoo matrix into a data frame with a "data" column, we could extract the matrix containing core data of the zoo object with `coredata()` and the time vector with `index()`.
+
 
 
 We want all series to start at the first date of the shortest series.  
@@ -1103,9 +1107,12 @@ ggplot(
 
 Plot weighted portfolio average of centroid stocks.  
 
+
 ```r
 sds <- lapply(top_mcap_prices_df_short[, centroid_symbols_ids], function(x) {sd(x, na.rm = TRUE)})
-weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+#weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+weights <- unlist(lapply(sds, function(x) {1/x}))
+weights <- weights / sum(weights)
 
 centroid_pf_prices <- as.matrix(top_mcap_prices_df_short[, centroid_symbols_ids]) %*% unname(unlist(weights))
 
@@ -1118,7 +1125,7 @@ centroid_portfolio <- data.frame(
   
 ggplot(aes(x = date, y = price), data = centroid_portfolio) + 
     geom_line(linewidth = 0.2) + 
-    labs(title = "Avg. of centroid prices", x ="Time", y = "Price") +
+    labs(title = "Weighted avg. of centroid prices", x ="Time", y = "Price") +
     theme(legend.position="none")
 ```
 
@@ -1845,5 +1852,1622 @@ Range of correlations:  0.2207457 0.90548
 ![](Portfolio_selection_files/figure-html/unnamed-chunk-2-41.png)<!-- -->
 
 
+## PCA
 
+References:  
+
+- Rupert: Statistics and Data Analysis for Financial Engineering
+- https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/#eigenvalues-variances
+- https://ir.canterbury.ac.nz/server/api/core/bitstreams/a7b99f2d-5d9b-4212-a947-31c1d162d1c4/co
+
+### Window length
+
+Use KMO (Kaiser-Meyer-Olkin) statistic to test optimal window length.  
+KMO is the ratio of correlations between stocks and those of the partial correlations.
+
+
+```r
+library(EFAtools) ## For KMO
+```
+
+2 is the smallest whole number of years that doesn't produce a singular correlation matrix.
+
+```r
+num_years <- 2
+cor_matrix <- cor(top_mcap_returns_df_short[1:round(252 * num_years), ])
+```
+
+Find near perfect correlations, which make correlation matrix singular.
+
+```r
+perfect_correlations <- list()
+for(i in 1:ncol(cor_matrix)) {
+  perfect_correlations[[i]] <- which(cor_matrix[, i] > 0.99) != i
+}
+which(unlist(perfect_correlations))
+```
+
+```
+## GOOGL  GOOG 
+##   146   147
+```
+
+
+Remove highly correlated stocks.  
+
+
+```r
+## TODO: Only remove one of each correlated pair.  
+#symbols_to_remove <- names(unlist(perfect_correlations)[which(unlist(perfect_correlations))]) 
+
+## Remove manually
+symbols_to_remove <- "GOOG" 
+
+cor_matrix_nonsingular <- cor_matrix[
+  -which(rownames(cor_matrix) %in% (symbols_to_remove)), 
+  -which(colnames(cor_matrix) %in% (symbols_to_remove))
+]
+```
+
+
+
+Calculate KMO for different window lengths
+
+```r
+KMO(cor_matrix)
+```
+
+```
+## 
+## ── Kaiser-Meyer-Olkin criterion (KMO) ──────────────────────────────────────────
+## 
+## ✔ The overall KMO value for your data is marvellous.
+##   These data are probably suitable for factor analysis.
+## 
+##   Overall: 0.972
+## 
+##   For each variable:
+##  AAPL  ABEV   ABT  ACGL   ACN  ADBE   ADI   ADP  ADSK   AEE   AEM   AEP   AFL 
+## 0.966 0.959 0.959 0.980 0.968 0.970 0.976 0.982 0.971 0.969 0.824 0.965 0.986 
+##   AIG   AJG   ALL  ALNY  AMAT   AMD   AME  AMGN   AMP   AMT   AMX  AMZN  ANSS 
+## 0.975 0.977 0.980 0.964 0.972 0.970 0.976 0.957 0.985 0.961 0.965 0.950 0.977 
+##   AON   APD   APH  ASML   AVB  AVGO   AXP   AZN   AZO    BA   BAC   BAM  BBVA 
+## 0.977 0.983 0.984 0.975 0.966 0.967 0.978 0.975 0.942 0.978 0.975 0.976 0.971 
+##   BCS   BDX   BHP  BIDU    BK  BKNG   BLK   BMO   BMY   BNS    BP    BR   BRO 
+## 0.980 0.981 0.978 0.966 0.984 0.952 0.985 0.979 0.963 0.979 0.970 0.979 0.974 
+##   BSX   BTI   BUD    BX     C   CAH   CAT    CB  CBRE   CCI   CCL  CDNS   CHD 
+## 0.971 0.970 0.976 0.961 0.977 0.975 0.975 0.972 0.973 0.962 0.964 0.981 0.955 
+##   CHT  CHTR    CI    CL    CM CMCSA   CME   CMG   CMI   CNC   CNI   CNQ   COF 
+## 0.943 0.965 0.973 0.959 0.981 0.984 0.971 0.960 0.979 0.966 0.980 0.981 0.974 
+##   COP  COST    CP  CPRT   CRH   CRM  CSCO  CSGP   CSX  CTAS  CTSH   CUK   CVE 
+## 0.976 0.972 0.980 0.972 0.979 0.941 0.967 0.984 0.978 0.980 0.967 0.966 0.975 
+##   CVS   CVX     D   DAL    DB    DE  DECK   DEO   DFS   DHI   DHR   DIS   DLR 
+## 0.978 0.975 0.969 0.947 0.982 0.982 0.936 0.967 0.975 0.951 0.988 0.983 0.974 
+##   DOV   DTE   DUK  DXCM     E    EA  EBAY   ECL    ED   EFX   EMR   ENB   EOG 
+## 0.982 0.977 0.963 0.954 0.979 0.973 0.978 0.982 0.979 0.980 0.972 0.965 0.975 
+##   EPD  EQIX   EQR   EQT  ERIC   ETN   ETR    EW   EXC   EXR     F  FAST FCNCA 
+## 0.955 0.956 0.970 0.976 0.972 0.974 0.976 0.944 0.946 0.982 0.971 0.973 0.977 
+##   FCX   FDX  FICO   FIS  FITB   FNV  FTNT    GD    GE   GIB  GILD   GIS   GLW 
+## 0.970 0.985 0.976 0.980 0.975 0.845 0.924 0.980 0.983 0.958 0.945 0.939 0.977 
+##  GOLD  GOOG GOOGL   GPN  GRMN    GS   GSK   GWW    HD   HDB   HEI   HES   HIG 
+## 0.737 0.956 0.956 0.979 0.951 0.972 0.969 0.981 0.971 0.977 0.964 0.981 0.981 
+##   HMC   HON   HPQ  HSBC   HSY   HUM  IBKR   IBM   IBN   ICE  IDXX  INFY   ING 
+## 0.960 0.976 0.970 0.981 0.933 0.967 0.957 0.976 0.973 0.966 0.978 0.968 0.982 
+##  INTC  INTU    IP    IR   IRM  ISRG    IT  ITUB   ITW   JCI   JNJ   JPM     K 
+## 0.980 0.974 0.977 0.974 0.968 0.969 0.970 0.980 0.982 0.977 0.976 0.981 0.912 
+##  KLAC   KMB    KO    KR   LEN   LLY   LMT   LOW  LRCX  LULU   LVS   LYB   LYG 
+## 0.975 0.963 0.972 0.963 0.970 0.971 0.955 0.960 0.968 0.964 0.964 0.980 0.979 
+##   LYV    MA   MAR   MCD  MCHP   MCK   MCO  MDLZ   MDT  MELI   MET   MFC   MFG 
+## 0.970 0.969 0.978 0.961 0.970 0.973 0.983 0.969 0.973 0.974 0.981 0.976 0.948 
+##   MKL   MLM   MMC   MMM  MNST    MO  MPWR   MRK  MRVL    MS  MSCI  MSFT   MSI 
+## 0.978 0.973 0.976 0.981 0.948 0.965 0.973 0.975 0.964 0.968 0.980 0.976 0.961 
+##  MSTR   MTB   MTD    MU  NDAQ   NEE   NEM  NFLX   NGG   NKE   NOC   NOK   NSC 
+## 0.972 0.975 0.976 0.971 0.977 0.970 0.876 0.789 0.949 0.976 0.975 0.958 0.979 
+##  NTAP  NTES   NUE  NVDA   NVO   NVS     O  ODFL   OKE  ORCL  ORLY   OXY  PAYX 
+## 0.958 0.928 0.974 0.973 0.951 0.964 0.972 0.976 0.971 0.975 0.945 0.979 0.977 
+##   PBR  PCAR   PCG   PEG   PEP   PFE    PG   PGR    PH   PHG   PLD    PM   PNC 
+## 0.970 0.976 0.971 0.969 0.963 0.975 0.961 0.976 0.982 0.981 0.981 0.976 0.976 
+##   PPG   PPL   PRU   PSA   PWR  QCOM   RCL  REGN  RELX   RIO   RJF   RMD   ROK 
+## 0.980 0.955 0.984 0.977 0.974 0.985 0.976 0.931 0.978 0.971 0.988 0.967 0.981 
+##   ROP  ROST   RSG    RY   SAN   SAP  SBUX  SCCO  SCHW   SHW   SLB   SLF  SMFG 
+## 0.971 0.948 0.959 0.978 0.972 0.979 0.968 0.965 0.977 0.965 0.984 0.973 0.952 
+##  SNPS   SNY    SO   SPG  SPGI   SRE   STT   STZ    SU   SYK   SYY     T    TD 
+## 0.977 0.982 0.953 0.987 0.975 0.973 0.981 0.970 0.979 0.972 0.969 0.971 0.979 
+##   TDG   TEL   TGT   TJX    TM   TMO  TMUS   TPL   TRI   TRP   TRV  TSCO  TSLA 
+## 0.968 0.977 0.962 0.971 0.969 0.978 0.938 0.902 0.977 0.972 0.978 0.965 0.937 
+##   TSM  TTWO   TXN   TYL   UAL    UL   UNH   UNP   UPS   URI   USB     V  VALE 
+## 0.976 0.967 0.979 0.980 0.943 0.977 0.975 0.978 0.983 0.977 0.970 0.966 0.983 
+##    VG   VLO   VMC  VRSK  VRTX   VTR    VZ   WAB   WCN   WEC  WELL   WFC   WIT 
+## 0.936 0.977 0.956 0.960 0.873 0.978 0.959 0.978 0.970 0.982 0.974 0.982 0.967 
+##    WM   WMB   WMT   WPM   WSM   WTW   XEL   XOM   YUM 
+## 0.963 0.975 0.963 0.927 0.968 0.893 0.966 0.982 0.972
+```
+
+### Perform PCA
+
+```r
+pca_output <- prcomp(top_mcap_returns_df_short[1:504, ])
+```
+
+
+```r
+summary(pca_output)
+```
+
+```
+## Importance of components:
+##                           PC1     PC2     PC3     PC4     PC5     PC6     PC7
+## Standard deviation     0.2611 0.06234 0.05389 0.04437 0.04243 0.04102 0.03813
+## Proportion of Variance 0.4823 0.02749 0.02054 0.01392 0.01273 0.01190 0.01028
+## Cumulative Proportion  0.4823 0.50980 0.53034 0.54426 0.55700 0.56890 0.57918
+##                            PC8     PC9    PC10    PC11    PC12    PC13    PC14
+## Standard deviation     0.03642 0.03576 0.03496 0.03412 0.03383 0.03298 0.03209
+## Proportion of Variance 0.00938 0.00905 0.00864 0.00824 0.00810 0.00770 0.00729
+## Cumulative Proportion  0.58856 0.59761 0.60625 0.61449 0.62258 0.63028 0.63757
+##                           PC15    PC16    PC17    PC18    PC19    PC20    PC21
+## Standard deviation     0.03111 0.03073 0.03048 0.02956 0.02933 0.02837 0.02759
+## Proportion of Variance 0.00685 0.00668 0.00657 0.00618 0.00608 0.00569 0.00539
+## Cumulative Proportion  0.64441 0.65109 0.65766 0.66384 0.66993 0.67562 0.68100
+##                           PC22    PC23    PC24    PC25    PC26    PC27    PC28
+## Standard deviation     0.02730 0.02683 0.02639 0.02625 0.02614 0.02578 0.02568
+## Proportion of Variance 0.00527 0.00509 0.00492 0.00487 0.00483 0.00470 0.00467
+## Cumulative Proportion  0.68628 0.69137 0.69630 0.70117 0.70600 0.71070 0.71537
+##                           PC29    PC30    PC31    PC32    PC33    PC34    PC35
+## Standard deviation     0.02520 0.02496 0.02462 0.02438 0.02367 0.02353 0.02344
+## Proportion of Variance 0.00449 0.00441 0.00429 0.00421 0.00396 0.00392 0.00389
+## Cumulative Proportion  0.71986 0.72427 0.72856 0.73276 0.73672 0.74064 0.74452
+##                           PC36    PC37    PC38    PC39    PC40    PC41    PC42
+## Standard deviation     0.02330 0.02300 0.02264 0.02251 0.02219 0.02204 0.02178
+## Proportion of Variance 0.00384 0.00374 0.00363 0.00358 0.00348 0.00344 0.00336
+## Cumulative Proportion  0.74836 0.75210 0.75573 0.75931 0.76280 0.76623 0.76959
+##                           PC43    PC44    PC45    PC46    PC47    PC48    PC49
+## Standard deviation     0.02148 0.02128 0.02121 0.02095 0.02081 0.02063 0.02052
+## Proportion of Variance 0.00326 0.00320 0.00318 0.00311 0.00306 0.00301 0.00298
+## Cumulative Proportion  0.77285 0.77606 0.77924 0.78235 0.78541 0.78842 0.79140
+##                           PC50    PC51    PC52    PC53    PC54    PC55    PC56
+## Standard deviation     0.02031 0.02012 0.02004 0.01988 0.01960 0.01954 0.01936
+## Proportion of Variance 0.00292 0.00286 0.00284 0.00280 0.00272 0.00270 0.00265
+## Cumulative Proportion  0.79432 0.79718 0.80002 0.80282 0.80553 0.80824 0.81089
+##                           PC57    PC58    PC59   PC60    PC61    PC62    PC63
+## Standard deviation     0.01915 0.01903 0.01897 0.0188 0.01851 0.01840 0.01812
+## Proportion of Variance 0.00259 0.00256 0.00254 0.0025 0.00242 0.00239 0.00232
+## Cumulative Proportion  0.81348 0.81604 0.81859 0.8211 0.82351 0.82590 0.82823
+##                           PC64    PC65    PC66    PC67    PC68    PC69    PC70
+## Standard deviation     0.01806 0.01794 0.01780 0.01767 0.01751 0.01743 0.01738
+## Proportion of Variance 0.00231 0.00228 0.00224 0.00221 0.00217 0.00215 0.00214
+## Cumulative Proportion  0.83053 0.83281 0.83505 0.83726 0.83943 0.84158 0.84371
+##                           PC71    PC72    PC73    PC74    PC75    PC76    PC77
+## Standard deviation     0.01722 0.01711 0.01704 0.01677 0.01674 0.01664 0.01654
+## Proportion of Variance 0.00210 0.00207 0.00205 0.00199 0.00198 0.00196 0.00193
+## Cumulative Proportion  0.84581 0.84788 0.84994 0.85192 0.85391 0.85587 0.85780
+##                           PC78    PC79    PC80    PC81    PC82    PC83    PC84
+## Standard deviation     0.01648 0.01625 0.01612 0.01611 0.01595 0.01587 0.01577
+## Proportion of Variance 0.00192 0.00187 0.00184 0.00184 0.00180 0.00178 0.00176
+## Cumulative Proportion  0.85972 0.86159 0.86343 0.86526 0.86706 0.86884 0.87060
+##                           PC85    PC86    PC87    PC88    PC89    PC90    PC91
+## Standard deviation     0.01561 0.01548 0.01536 0.01523 0.01515 0.01509 0.01505
+## Proportion of Variance 0.00172 0.00170 0.00167 0.00164 0.00162 0.00161 0.00160
+## Cumulative Proportion  0.87233 0.87402 0.87569 0.87733 0.87895 0.88056 0.88216
+##                           PC92    PC93    PC94    PC95    PC96    PC97    PC98
+## Standard deviation     0.01500 0.01476 0.01457 0.01452 0.01441 0.01434 0.01429
+## Proportion of Variance 0.00159 0.00154 0.00150 0.00149 0.00147 0.00145 0.00144
+## Cumulative Proportion  0.88376 0.88530 0.88680 0.88829 0.88976 0.89121 0.89266
+##                           PC99   PC100   PC101   PC102   PC103   PC104   PC105
+## Standard deviation     0.01419 0.01408 0.01400 0.01396 0.01378 0.01375 0.01369
+## Proportion of Variance 0.00143 0.00140 0.00139 0.00138 0.00134 0.00134 0.00133
+## Cumulative Proportion  0.89408 0.89548 0.89687 0.89825 0.89959 0.90093 0.90226
+##                          PC106   PC107   PC108   PC109   PC110   PC111   PC112
+## Standard deviation     0.01367 0.01357 0.01343 0.01339 0.01328 0.01316 0.01314
+## Proportion of Variance 0.00132 0.00130 0.00128 0.00127 0.00125 0.00122 0.00122
+## Cumulative Proportion  0.90358 0.90488 0.90616 0.90743 0.90867 0.90990 0.91112
+##                          PC113   PC114   PC115   PC116   PC117   PC118   PC119
+## Standard deviation     0.01301 0.01288 0.01282 0.01270 0.01270 0.01258 0.01255
+## Proportion of Variance 0.00120 0.00117 0.00116 0.00114 0.00114 0.00112 0.00111
+## Cumulative Proportion  0.91232 0.91349 0.91465 0.91580 0.91694 0.91806 0.91917
+##                          PC120   PC121   PC122   PC123   PC124   PC125   PC126
+## Standard deviation     0.01251 0.01242 0.01231 0.01227 0.01214 0.01211 0.01198
+## Proportion of Variance 0.00111 0.00109 0.00107 0.00106 0.00104 0.00104 0.00102
+## Cumulative Proportion  0.92028 0.92137 0.92244 0.92350 0.92455 0.92558 0.92660
+##                          PC127   PC128   PC129   PC130   PC131   PC132   PC133
+## Standard deviation     0.01196 0.01182 0.01175 0.01163 0.01161 0.01149 0.01146
+## Proportion of Variance 0.00101 0.00099 0.00098 0.00096 0.00095 0.00093 0.00093
+## Cumulative Proportion  0.92761 0.92860 0.92957 0.93053 0.93148 0.93242 0.93335
+##                          PC134   PC135   PC136   PC137   PC138   PC139   PC140
+## Standard deviation     0.01143 0.01137 0.01132 0.01126 0.01118 0.01112 0.01102
+## Proportion of Variance 0.00092 0.00091 0.00091 0.00090 0.00088 0.00087 0.00086
+## Cumulative Proportion  0.93427 0.93519 0.93609 0.93699 0.93787 0.93875 0.93961
+##                          PC141   PC142   PC143   PC144   PC145   PC146   PC147
+## Standard deviation     0.01094 0.01090 0.01087 0.01083 0.01077 0.01066 0.01060
+## Proportion of Variance 0.00085 0.00084 0.00084 0.00083 0.00082 0.00080 0.00079
+## Cumulative Proportion  0.94045 0.94129 0.94213 0.94296 0.94378 0.94458 0.94538
+##                          PC148   PC149   PC150   PC151   PC152   PC153   PC154
+## Standard deviation     0.01055 0.01045 0.01039 0.01038 0.01034 0.01025 0.01018
+## Proportion of Variance 0.00079 0.00077 0.00076 0.00076 0.00076 0.00074 0.00073
+## Cumulative Proportion  0.94617 0.94694 0.94770 0.94847 0.94922 0.94997 0.95070
+##                          PC155   PC156   PC157    PC158    PC159    PC160
+## Standard deviation     0.01013 0.01006 0.01000 0.009897 0.009865 0.009763
+## Proportion of Variance 0.00073 0.00072 0.00071 0.000690 0.000690 0.000670
+## Cumulative Proportion  0.95143 0.95214 0.95285 0.953540 0.954230 0.954900
+##                           PC161    PC162    PC163   PC164   PC165    PC166
+## Standard deviation     0.009751 0.009674 0.009642 0.00954 0.00947 0.009429
+## Proportion of Variance 0.000670 0.000660 0.000660 0.00064 0.00063 0.000630
+## Cumulative Proportion  0.955580 0.956240 0.956900 0.95754 0.95817 0.958800
+##                           PC167    PC168    PC169    PC170    PC171    PC172
+## Standard deviation     0.009357 0.009279 0.009247 0.009235 0.009132 0.009076
+## Proportion of Variance 0.000620 0.000610 0.000600 0.000600 0.000590 0.000580
+## Cumulative Proportion  0.959420 0.960030 0.960640 0.961240 0.961830 0.962410
+##                           PC173    PC174    PC175    PC176    PC177    PC178
+## Standard deviation     0.009051 0.009005 0.008918 0.008887 0.008828 0.008788
+## Proportion of Variance 0.000580 0.000570 0.000560 0.000560 0.000550 0.000550
+## Cumulative Proportion  0.962990 0.963570 0.964130 0.964690 0.965240 0.965780
+##                           PC179    PC180    PC181    PC182    PC183    PC184
+## Standard deviation     0.008774 0.008725 0.008662 0.008588 0.008484 0.008422
+## Proportion of Variance 0.000540 0.000540 0.000530 0.000520 0.000510 0.000500
+## Cumulative Proportion  0.966330 0.966870 0.967400 0.967920 0.968430 0.968930
+##                           PC185    PC186    PC187    PC188    PC189    PC190
+## Standard deviation     0.008396 0.008334 0.008261 0.008227 0.008205 0.008187
+## Proportion of Variance 0.000500 0.000490 0.000480 0.000480 0.000480 0.000470
+## Cumulative Proportion  0.969430 0.969920 0.970400 0.970880 0.971360 0.971830
+##                          PC191    PC192    PC193    PC194    PC195    PC196
+## Standard deviation     0.00810 0.008034 0.007995 0.007982 0.007918 0.007871
+## Proportion of Variance 0.00046 0.000460 0.000450 0.000450 0.000440 0.000440
+## Cumulative Proportion  0.97230 0.972750 0.973210 0.973660 0.974100 0.974540
+##                           PC197    PC198    PC199    PC200    PC201    PC202
+## Standard deviation     0.007799 0.007753 0.007698 0.007574 0.007523 0.007495
+## Proportion of Variance 0.000430 0.000430 0.000420 0.000410 0.000400 0.000400
+## Cumulative Proportion  0.974970 0.975390 0.975810 0.976220 0.976620 0.977020
+##                          PC203    PC204    PC205    PC206    PC207    PC208
+## Standard deviation     0.00744 0.007368 0.007364 0.007335 0.007247 0.007174
+## Proportion of Variance 0.00039 0.000380 0.000380 0.000380 0.000370 0.000360
+## Cumulative Proportion  0.97741 0.977790 0.978170 0.978560 0.978930 0.979290
+##                           PC209    PC210   PC211    PC212    PC213    PC214
+## Standard deviation     0.007164 0.007145 0.00705 0.007025 0.006974 0.006972
+## Proportion of Variance 0.000360 0.000360 0.00035 0.000350 0.000340 0.000340
+## Cumulative Proportion  0.979650 0.980020 0.98037 0.980720 0.981060 0.981400
+##                           PC215    PC216   PC217    PC218    PC219    PC220
+## Standard deviation     0.006876 0.006827 0.00680 0.006745 0.006721 0.006701
+## Proportion of Variance 0.000330 0.000330 0.00033 0.000320 0.000320 0.000320
+## Cumulative Proportion  0.981740 0.982070 0.98239 0.982720 0.983040 0.983350
+##                          PC221    PC222    PC223   PC224    PC225    PC226
+## Standard deviation     0.00665 0.006623 0.006552 0.00653 0.006475 0.006439
+## Proportion of Variance 0.00031 0.000310 0.000300 0.00030 0.000300 0.000290
+## Cumulative Proportion  0.98367 0.983980 0.984280 0.98458 0.984880 0.985170
+##                           PC227    PC228    PC229    PC230   PC231    PC232
+## Standard deviation     0.006354 0.006267 0.006226 0.006209 0.00619 0.006154
+## Proportion of Variance 0.000290 0.000280 0.000270 0.000270 0.00027 0.000270
+## Cumulative Proportion  0.985460 0.985740 0.986010 0.986280 0.98655 0.986820
+##                           PC233    PC234    PC235    PC236    PC237    PC238
+## Standard deviation     0.006105 0.006064 0.006032 0.005974 0.005945 0.005908
+## Proportion of Variance 0.000260 0.000260 0.000260 0.000250 0.000250 0.000250
+## Cumulative Proportion  0.987080 0.987340 0.987600 0.987850 0.988100 0.988350
+##                           PC239    PC240    PC241    PC242   PC243    PC244
+## Standard deviation     0.005867 0.005809 0.005754 0.005716 0.00565 0.005606
+## Proportion of Variance 0.000240 0.000240 0.000230 0.000230 0.00023 0.000220
+## Cumulative Proportion  0.988590 0.988830 0.989070 0.989300 0.98952 0.989750
+##                           PC245    PC246    PC247    PC248    PC249    PC250
+## Standard deviation     0.005578 0.005523 0.005486 0.005475 0.005424 0.005414
+## Proportion of Variance 0.000220 0.000220 0.000210 0.000210 0.000210 0.000210
+## Cumulative Proportion  0.989970 0.990180 0.990400 0.990610 0.990820 0.991020
+##                           PC251    PC252    PC253    PC254    PC255    PC256
+## Standard deviation     0.005349 0.005318 0.005281 0.005239 0.005122 0.005095
+## Proportion of Variance 0.000200 0.000200 0.000200 0.000190 0.000190 0.000180
+## Cumulative Proportion  0.991230 0.991430 0.991620 0.991820 0.992000 0.992190
+##                           PC257   PC258   PC259    PC260    PC261    PC262
+## Standard deviation     0.005066 0.00503 0.00500 0.004965 0.004929 0.004859
+## Proportion of Variance 0.000180 0.00018 0.00018 0.000170 0.000170 0.000170
+## Cumulative Proportion  0.992370 0.99255 0.99272 0.992900 0.993070 0.993240
+##                           PC263    PC264    PC265    PC266    PC267    PC268
+## Standard deviation     0.004842 0.004786 0.004754 0.004726 0.004677 0.004638
+## Proportion of Variance 0.000170 0.000160 0.000160 0.000160 0.000150 0.000150
+## Cumulative Proportion  0.993400 0.993560 0.993720 0.993880 0.994040 0.994190
+##                           PC269    PC270    PC271    PC272    PC273    PC274
+## Standard deviation     0.004607 0.004552 0.004514 0.004502 0.004461 0.004422
+## Proportion of Variance 0.000150 0.000150 0.000140 0.000140 0.000140 0.000140
+## Cumulative Proportion  0.994340 0.994490 0.994630 0.994770 0.994910 0.995050
+##                           PC275    PC276    PC277    PC278    PC279    PC280
+## Standard deviation     0.004401 0.004367 0.004342 0.004306 0.004259 0.004199
+## Proportion of Variance 0.000140 0.000130 0.000130 0.000130 0.000130 0.000120
+## Cumulative Proportion  0.995190 0.995320 0.995460 0.995590 0.995720 0.995840
+##                           PC281    PC282    PC283    PC284    PC285    PC286
+## Standard deviation     0.004182 0.004131 0.004104 0.004077 0.004016 0.003965
+## Proportion of Variance 0.000120 0.000120 0.000120 0.000120 0.000110 0.000110
+## Cumulative Proportion  0.995970 0.996090 0.996210 0.996320 0.996440 0.996550
+##                           PC287    PC288    PC289    PC290    PC291    PC292
+## Standard deviation     0.003938 0.003881 0.003851 0.003803 0.003753 0.003736
+## Proportion of Variance 0.000110 0.000110 0.000100 0.000100 0.000100 0.000100
+## Cumulative Proportion  0.996660 0.996760 0.996870 0.996970 0.997070 0.997170
+##                           PC293    PC294    PC295    PC296   PC297    PC298
+## Standard deviation     0.003698 0.003662 0.003631 0.003611 0.00355 0.003529
+## Proportion of Variance 0.000100 0.000090 0.000090 0.000090 0.00009 0.000090
+## Cumulative Proportion  0.997270 0.997360 0.997460 0.997550 0.99764 0.997720
+##                           PC299    PC300    PC301    PC302    PC303    PC304
+## Standard deviation     0.003498 0.003438 0.003397 0.003352 0.003308 0.003262
+## Proportion of Variance 0.000090 0.000080 0.000080 0.000080 0.000080 0.000080
+## Cumulative Proportion  0.997810 0.997890 0.997980 0.998060 0.998130 0.998210
+##                           PC305    PC306    PC307    PC308   PC309    PC310
+## Standard deviation     0.003221 0.003175 0.003159 0.003088 0.00306 0.003046
+## Proportion of Variance 0.000070 0.000070 0.000070 0.000070 0.00007 0.000070
+## Cumulative Proportion  0.998280 0.998350 0.998420 0.998490 0.99856 0.998620
+##                           PC311    PC312    PC313    PC314    PC315    PC316
+## Standard deviation     0.003041 0.002942 0.002917 0.002877 0.002843 0.002769
+## Proportion of Variance 0.000070 0.000060 0.000060 0.000060 0.000060 0.000050
+## Cumulative Proportion  0.998690 0.998750 0.998810 0.998870 0.998930 0.998980
+##                           PC317    PC318    PC319    PC320    PC321    PC322
+## Standard deviation     0.002738 0.002717 0.002645 0.002633 0.002587 0.002564
+## Proportion of Variance 0.000050 0.000050 0.000050 0.000050 0.000050 0.000050
+## Cumulative Proportion  0.999030 0.999090 0.999130 0.999180 0.999230 0.999280
+##                           PC323    PC324    PC325    PC326    PC327    PC328
+## Standard deviation     0.002523 0.002509 0.002476 0.002425 0.002367 0.002335
+## Proportion of Variance 0.000050 0.000040 0.000040 0.000040 0.000040 0.000040
+## Cumulative Proportion  0.999320 0.999370 0.999410 0.999450 0.999490 0.999530
+##                           PC329   PC330    PC331    PC332    PC333    PC334
+## Standard deviation     0.002289 0.00225 0.002229 0.002155 0.002111 0.002109
+## Proportion of Variance 0.000040 0.00004 0.000040 0.000030 0.000030 0.000030
+## Cumulative Proportion  0.999570 0.99960 0.999640 0.999670 0.999700 0.999730
+##                           PC335   PC336    PC337    PC338    PC339    PC340
+## Standard deviation     0.002076 0.00199 0.001951 0.001892 0.001866 0.001829
+## Proportion of Variance 0.000030 0.00003 0.000030 0.000030 0.000020 0.000020
+## Cumulative Proportion  0.999760 0.99979 0.999820 0.999840 0.999870 0.999890
+##                           PC341   PC342    PC343   PC344    PC345   PC346
+## Standard deviation     0.001778 0.00175 0.001572 0.00155 0.001447 0.00138
+## Proportion of Variance 0.000020 0.00002 0.000020 0.00002 0.000010 0.00001
+## Cumulative Proportion  0.999920 0.99994 0.999950 0.99997 0.999990 1.00000
+##                            PC347
+## Standard deviation     2.386e-08
+## Proportion of Variance 0.000e+00
+## Cumulative Proportion  1.000e+00
+```
+
+
+```r
+library(FactoMineR)
+```
+
+
+
+Calculating PCA with z-normalization (centering and scaling).
+
+```r
+pca_output <- PCA(top_mcap_returns_df_short[1:504, ], scale.unit = TRUE, ncp = 10, graph = TRUE, axes = c(1,2))
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-11-1.png)<!-- -->![](Portfolio_selection_files/figure-html/unnamed-chunk-11-2.png)<!-- -->
+
+```r
+print(pca_output)
+```
+
+```
+## **Results for the Principal Component Analysis (PCA)**
+## The analysis was performed on 504 individuals, described by 347 variables
+## *The results are available in the following objects:
+## 
+##    name               description                          
+## 1  "$eig"             "eigenvalues"                        
+## 2  "$var"             "results for the variables"          
+## 3  "$var$coord"       "coord. for the variables"           
+## 4  "$var$cor"         "correlations variables - dimensions"
+## 5  "$var$cos2"        "cos2 for the variables"             
+## 6  "$var$contrib"     "contributions of the variables"     
+## 7  "$ind"             "results for the individuals"        
+## 8  "$ind$coord"       "coord. for the individuals"         
+## 9  "$ind$cos2"        "cos2 for the individuals"           
+## 10 "$ind$contrib"     "contributions of the individuals"   
+## 11 "$call"            "summary statistics"                 
+## 12 "$call$centre"     "mean of the variables"              
+## 13 "$call$ecart.type" "standard error of the variables"    
+## 14 "$call$row.w"      "weights for the individuals"        
+## 15 "$call$col.w"      "weights for the variables"
+```
+
+"cos2" is the quality of representation for variables on the factor map.  
+"contrib" or "ctr" is the contributions of the variables.
+
+
+```r
+summary(pca_output)
+```
+
+```
+## 
+## Call:
+## PCA(X = top_mcap_returns_df_short[1:504, ], scale.unit = TRUE,  
+##      ncp = 10, graph = TRUE, axes = c(1, 2)) 
+## 
+## 
+## Eigenvalues
+##                        Dim.1   Dim.2   Dim.3   Dim.4   Dim.5   Dim.6   Dim.7
+## Variance             171.268   9.170   6.178   5.315   4.040   3.144   2.744
+## % of var.             49.357   2.643   1.780   1.532   1.164   0.906   0.791
+## Cumulative % of var.  49.357  52.000  53.780  55.312  56.476  57.382  58.173
+##                        Dim.8   Dim.9  Dim.10  Dim.11  Dim.12  Dim.13  Dim.14
+## Variance               2.598   2.404   2.290   2.161   1.987   1.940   1.918
+## % of var.              0.749   0.693   0.660   0.623   0.573   0.559   0.553
+## Cumulative % of var.  58.922  59.614  60.274  60.897  61.470  62.029  62.582
+##                       Dim.15  Dim.16  Dim.17  Dim.18  Dim.19  Dim.20  Dim.21
+## Variance               1.828   1.791   1.769   1.679   1.660   1.565   1.529
+## % of var.              0.527   0.516   0.510   0.484   0.479   0.451   0.441
+## Cumulative % of var.  63.108  63.625  64.134  64.618  65.097  65.548  65.989
+##                       Dim.22  Dim.23  Dim.24  Dim.25  Dim.26  Dim.27  Dim.28
+## Variance               1.502   1.479   1.443   1.406   1.379   1.348   1.346
+## % of var.              0.433   0.426   0.416   0.405   0.397   0.389   0.388
+## Cumulative % of var.  66.421  66.848  67.264  67.669  68.066  68.455  68.843
+##                       Dim.29  Dim.30  Dim.31  Dim.32  Dim.33  Dim.34  Dim.35
+## Variance               1.323   1.320   1.286   1.248   1.229   1.213   1.209
+## % of var.              0.381   0.380   0.371   0.360   0.354   0.350   0.348
+## Cumulative % of var.  69.224  69.605  69.975  70.335  70.689  71.039  71.387
+##                       Dim.36  Dim.37  Dim.38  Dim.39  Dim.40  Dim.41  Dim.42
+## Variance               1.183   1.165   1.139   1.128   1.121   1.094   1.079
+## % of var.              0.341   0.336   0.328   0.325   0.323   0.315   0.311
+## Cumulative % of var.  71.728  72.064  72.392  72.717  73.040  73.356  73.666
+##                       Dim.43  Dim.44  Dim.45  Dim.46  Dim.47  Dim.48  Dim.49
+## Variance               1.073   1.063   1.040   1.032   1.024   1.006   0.998
+## % of var.              0.309   0.306   0.300   0.298   0.295   0.290   0.288
+## Cumulative % of var.  73.976  74.282  74.582  74.879  75.175  75.465  75.752
+##                       Dim.50  Dim.51  Dim.52  Dim.53  Dim.54  Dim.55  Dim.56
+## Variance               0.982   0.965   0.959   0.929   0.915   0.914   0.905
+## % of var.              0.283   0.278   0.276   0.268   0.264   0.263   0.261
+## Cumulative % of var.  76.035  76.314  76.590  76.858  77.122  77.385  77.646
+##                       Dim.57  Dim.58  Dim.59  Dim.60  Dim.61  Dim.62  Dim.63
+## Variance               0.897   0.891   0.874   0.861   0.857   0.850   0.845
+## % of var.              0.258   0.257   0.252   0.248   0.247   0.245   0.244
+## Cumulative % of var.  77.904  78.161  78.413  78.661  78.908  79.153  79.396
+##                       Dim.64  Dim.65  Dim.66  Dim.67  Dim.68  Dim.69  Dim.70
+## Variance               0.828   0.810   0.806   0.801   0.794   0.783   0.772
+## % of var.              0.239   0.233   0.232   0.231   0.229   0.226   0.222
+## Cumulative % of var.  79.635  79.868  80.101  80.331  80.560  80.786  81.008
+##                       Dim.71  Dim.72  Dim.73  Dim.74  Dim.75  Dim.76  Dim.77
+## Variance               0.770   0.757   0.751   0.740   0.730   0.719   0.713
+## % of var.              0.222   0.218   0.216   0.213   0.210   0.207   0.205
+## Cumulative % of var.  81.230  81.448  81.665  81.878  82.088  82.295  82.501
+##                       Dim.78  Dim.79  Dim.80  Dim.81  Dim.82  Dim.83  Dim.84
+## Variance               0.709   0.701   0.694   0.681   0.673   0.670   0.661
+## % of var.              0.204   0.202   0.200   0.196   0.194   0.193   0.190
+## Cumulative % of var.  82.705  82.907  83.107  83.304  83.497  83.690  83.881
+##                       Dim.85  Dim.86  Dim.87  Dim.88  Dim.89  Dim.90  Dim.91
+## Variance               0.655   0.650   0.643   0.639   0.634   0.624   0.617
+## % of var.              0.189   0.187   0.185   0.184   0.183   0.180   0.178
+## Cumulative % of var.  84.070  84.257  84.442  84.626  84.809  84.989  85.167
+##                       Dim.92  Dim.93  Dim.94  Dim.95  Dim.96  Dim.97  Dim.98
+## Variance               0.613   0.603   0.596   0.589   0.588   0.586   0.575
+## % of var.              0.177   0.174   0.172   0.170   0.169   0.169   0.166
+## Cumulative % of var.  85.343  85.517  85.689  85.859  86.028  86.197  86.363
+##                       Dim.99 Dim.100 Dim.101 Dim.102 Dim.103 Dim.104 Dim.105
+## Variance               0.569   0.561   0.556   0.548   0.543   0.533   0.530
+## % of var.              0.164   0.162   0.160   0.158   0.156   0.154   0.153
+## Cumulative % of var.  86.527  86.689  86.849  87.007  87.163  87.317  87.469
+##                      Dim.106 Dim.107 Dim.108 Dim.109 Dim.110 Dim.111 Dim.112
+## Variance               0.520   0.518   0.511   0.507   0.503   0.499   0.492
+## % of var.              0.150   0.149   0.147   0.146   0.145   0.144   0.142
+## Cumulative % of var.  87.619  87.769  87.916  88.062  88.207  88.351  88.492
+##                      Dim.113 Dim.114 Dim.115 Dim.116 Dim.117 Dim.118 Dim.119
+## Variance               0.488   0.483   0.474   0.468   0.466   0.460   0.457
+## % of var.              0.141   0.139   0.137   0.135   0.134   0.133   0.132
+## Cumulative % of var.  88.633  88.772  88.909  89.044  89.178  89.311  89.442
+##                      Dim.120 Dim.121 Dim.122 Dim.123 Dim.124 Dim.125 Dim.126
+## Variance               0.450   0.448   0.445   0.440   0.438   0.432   0.428
+## % of var.              0.130   0.129   0.128   0.127   0.126   0.125   0.123
+## Cumulative % of var.  89.572  89.701  89.829  89.956  90.082  90.207  90.330
+##                      Dim.127 Dim.128 Dim.129 Dim.130 Dim.131 Dim.132 Dim.133
+## Variance               0.425   0.420   0.415   0.410   0.404   0.399   0.395
+## % of var.              0.123   0.121   0.120   0.118   0.117   0.115   0.114
+## Cumulative % of var.  90.453  90.574  90.693  90.811  90.928  91.043  91.157
+##                      Dim.134 Dim.135 Dim.136 Dim.137 Dim.138 Dim.139 Dim.140
+## Variance               0.388   0.387   0.386   0.381   0.378   0.372   0.369
+## % of var.              0.112   0.112   0.111   0.110   0.109   0.107   0.106
+## Cumulative % of var.  91.269  91.380  91.491  91.601  91.710  91.817  91.924
+##                      Dim.141 Dim.142 Dim.143 Dim.144 Dim.145 Dim.146 Dim.147
+## Variance               0.366   0.363   0.357   0.356   0.356   0.350   0.348
+## % of var.              0.105   0.105   0.103   0.103   0.103   0.101   0.100
+## Cumulative % of var.  92.029  92.134  92.237  92.339  92.442  92.543  92.643
+##                      Dim.148 Dim.149 Dim.150 Dim.151 Dim.152 Dim.153 Dim.154
+## Variance               0.348   0.336   0.331   0.329   0.327   0.323   0.321
+## % of var.              0.100   0.097   0.095   0.095   0.094   0.093   0.092
+## Cumulative % of var.  92.743  92.840  92.936  93.030  93.125  93.218  93.310
+##                      Dim.155 Dim.156 Dim.157 Dim.158 Dim.159 Dim.160 Dim.161
+## Variance               0.318   0.315   0.312   0.311   0.307   0.304   0.302
+## % of var.              0.092   0.091   0.090   0.090   0.089   0.087   0.087
+## Cumulative % of var.  93.402  93.493  93.583  93.672  93.761  93.848  93.935
+##                      Dim.162 Dim.163 Dim.164 Dim.165 Dim.166 Dim.167 Dim.168
+## Variance               0.300   0.298   0.291   0.288   0.284   0.278   0.276
+## % of var.              0.086   0.086   0.084   0.083   0.082   0.080   0.079
+## Cumulative % of var.  94.022  94.108  94.192  94.275  94.356  94.437  94.516
+##                      Dim.169 Dim.170 Dim.171 Dim.172 Dim.173 Dim.174 Dim.175
+## Variance               0.270   0.266   0.265   0.263   0.262   0.259   0.254
+## % of var.              0.078   0.077   0.076   0.076   0.075   0.075   0.073
+## Cumulative % of var.  94.594  94.670  94.747  94.823  94.898  94.973  95.046
+##                      Dim.176 Dim.177 Dim.178 Dim.179 Dim.180 Dim.181 Dim.182
+## Variance               0.252   0.248   0.244   0.242   0.241   0.239   0.238
+## % of var.              0.073   0.071   0.070   0.070   0.069   0.069   0.069
+## Cumulative % of var.  95.118  95.190  95.260  95.330  95.399  95.468  95.537
+##                      Dim.183 Dim.184 Dim.185 Dim.186 Dim.187 Dim.188 Dim.189
+## Variance               0.234   0.230   0.229   0.226   0.224   0.221   0.219
+## % of var.              0.067   0.066   0.066   0.065   0.064   0.064   0.063
+## Cumulative % of var.  95.604  95.670  95.736  95.802  95.866  95.930  95.993
+##                      Dim.190 Dim.191 Dim.192 Dim.193 Dim.194 Dim.195 Dim.196
+## Variance               0.217   0.216   0.213   0.210   0.207   0.205   0.201
+## % of var.              0.062   0.062   0.061   0.061   0.060   0.059   0.058
+## Cumulative % of var.  96.055  96.117  96.179  96.239  96.299  96.358  96.416
+##                      Dim.197 Dim.198 Dim.199 Dim.200 Dim.201 Dim.202 Dim.203
+## Variance               0.199   0.197   0.193   0.192   0.189   0.187   0.183
+## % of var.              0.057   0.057   0.056   0.055   0.054   0.054   0.053
+## Cumulative % of var.  96.474  96.530  96.586  96.641  96.696  96.750  96.802
+##                      Dim.204 Dim.205 Dim.206 Dim.207 Dim.208 Dim.209 Dim.210
+## Variance               0.182   0.181   0.180   0.177   0.173   0.172   0.170
+## % of var.              0.053   0.052   0.052   0.051   0.050   0.050   0.049
+## Cumulative % of var.  96.855  96.907  96.959  97.010  97.060  97.110  97.159
+##                      Dim.211 Dim.212 Dim.213 Dim.214 Dim.215 Dim.216 Dim.217
+## Variance               0.168   0.166   0.163   0.162   0.158   0.155   0.154
+## % of var.              0.049   0.048   0.047   0.047   0.046   0.045   0.045
+## Cumulative % of var.  97.207  97.255  97.302  97.349  97.394  97.439  97.483
+##                      Dim.218 Dim.219 Dim.220 Dim.221 Dim.222 Dim.223 Dim.224
+## Variance               0.151   0.150   0.148   0.147   0.144   0.144   0.140
+## % of var.              0.043   0.043   0.043   0.042   0.042   0.041   0.040
+## Cumulative % of var.  97.527  97.570  97.613  97.655  97.697  97.738  97.779
+##                      Dim.225 Dim.226 Dim.227 Dim.228 Dim.229 Dim.230 Dim.231
+## Variance               0.139   0.138   0.136   0.134   0.133   0.133   0.130
+## % of var.              0.040   0.040   0.039   0.039   0.038   0.038   0.038
+## Cumulative % of var.  97.819  97.858  97.898  97.936  97.974  98.013  98.050
+##                      Dim.232 Dim.233 Dim.234 Dim.235 Dim.236 Dim.237 Dim.238
+## Variance               0.128   0.126   0.125   0.124   0.123   0.119   0.118
+## % of var.              0.037   0.036   0.036   0.036   0.035   0.034   0.034
+## Cumulative % of var.  98.087  98.124  98.160  98.196  98.231  98.265  98.299
+##                      Dim.239 Dim.240 Dim.241 Dim.242 Dim.243 Dim.244 Dim.245
+## Variance               0.117   0.115   0.114   0.113   0.112   0.109   0.108
+## % of var.              0.034   0.033   0.033   0.033   0.032   0.031   0.031
+## Cumulative % of var.  98.333  98.366  98.399  98.432  98.464  98.495  98.527
+##                      Dim.246 Dim.247 Dim.248 Dim.249 Dim.250 Dim.251 Dim.252
+## Variance               0.107   0.106   0.104   0.104   0.101   0.100   0.097
+## % of var.              0.031   0.031   0.030   0.030   0.029   0.029   0.028
+## Cumulative % of var.  98.558  98.588  98.618  98.648  98.677  98.706  98.734
+##                      Dim.253 Dim.254 Dim.255 Dim.256 Dim.257 Dim.258 Dim.259
+## Variance               0.095   0.095   0.094   0.092   0.091   0.090   0.089
+## % of var.              0.027   0.027   0.027   0.027   0.026   0.026   0.026
+## Cumulative % of var.  98.762  98.789  98.816  98.842  98.869  98.894  98.920
+##                      Dim.260 Dim.261 Dim.262 Dim.263 Dim.264 Dim.265 Dim.266
+## Variance               0.088   0.085   0.084   0.083   0.082   0.081   0.079
+## % of var.              0.025   0.025   0.024   0.024   0.024   0.023   0.023
+## Cumulative % of var.  98.945  98.970  98.994  99.018  99.042  99.065  99.088
+##                      Dim.267 Dim.268 Dim.269 Dim.270 Dim.271 Dim.272 Dim.273
+## Variance               0.078   0.078   0.077   0.076   0.074   0.072   0.071
+## % of var.              0.023   0.023   0.022   0.022   0.021   0.021   0.021
+## Cumulative % of var.  99.110  99.133  99.155  99.177  99.198  99.219  99.240
+##                      Dim.274 Dim.275 Dim.276 Dim.277 Dim.278 Dim.279 Dim.280
+## Variance               0.071   0.069   0.067   0.067   0.066   0.064   0.064
+## % of var.              0.020   0.020   0.019   0.019   0.019   0.019   0.018
+## Cumulative % of var.  99.260  99.280  99.299  99.319  99.338  99.356  99.375
+##                      Dim.281 Dim.282 Dim.283 Dim.284 Dim.285 Dim.286 Dim.287
+## Variance               0.063   0.062   0.060   0.059   0.058   0.057   0.057
+## % of var.              0.018   0.018   0.017   0.017   0.017   0.016   0.016
+## Cumulative % of var.  99.393  99.411  99.428  99.445  99.462  99.478  99.495
+##                      Dim.288 Dim.289 Dim.290 Dim.291 Dim.292 Dim.293 Dim.294
+## Variance               0.055   0.054   0.052   0.051   0.051   0.050   0.049
+## % of var.              0.016   0.016   0.015   0.015   0.015   0.014   0.014
+## Cumulative % of var.  99.510  99.526  99.541  99.556  99.570  99.585  99.599
+##                      Dim.295 Dim.296 Dim.297 Dim.298 Dim.299 Dim.300 Dim.301
+## Variance               0.048   0.047   0.046   0.045   0.044   0.044   0.043
+## % of var.              0.014   0.014   0.013   0.013   0.013   0.013   0.012
+## Cumulative % of var.  99.613  99.626  99.640  99.653  99.665  99.678  99.690
+##                      Dim.302 Dim.303 Dim.304 Dim.305 Dim.306 Dim.307 Dim.308
+## Variance               0.041   0.040   0.039   0.038   0.037   0.037   0.036
+## % of var.              0.012   0.011   0.011   0.011   0.011   0.011   0.010
+## Cumulative % of var.  99.702  99.713  99.725  99.736  99.747  99.757  99.767
+##                      Dim.309 Dim.310 Dim.311 Dim.312 Dim.313 Dim.314 Dim.315
+## Variance               0.035   0.034   0.034   0.033   0.033   0.032   0.030
+## % of var.              0.010   0.010   0.010   0.009   0.009   0.009   0.009
+## Cumulative % of var.  99.778  99.787  99.797  99.807  99.816  99.825  99.834
+##                      Dim.316 Dim.317 Dim.318 Dim.319 Dim.320 Dim.321 Dim.322
+## Variance               0.030   0.029   0.028   0.027   0.026   0.025   0.025
+## % of var.              0.009   0.008   0.008   0.008   0.008   0.007   0.007
+## Cumulative % of var.  99.842  99.851  99.859  99.867  99.874  99.881  99.889
+##                      Dim.323 Dim.324 Dim.325 Dim.326 Dim.327 Dim.328 Dim.329
+## Variance               0.024   0.023   0.023   0.022   0.021   0.021   0.020
+## % of var.              0.007   0.007   0.007   0.006   0.006   0.006   0.006
+## Cumulative % of var.  99.895  99.902  99.909  99.915  99.921  99.927  99.933
+##                      Dim.330 Dim.331 Dim.332 Dim.333 Dim.334 Dim.335 Dim.336
+## Variance               0.019   0.019   0.018   0.017   0.016   0.016   0.015
+## % of var.              0.006   0.005   0.005   0.005   0.005   0.005   0.004
+## Cumulative % of var.  99.939  99.944  99.949  99.954  99.959  99.963  99.968
+##                      Dim.337 Dim.338 Dim.339 Dim.340 Dim.341 Dim.342 Dim.343
+## Variance               0.015   0.014   0.014   0.013   0.012   0.011   0.010
+## % of var.              0.004   0.004   0.004   0.004   0.003   0.003   0.003
+## Cumulative % of var.  99.972  99.976  99.980  99.984  99.987  99.990  99.993
+##                      Dim.344 Dim.345 Dim.346 Dim.347
+## Variance               0.010   0.008   0.006   0.000
+## % of var.              0.003   0.002   0.002   0.000
+## Cumulative % of var.  99.996  99.998 100.000 100.000
+## 
+## Individuals (the 10 first)
+##                Dist    Dim.1    ctr   cos2    Dim.2    ctr   cos2    Dim.3
+## 2010-06-30 | 15.889 | -9.341  0.101  0.346 |  2.006  0.087  0.016 | -2.273
+## 2010-07-01 | 14.257 | -2.236  0.006  0.025 | -0.761  0.013  0.003 |  1.398
+## 2010-07-02 | 13.542 | -5.106  0.030  0.142 | -1.671  0.060  0.015 | -2.792
+## 2010-07-06 | 16.305 |  3.919  0.018  0.058 | -4.686  0.475  0.083 | -5.014
+## 2010-07-07 | 34.393 | 30.365  1.068  0.780 | -3.374  0.246  0.010 |  1.046
+## 2010-07-08 | 15.360 |  8.327  0.080  0.294 | -2.900  0.182  0.036 | -0.315
+## 2010-07-09 | 13.917 |  8.144  0.077  0.342 |  1.595  0.055  0.013 | -1.244
+## 2010-07-12 | 12.823 | -2.455  0.007  0.037 | -1.129  0.028  0.008 |  0.808
+## 2010-07-13 | 21.447 | 17.439  0.352  0.661 |  2.701  0.158  0.016 |  2.564
+## 2010-07-14 | 10.908 | -1.260  0.002  0.013 |  0.443  0.004  0.002 |  0.328
+##               ctr   cos2  
+## 2010-06-30  0.166  0.020 |
+## 2010-07-01  0.063  0.010 |
+## 2010-07-02  0.250  0.043 |
+## 2010-07-06  0.808  0.095 |
+## 2010-07-07  0.035  0.001 |
+## 2010-07-08  0.003  0.000 |
+## 2010-07-09  0.050  0.008 |
+## 2010-07-12  0.021  0.004 |
+## 2010-07-13  0.211  0.014 |
+## 2010-07-14  0.003  0.001 |
+## 
+## Variables (the 10 first)
+##               Dim.1    ctr   cos2    Dim.2    ctr   cos2    Dim.3    ctr   cos2
+## AAPL       |  0.592  0.204  0.350 |  0.198  0.428  0.039 |  0.086  0.121  0.007
+## ABEV       |  0.601  0.211  0.361 | -0.023  0.006  0.001 | -0.055  0.049  0.003
+## ABT        |  0.654  0.250  0.427 | -0.319  1.107  0.101 |  0.059  0.056  0.003
+## ACGL       |  0.704  0.289  0.495 | -0.138  0.209  0.019 |  0.033  0.017  0.001
+## ACN        |  0.731  0.312  0.535 |  0.083  0.076  0.007 |  0.034  0.018  0.001
+## ADBE       |  0.640  0.239  0.410 |  0.117  0.150  0.014 |  0.129  0.268  0.017
+## ADI        |  0.753  0.331  0.568 |  0.217  0.513  0.047 |  0.108  0.190  0.012
+## ADP        |  0.871  0.443  0.759 | -0.082  0.073  0.007 |  0.108  0.187  0.012
+## ADSK       |  0.760  0.337  0.578 |  0.222  0.537  0.049 |  0.110  0.197  0.012
+## AEE        |  0.690  0.278  0.476 | -0.388  1.644  0.151 |  0.008  0.001  0.000
+##             
+## AAPL       |
+## ABEV       |
+## ABT        |
+## ACGL       |
+## ACN        |
+## ADBE       |
+## ADI        |
+## ADP        |
+## ADSK       |
+## AEE        |
+```
+
+
+
+### Scree plot
+
+
+```r
+library(factoextra)
+```
+
+```
+## Welcome! Want to learn more? See two factoextra-related books at https://goo.gl/ve3WBa
+```
+
+The first PC captures half the total variation. The first PC is considered to capture systematic variation (market variation).  
+
+The the first 10 PCs catches 60 percent of the total variation, and only 10 percent of the non-systematic variance, if the first PC represents the market variation.  
+
+To capture 90 percent of the variation we would need 125 PCs.  
+
+So the diversification provided by the first 10 PCs is not great.  
+
+Following Kaiser's rule we would have to keep no more than 48 PCs (eigenvalue > 1).
+
+
+```r
+head(get_eigenvalue(pca_output), 125)
+```
+
+```
+##          eigenvalue variance.percent cumulative.variance.percent
+## Dim.1   171.2680990       49.3568009                    49.35680
+## Dim.2     9.1704676        2.6427860                    51.99959
+## Dim.3     6.1782668        1.7804804                    53.78007
+## Dim.4     5.3154082        1.5318179                    55.31189
+## Dim.5     4.0404815        1.1644039                    56.47629
+## Dim.6     3.1437707        0.9059858                    57.38227
+## Dim.7     2.7436884        0.7906883                    58.17296
+## Dim.8     2.5976653        0.7486067                    58.92157
+## Dim.9     2.4036238        0.6926870                    59.61426
+## Dim.10    2.2899508        0.6599282                    60.27419
+## Dim.11    2.1613688        0.6228729                    60.89706
+## Dim.12    1.9869580        0.5726104                    61.46967
+## Dim.13    1.9403189        0.5591697                    62.02884
+## Dim.14    1.9181369        0.5527772                    62.58162
+## Dim.15    1.8281941        0.5268571                    63.10847
+## Dim.16    1.7907792        0.5160747                    63.62455
+## Dim.17    1.7692515        0.5098708                    64.13442
+## Dim.18    1.6792303        0.4839280                    64.61835
+## Dim.19    1.6604741        0.4785228                    65.09687
+## Dim.20    1.5648260        0.4509585                    65.54783
+## Dim.21    1.5292919        0.4407181                    65.98855
+## Dim.22    1.5018594        0.4328125                    66.42136
+## Dim.23    1.4794500        0.4263545                    66.84771
+## Dim.24    1.4433477        0.4159503                    67.26366
+## Dim.25    1.4064446        0.4053155                    67.66898
+## Dim.26    1.3792744        0.3974854                    68.06646
+## Dim.27    1.3481354        0.3885116                    68.45498
+## Dim.28    1.3455437        0.3877647                    68.84274
+## Dim.29    1.3232830        0.3813496                    69.22409
+## Dim.30    1.3201124        0.3804359                    69.60453
+## Dim.31    1.2864541        0.3707361                    69.97526
+## Dim.32    1.2483283        0.3597488                    70.33501
+## Dim.33    1.2294289        0.3543023                    70.68931
+## Dim.34    1.2130689        0.3495876                    71.03890
+## Dim.35    1.2089703        0.3484064                    71.38731
+## Dim.36    1.1830100        0.3409251                    71.72823
+## Dim.37    1.1645929        0.3356176                    72.06385
+## Dim.38    1.1394869        0.3283824                    72.39223
+## Dim.39    1.1283587        0.3251754                    72.71741
+## Dim.40    1.1206186        0.3229448                    73.04035
+## Dim.41    1.0938738        0.3152374                    73.35559
+## Dim.42    1.0787320        0.3108738                    73.66646
+## Dim.43    1.0733120        0.3093118                    73.97577
+## Dim.44    1.0626409        0.3062366                    74.28201
+## Dim.45    1.0404528        0.2998423                    74.58185
+## Dim.46    1.0324407        0.2975333                    74.87939
+## Dim.47    1.0244874        0.2952413                    75.17463
+## Dim.48    1.0059908        0.2899109                    75.46454
+## Dim.49    0.9983579        0.2877112                    75.75225
+## Dim.50    0.9823959        0.2831112                    76.03536
+## Dim.51    0.9653517        0.2781993                    76.31356
+## Dim.52    0.9589987        0.2763685                    76.58993
+## Dim.53    0.9293810        0.2678331                    76.85776
+## Dim.54    0.9154753        0.2638257                    77.12159
+## Dim.55    0.9136207        0.2632913                    77.38488
+## Dim.56    0.9048240        0.2607562                    77.64564
+## Dim.57    0.8967501        0.2584294                    77.90407
+## Dim.58    0.8914747        0.2569091                    78.16097
+## Dim.59    0.8735246        0.2517362                    78.41271
+## Dim.60    0.8611772        0.2481779                    78.66089
+## Dim.61    0.8565281        0.2468381                    78.90773
+## Dim.62    0.8497460        0.2448836                    79.15261
+## Dim.63    0.8454305        0.2436399                    79.39625
+## Dim.64    0.8279519        0.2386028                    79.63485
+## Dim.65    0.8099817        0.2334241                    79.86828
+## Dim.66    0.8061090        0.2323081                    80.10058
+## Dim.67    0.8007448        0.2307622                    80.33135
+## Dim.68    0.7941843        0.2288716                    80.56022
+## Dim.69    0.7829538        0.2256351                    80.78585
+## Dim.70    0.7719969        0.2224775                    81.00833
+## Dim.71    0.7701312        0.2219398                    81.23027
+## Dim.72    0.7565410        0.2180234                    81.44829
+## Dim.73    0.7508696        0.2163889                    81.66468
+## Dim.74    0.7395266        0.2131201                    81.87780
+## Dim.75    0.7300378        0.2103855                    82.08819
+## Dim.76    0.7193475        0.2073047                    82.29549
+## Dim.77    0.7127635        0.2054074                    82.50090
+## Dim.78    0.7088429        0.2042775                    82.70518
+## Dim.79    0.7008295        0.2019682                    82.90715
+## Dim.80    0.6942005        0.2000578                    83.10720
+## Dim.81    0.6814867        0.1963939                    83.30360
+## Dim.82    0.6726954        0.1938603                    83.49746
+## Dim.83    0.6696304        0.1929770                    83.69044
+## Dim.84    0.6605752        0.1903675                    83.88080
+## Dim.85    0.6548220        0.1887095                    84.06951
+## Dim.86    0.6500040        0.1873210                    84.25683
+## Dim.87    0.6426076        0.1851895                    84.44202
+## Dim.88    0.6392203        0.1842133                    84.62624
+## Dim.89    0.6344873        0.1828494                    84.80909
+## Dim.90    0.6237277        0.1797486                    84.98883
+## Dim.91    0.6173576        0.1779128                    85.16675
+## Dim.92    0.6130401        0.1766686                    85.34342
+## Dim.93    0.6034802        0.1739136                    85.51733
+## Dim.94    0.5963940        0.1718715                    85.68920
+## Dim.95    0.5892465        0.1698117                    85.85901
+## Dim.96    0.5877431        0.1693784                    86.02839
+## Dim.97    0.5864468        0.1690048                    86.19740
+## Dim.98    0.5750124        0.1657096                    86.36311
+## Dim.99    0.5687002        0.1638905                    86.52700
+## Dim.100   0.5612274        0.1617370                    86.68873
+## Dim.101   0.5560515        0.1602454                    86.84898
+## Dim.102   0.5475128        0.1577847                    87.00676
+## Dim.103   0.5427562        0.1564139                    87.16318
+## Dim.104   0.5327590        0.1535329                    87.31671
+## Dim.105   0.5295506        0.1526082                    87.46932
+## Dim.106   0.5204810        0.1499945                    87.61931
+## Dim.107   0.5177854        0.1492177                    87.76853
+## Dim.108   0.5109399        0.1472449                    87.91578
+## Dim.109   0.5072724        0.1461880                    88.06196
+## Dim.110   0.5029807        0.1449512                    88.20691
+## Dim.111   0.4985301        0.1436686                    88.35058
+## Dim.112   0.4923858        0.1418979                    88.49248
+## Dim.113   0.4884105        0.1407523                    88.63323
+## Dim.114   0.4828621        0.1391534                    88.77239
+## Dim.115   0.4744580        0.1367314                    88.90912
+## Dim.116   0.4675618        0.1347440                    89.04386
+## Dim.117   0.4655604        0.1341673                    89.17803
+## Dim.118   0.4602199        0.1326282                    89.31066
+## Dim.119   0.4571826        0.1317529                    89.44241
+## Dim.120   0.4500993        0.1297116                    89.57212
+## Dim.121   0.4480837        0.1291308                    89.70125
+## Dim.122   0.4445254        0.1281053                    89.82936
+## Dim.123   0.4404470        0.1269300                    89.95629
+## Dim.124   0.4378227        0.1261737                    90.08246
+## Dim.125   0.4321283        0.1245327                    90.20699
+```
+
+
+
+```r
+fviz_eig(pca_output, addlabels = TRUE)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
+### Variables (individual stocks)
+
+
+```r
+library("corrplot")
+```
+
+
+
+```r
+variables <- get_pca_var(pca_output)
+```
+
+
+Plot contribution of representation of the variables on factor map.  
+Plotting the top 20 highest contributors to PC1.  
+
+
+```r
+top_pca_contrib_var <- head(variables$contrib[order(variables$contrib[, 1], decreasing=TRUE), ], 20)
+# top_pca_variables <- lapply(variables, function(x) {
+#   x[1:20, ]
+# })
+corrplot(top_pca_contrib_var, is.corr=FALSE)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+
+Which stock contributes most to each of the first 10 PCs?
+
+```r
+top_contributing_stocks <- list()
+for(i in 1:ncol(variables$contrib)) {
+  top_contributing_stock_id <- which(variables$contrib[ ,i] == max(variables$contrib[,i]))
+  top_contributing_stocks[[i]] <- variables$contrib[top_contributing_stock_id, i]
+  names(top_contributing_stocks[[i]]) <- rownames(variables$contrib)[top_contributing_stock_id]
+}
+```
+
+
+```r
+head(top_contributing_stocks, 10)
+```
+
+```
+## [[1]]
+##       HON 
+## 0.4574893 
+## 
+## [[2]]
+##       ED 
+## 3.030579 
+## 
+## [[3]]
+##    ROST 
+## 2.56385 
+## 
+## [[4]]
+##      WPM 
+## 3.577042 
+## 
+## [[5]]
+##        O 
+## 2.631794 
+## 
+## [[6]]
+##     MRVL 
+## 2.575865 
+## 
+## [[7]]
+##      AEM 
+## 8.025388 
+## 
+## [[8]]
+##       SO 
+## 2.572893 
+## 
+## [[9]]
+##     AMZN 
+## 3.948117 
+## 
+## [[10]]
+##      UAL 
+## 2.479751
+```
+
+
+
+Plot quality of representation of the variables on factor map.  
+Plotting the top 20 highest contributors to PC1 and omitting PC1 in the plot, which otherwise dominates the plot.  
+
+```r
+top_pca_cor2_var <- head(variables$cos2[order(variables$contrib[, 1], decreasing=TRUE), ], 20)
+# top_pca_variables <- lapply(variables, function(x) {
+#   x[1:20, ]
+# })
+corrplot(top_pca_cor2_var[, -1], is.corr=FALSE)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+
+
+
+
+Total cos2 of variables on dim. 1:
+
+```r
+fviz_cos2(pca_output, choice = "var", axes = 1) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+
+Total contrib of variables on dim. 1.  
+Red dashed is average.
+
+```r
+fviz_contrib(pca_output, choice = "var", axes = 1) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+
+
+Total cos2 of variables on dim. 2:
+
+```r
+fviz_cos2(pca_output, choice = "var", axes = 2) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
+
+Total contrib of variables on dim. 2.  
+
+```r
+fviz_contrib(pca_output, choice = "var", axes = 2) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
+
+
+Total cos2 of variables on dim. 3:
+
+```r
+fviz_cos2(pca_output, choice = "var", axes = 3) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-27-1.png)<!-- -->
+
+Total contrib of variables on dim. 3.  
+
+```r
+fviz_contrib(pca_output, choice = "var", axes = 3) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-28-1.png)<!-- -->
+
+
+Total cos2 of variables on dim 4 thru 10.
+
+```r
+fviz_cos2(pca_output, choice = "var", axes = 4:10) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
+
+Total contrib of variables on dim. 4 thru 10.  
+
+```r
+fviz_contrib(pca_output, choice = "var", axes = 4:10) +
+  theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
+
+
+We see that a lot of variables (stocks) contribute to PC1, but only a few higher PC numbers.
+
+
+## Plot coordinates (eigenvectors)
+
+First 10 components (dimensions):
+
+```r
+as.data.frame(pca_output$var$coord[, 1:10]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
+
+It is very clear to see, that all stockes - except a few - contribute mainly to $PC_1$, hence $PC_1$ represents market risk.
+
+For which stocks are the coordinates for $PC_1$ smaller than for some other PC?
+
+
+```r
+strong_idio_risk <- list()
+for(i in 2:10) {
+  coords_i <- pca_output$var$coord[ ,i]
+  strong_idio_risk_i <- coords_i[which(coords_i > pca_output$var$coord[ ,1])]
+  strong_idio_risk_i
+  if(length(strong_idio_risk_i) > 0) {
+    strong_idio_risk[[i - 1]] <- strong_idio_risk_i
+  } else {
+    strong_idio_risk[[i - 1]] <- NA
+  }
+}
+names(strong_idio_risk) <- paste0("component", 2:10)
+
+strong_idio_risk
+```
+
+```
+## $component2
+##      GOLD      NFLX 
+## 0.2017508 0.2458170 
+## 
+## $component3
+## [1] NA
+## 
+## $component4
+##       AEM       FNV      GOLD       NEM       WPM 
+## 0.3924176 0.3474769 0.4117121 0.4190413 0.4360440 
+## 
+## $component5
+## [1] NA
+## 
+## $component6
+## [1] NA
+## 
+## $component7
+##       AEM       FNV      GOLD       NEM 
+## 0.4692458 0.3700811 0.4165433 0.4640805 
+## 
+## $component8
+## [1] NA
+## 
+## $component9
+## [1] NA
+## 
+## $component10
+## [1] NA
+```
+
+Let's look at the components in pairs.
+
+First two components:
+
+```r
+as.data.frame(pca_output$var$coord[, 1:2]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-33-1.png)<!-- -->
+
+Components 3 - 4:
+
+```r
+as.data.frame(pca_output$var$coord[, 3:4]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-34-1.png)<!-- -->
+
+Components 5 - 6:
+
+```r
+as.data.frame(pca_output$var$coord[, 5:6]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-35-1.png)<!-- -->
+
+Components 7 - 8:
+
+```r
+as.data.frame(pca_output$var$coord[, 7:8]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-36-1.png)<!-- -->
+
+Components 9 - 10:
+
+```r
+as.data.frame(pca_output$var$coord[, 9:10]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-37-1.png)<!-- -->
+
+Instead we could look at bi-plots...
+
+
+### Bi-plot
+
+Reference:  
+https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/#biplot 
+
+Arrow colors represent cluster numbers from k-Sharp clustering.
+
+Roughly speaking a bi-plot can be interpreted as follows:  
+
+- An individual that is on the same side of a given variable has a high value for this variable;  
+- An individual that is on the opposite side of a given variable has a low value for this variable.  
+
+
+
+Dim 1+2
+
+```r
+fviz_pca_biplot(
+    pca_output,
+    axes = c(1,2),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-38-1.png)<!-- -->
+
+
+
+```r
+fviz_pca_var(
+  pca_output, 
+  axes = c(1,2),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"  
+)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-39-1.png)<!-- -->
+
+
+
+
+Dim 3+4
+
+```r
+fviz_pca_biplot(
+    pca_output,
+    axes = c(3,4),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-40-1.png)<!-- -->
+
+
+
+```r
+fviz_pca_var(
+  pca_output, 
+  axes = c(3,4),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"  
+)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-41-1.png)<!-- -->
+
+
+Dim 5+6
+
+```r
+fviz_pca_biplot(
+    pca_output,
+    axes = c(5,6),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-42-1.png)<!-- -->
+
+
+```r
+fviz_pca_var(
+  pca_output, 
+  axes = c(5,6),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"   
+)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-43-1.png)<!-- -->
+
+
+Dim 7+8
+
+```r
+fviz_pca_biplot(
+    pca_output,
+    axes = c(7,8),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-44-1.png)<!-- -->
+
+
+```r
+fviz_pca_var(
+  pca_output, 
+  axes = c(7,8),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none"  
+)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-45-1.png)<!-- -->
+
+
+Dim 9+10
+
+```r
+fviz_pca_biplot(
+    pca_output,
+    axes = c(9,10),
+    geom = "point",
+    #col.ind = "contrib", ## color according to individual contribution to PC
+    col.ind = "gray",
+    col.var = factor(py$mcap_clusters), #"contrib", ## color according to contribution of variable to PC
+    #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+    palette = "simpsons",
+    label = "none"
+  ) +
+  labs(title = "Biplot of PCA Results")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-46-1.png)<!-- -->
+
+
+
+```r
+fviz_pca_var(
+  pca_output, 
+  axes = c(9,10),
+  col.var = "contrib", #"black",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  alpha.var = 0.25,
+  label = "none" 
+)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-47-1.png)<!-- -->
+
+## Strategy ideas
+
+### Idea 1
+
+Grouping by clusters as an alternative to grouping by sector or industry.  
+
+1) Group stocks into clusters using k-Sharp algorithm. Number of clusters is subject to budget constraints.  
+2) From each cluster, select the stock closest to the centroid.  
+3) Weight the stocks according to equal risk.  
+
+
+
+### Idea 2
+
+1) Each year, Apply PCA to the correlation matrix of a data set.  based on the previous two years of daily data.  
+2) Exclude $PC_1$, as all stocks will have some degree of correlation with market risk ($PC_1$).  
+3) Identify one stock for each used $PC_i$. Yang (see also Joliffe) offers this procedure:  
+  1. Associate one variable with the highest coefficient in absolute value with each of the last $m_1$ principal components that have eigenvalue less than a certain level $l$ which we call the deletion criteria, then delete those $m_1$ variables. For example, one can use Kaiser’s rule. Recall that in the case of a correlation matrix, a principal component with eigenvalues smaller than 1 contains less information than one of the original variables.  
+  2. A second PCA is performed on remaining variables. The same procedure was applied that associates one variable with each $m_2$ principal components that have an eigenvalue less than $l$, and delete those $m_2$ variables.  
+  3. The procedure is repeated until no further deletions are considered necessary based on a stopping criteria. One can decide to stop the selection procedure based on the eigenvalue of the last principal component. For example, the stopping criteria can be delete variables until the retaining variables all have eigenvalue not less than 0.7.  
+  - Alternative, simpler stock (variable) selection method (see Jolliffe, p 108):
+    - Associate one variable with each of the first $m$ PCs, namely the variable not already chosen, with the highest coefficient, in absolute value, in each successive PC. These $m$ variables are retained, and the remaining $m^* = p - m$ are deleted. (This method is said to produce more "best" choices and more "bad" choices, while fewer "moderate" choices.)
+4) Weight each stock $S_i$ by the ratio given by the stock's contribution to the corresponding $PC_i$ (given as contribution or coordinate) divided by the product of stock $S_i$'s contribution to $PC_1$ and the eigenvalue of $PC_i$, then normalized to sum to 1. (I.e. ignoring the stock's contribution to others PC's.)
+  - The idea is balance the amount of variance contributed by each $PC_i|_{i>1}$ (each PC represented by one stock), and then adjust for each stock's contribution to the market risk represented by $PC_1$.  
+5) Normalize the weighted portfolio to the desired volatility target.  
+
+
+#### Implementation of idea 2
+
+Assume that we are limited by budget constraints to 9 stocks. This implies including 10 PCs.
+
+1) Each year, perform PCA based on the previous two years of daily data.  
+
+```r
+num_years_offset <- 0
+pca_output <- PCA(top_mcap_returns_df_short[1:504 + (num_years_offset * 252), ], scale.unit = TRUE, ncp = 10, graph = FALSE)
+```
+
+
+
+3) Identify one stock for each used $PC_i$. Yang (see also Joliffe) offers this procedure:  
+  1. For each $PC_j|_{1<j\leq m}$ select the variable (stock) with the highest absolute coordinate value:
+
+```r
+num_stocks <- ncol(pca_output$var$coord) - 1
+coord_for_each_selected_stock <- numeric(num_stocks)
+for(i in 1:num_stocks) {
+  max_coord_i <- max(abs(pca_output$var$coord[ ,i+1]))
+  coord_for_each_selected_stock[i] <- max_coord_i
+  names(coord_for_each_selected_stock)[i] <- row.names(pca_output$var$coord)[which(abs(pca_output$var$coord[ ,i+1]) == max_coord_i)][1] ## Select the first if multiple stocks have exactly same coordinates
+}
+coord_for_each_selected_stock
+```
+
+```
+##        ED      ROST       WPM         O      MRVL       AEM        SO      AMZN 
+## 0.5271795 0.3979968 0.4360440 0.3260938 0.2845686 0.4692458 0.2585249 0.3080550 
+##       UAL 
+## 0.2382962
+```
+
+
+
+4) Weight each stock $S_i$ by the ratio given by the stock's contribution to the corresponding $PC_i$ (given as absolute coordinate) divided by the product of stock $S_i$'s contribution to $PC_1$ and the eigenvalue of $PC_i$, then normalized to sum to 1. (I.e. ignoring the stock's contribution to others PC's.)
+  - The idea is balance the amount of variance contributed by each $PC_i|_{i>1}$ (each PC represented by one stock), and then adjust for each stock's contribution to the market risk represented by $PC_1$.
+  
+
+```r
+weights <- numeric(length(coord_for_each_selected_stock))
+pc1_coords <- pca_output$var$coord[ ,1]
+selected_symbols <- names(coord_for_each_selected_stock)
+for(i in seq_along(coord_for_each_selected_stock)) {
+  stock_coord <- coord_for_each_selected_stock[i]
+  weight_in_pc1 <- pc1_coords[which(row.names(pca_output$var$coord) == selected_symbols[i])]
+  eigenvalue <- pca_output$eig[i + 1, 1]
+  weights[i] <- stock_coord / (weight_in_pc1 * eigenvalue)
+}
+weights <- weights / sum(weights)
+names(weights) <- selected_symbols
+
+weights
+```
+
+```
+##         ED       ROST        WPM          O       MRVL        AEM         SO 
+## 0.04748752 0.05501070 0.10266060 0.05236832 0.07784745 0.34804339 0.09052237 
+##       AMZN        UAL 
+## 0.11924260 0.10681706
+```
+
+
+```r
+selected_symbols_ids <- which(names(top_mcap_prices_df_short) %in% selected_symbols)
+ggplot(
+  aes(x = Index, y = Value, colour = Series), 
+  data = fortify(top_mcap_prices_df_short[, selected_symbols_ids], melt = TRUE)) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Prices of selected stocks, yr 1+2", x ="Time", y = "Price") +
+    theme(legend.position="none")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-51-1.png)<!-- -->
+
+
+```r
+selected_symbols_ids <- which(names(top_mcap_prices_df_short) %in% selected_symbols)
+ggplot(
+  aes(x = Index, y = Value, colour = Series), 
+  data = fortify(scale(top_mcap_prices_df_short[, selected_symbols_ids]), melt = TRUE)) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Scaled prices of selected stocks, yr 1+2", x ="Time", y = "Price") +
+    theme(legend.position="none")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-52-1.png)<!-- -->
+
+5) Normalize the weighted portfolio to the desired volatility target. 
+
+TODO: Implement safe guards for risk weighting.
+
+```r
+sds <- lapply(top_mcap_prices_df_short[, selected_symbols_ids], function(x) {sd(x, na.rm = TRUE)})
+#risk_normalized_weights <- lapply(sds, function(x) {x/sum(unlist(sds))})
+risk_adjusted_weights <- unlist(lapply(sds, function(x) {1/x}))
+risk_normalized_weights <- risk_adjusted_weights/sum(risk_adjusted_weights)
+
+selected_pf_prices <- as.matrix(top_mcap_prices_df_short[, selected_symbols_ids]) %*% unname(risk_normalized_weights)
+
+risk_normalized_weights
+```
+
+```
+##         AEM        AMZN          ED        MRVL           O        ROST 
+## 0.072676286 0.002166002 0.091362336 0.262303737 0.101110991 0.046578292 
+##          SO         UAL         WPM 
+## 0.243340655 0.048615925 0.131845776
+```
+
+Plot weighted portfolio average of selected stocks.  
+
+```r
+selected_portfolio <- data.frame(
+  date = index(top_mcap_prices_df_short),
+  price = selected_pf_prices
+)
+  
+  
+ggplot(aes(x = date, y = price), data = selected_portfolio) + 
+    geom_line(linewidth = 0.2) + 
+    labs(title = "Avg. of selected portfolio", x ="Time", y = "Price") +
+    theme(legend.position="none")
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-54-1.png)<!-- -->
+
+
+## Explained variation
+
+We want to know the percentage of variance explained by the selected portfolio relative to the entire pool of candidate stocks.  
+
+The variance of components is additive, as components are orthogonal by construction. If we assumed (unrealistically) that for each PC all stocks with a weight effectively larger than 0 were perfectly correlated, the selected stock each PC would then be express same percentage of variation as it's associated PC. This scenario would be trivial, so let's ignore it.
+
+Let's now consider the opposite extreme. Here we assume that all stocks affecting each PC were perfectly _un_correlated. This is of course again totally unrealistically. Recall, that the point of using PCA is exactly that the variables with dominating weights for each PC are more ore less correlated, so that we can select one or a few variables for each PC to represent that dimension.  
+
+TODO:  
+How should we go about this? Adjust for covariances between stocks?  
+Note here that for scaled data, correlations and covariances are the same.
+
+For now let's do the calculations, given the assumption of uncorrelated stocks.
+
+
+```r
+pca_output <- PCA(top_mcap_returns_df_short[1:504, ], scale.unit = TRUE, ncp = 347)
+```
+
+![](Portfolio_selection_files/figure-html/unnamed-chunk-55-1.png)<!-- -->![](Portfolio_selection_files/figure-html/unnamed-chunk-55-2.png)<!-- -->
+
+
+Let  
+$c_{i,j}$ be the contribution of stock $j$ to $PC_i$, and  
+$v_i$ the percentage of variance expressed by $PC_i$, and  
+$n$ the number of PC's.  
+Then we calculate the percentage variance $U_j$ expressed by each stock as  
+$$u_j = \sum_{i = 1}^n c_{i,j} v_i$$  
+
+Percentages are decimalpercentages, i.e. $1.00$ rather than $100\%$.
+
+
+```r
+stock_contribution <- function(contribution_tbl, eigenvalue_tbl, stock_id, num_components) {
+  c_j <- contribution_tbl[stock_id, ]/100
+  v_ <- eigenvalue_tbl[, 2]/100 ## Column 2 in eigenvalue table is "percentage of variance" for each component
+  u_j <- 0
+  
+  for(i in 1:num_components) {
+    u_j <- u_j + c_j[i] * v_[i]
+  }
+  unname(u_j)
+}
+```
+
+
+```r
+stock_contribution(
+  contribution_tbl = pca_output$var$contrib, 
+  eigenvalue_tbl = pca_output$eig, 
+  stock_id = 1, 
+  num_components = 347
+)
+```
+
+```
+## [1] 0.002881844
+```
+
+
+
+Then, for $m$ selected stocks, the percentage of variance, $u^*$, expressed by the selected portfolio of stocks is calculated as  
+$$u^* =  \sum_{i = 1}^n \sum_{j = 1}^m c_{i,j} v_i$$
+
+
+```r
+pf_contribution <- function(contribution_tbl, eigenvalue_tbl, stock_id, num_components, pf_symbols, pf_weights) {
+  u_ <- 0
+  num_stocks <- length(pf_symbols)
+  stock_pool <- row.names(contribution_tbl)
+  stock_ids <- stock_pool[which(stock_pool %in% pf_symbols)]
+  for(j in 1:num_stocks) {
+    u_ <-  u_ + stock_contribution(
+      contribution_tbl = pca_output$var$contrib, 
+      eigenvalue_tbl = pca_output$eig, 
+      stock_id = stock_ids[j], 
+      num_components = num_components
+    ) * pf_weights[j]
+  }
+  unname(u_)
+}
+```
+
+
+```r
+pf_contribution(
+  contribution_tbl = pca_output$var$contrib, 
+  eigenvalue_tbl = pca_output$eig, 
+  stock_id = 1, 
+  num_components = 347,
+  pf_symbols = selected_symbols,
+  pf_weights = risk_normalized_weights
+)
+```
+
+```
+## [1] 0.002881844
+```
+
+
+## Systematic vs non-systematic risk
+
+We want to know the ratio between systematic and non-systematic risk in the selected portfolio. Here we define systematic risk as that captured by $PC_1$. So for the selected portfolio we want to know the ratio between it's contributions to $PC_1$ and $\{PC_i\}_{i>1}$.
+
+TODO:  
+How do we go about this?
 

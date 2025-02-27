@@ -872,6 +872,8 @@ for(i in 1:num_clusters) {
 ## PCA
 
 References:  
+
+- Rupert: Statistics and Data Analysis for Financial Engineering
 - https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/#eigenvalues-variances
 - https://ir.canterbury.ac.nz/server/api/core/bitstreams/a7b99f2d-5d9b-4212-a947-31c1d162d1c4/co
 
@@ -986,8 +988,6 @@ library("corrplot")
 ```
 
 
-
-
 ```{r}
 variables <- get_pca_var(pca_output)
 ```
@@ -1029,6 +1029,9 @@ top_pca_cor2_var <- head(variables$cos2[order(variables$contrib[, 1], decreasing
 # })
 corrplot(top_pca_cor2_var[, -1], is.corr=FALSE)
 ```
+
+
+
 
 Total cos2 of variables on dim. 1:
 ```{r}
@@ -1086,6 +1089,98 @@ fviz_contrib(pca_output, choice = "var", axes = 4:10) +
 We see that a lot of variables (stocks) contribute to PC1, but only a few higher PC numbers.
 
 
+## Plot coordinates (eigenvectors)
+
+First 10 components (dimensions):
+```{r}
+as.data.frame(pca_output$var$coord[, 1:10]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+It is very clear to see, that all stockes - except a few - contribute mainly to $PC_1$, hence $PC_1$ represents market risk.
+
+For which stocks are the coordinates for $PC_1$ smaller than for some other PC?
+
+```{r}
+strong_idio_risk <- list()
+for(i in 2:10) {
+  coords_i <- pca_output$var$coord[ ,i]
+  strong_idio_risk_i <- coords_i[which(coords_i > pca_output$var$coord[ ,1])]
+  strong_idio_risk_i
+  if(length(strong_idio_risk_i) > 0) {
+    strong_idio_risk[[i - 1]] <- strong_idio_risk_i
+  } else {
+    strong_idio_risk[[i - 1]] <- NA
+  }
+}
+names(strong_idio_risk) <- paste0("component", 2:10)
+
+strong_idio_risk
+```
+
+Let's look at the components in pairs.
+
+First two components:
+```{r}
+as.data.frame(pca_output$var$coord[, 1:2]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+Components 3 - 4:
+```{r}
+as.data.frame(pca_output$var$coord[, 3:4]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+Components 5 - 6:
+```{r}
+as.data.frame(pca_output$var$coord[, 5:6]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+Components 7 - 8:
+```{r}
+as.data.frame(pca_output$var$coord[, 7:8]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+Components 9 - 10:
+```{r}
+as.data.frame(pca_output$var$coord[, 9:10]) %>% 
+  mutate(stock = factor(row.names(pca_output$var$coord))) %>% 
+  gather(key = "component", value = "coord", -stock) %>% 
+  ggplot(aes(x = stock, y = coord, group = component, colour = component)) +
+    geom_line(linewidth = 0.2) +  
+    geom_point(size = 0.5) +
+    theme(axis.text.x = element_blank())
+```
+
+Instead we could look at bi-plots...
 
 
 ### Bi-plot
@@ -1280,8 +1375,10 @@ Assume that we are limited by budget constraints to 9 stocks. This implies inclu
 1) Each year, perform PCA based on the previous two years of daily data.  
 ```{r}
 num_years_offset <- 0
-pca_output <- PCA(top_mcap_returns_df_short[1:504 + (num_years_offset * 252), ], scale.unit = TRUE, ncp = 10, graph = TRUE, axes = c(1,2))
+pca_output <- PCA(top_mcap_returns_df_short[1:504 + (num_years_offset * 252), ], scale.unit = TRUE, ncp = 10, graph = FALSE)
 ```
+
+
 
 3) Identify one stock for each used $PC_i$. Yang (see also Joliffe) offers this procedure:  
   1. For each $PC_j|_{1<j\leq m}$ select the variable (stock) with the highest absolute coordinate value:
@@ -1366,6 +1463,95 @@ ggplot(aes(x = date, y = price), data = selected_portfolio) +
 ```
 
 
+## Explained variation
+
+We want to know the percentage of variance explained by the selected portfolio relative to the entire pool of candidate stocks.  
+
+The variance of components is additive, as components are orthogonal by construction. If we assumed (unrealistically) that for each PC all stocks with a weight effectively larger than 0 were perfectly correlated, the selected stock each PC would then be express same percentage of variation as it's associated PC. This scenario would be trivial, so let's ignore it.
+
+Let's now consider the opposite extreme. Here we assume that all stocks affecting each PC were perfectly _un_correlated. This is of course again totally unrealistically. Recall, that the point of using PCA is exactly that the variables with dominating weights for each PC are more ore less correlated, so that we can select one or a few variables for each PC to represent that dimension.  
+
+TODO:  
+How should we go about this? Adjust for covariances between stocks?  
+Note here that for scaled data, correlations and covariances are the same.
+
+For now let's do the calculations, given the assumption of uncorrelated stocks.
+
+```{r}
+pca_output <- PCA(top_mcap_returns_df_short[1:504, ], scale.unit = TRUE, ncp = 347)
+```
 
 
+Let  
+$c_{i,j}$ be the contribution of stock $j$ to $PC_i$, and  
+$v_i$ the percentage of variance expressed by $PC_i$, and  
+$n$ the number of PC's.  
+Then we calculate the percentage variance $U_j$ expressed by each stock as  
+$$u_j = \sum_{i = 1}^n c_{i,j} v_i$$  
+
+Percentages are decimalpercentages, i.e. $1.00$ rather than $100\%$.
+
+```{r}
+stock_contribution <- function(contribution_tbl, eigenvalue_tbl, stock_id, num_components) {
+  c_j <- contribution_tbl[stock_id, ]/100
+  v_ <- eigenvalue_tbl[, 2]/100 ## Column 2 in eigenvalue table is "percentage of variance" for each component
+  u_j <- 0
+  
+  for(i in 1:num_components) {
+    u_j <- u_j + c_j[i] * v_[i]
+  }
+  unname(u_j)
+}
+```
+
+```{r}
+stock_contribution(
+  contribution_tbl = pca_output$var$contrib, 
+  eigenvalue_tbl = pca_output$eig, 
+  stock_id = 1, 
+  num_components = 347
+)
+```
+
+
+
+Then, for $m$ selected stocks, the percentage of variance, $u^*$, expressed by the selected portfolio of stocks is calculated as  
+$$u^* =  \sum_{i = 1}^n \sum_{j = 1}^m c_{i,j} v_i$$
+
+```{r}
+pf_contribution <- function(contribution_tbl, eigenvalue_tbl, stock_id, num_components, pf_symbols, pf_weights) {
+  u_ <- 0
+  num_stocks <- length(pf_symbols)
+  stock_pool <- row.names(contribution_tbl)
+  stock_ids <- stock_pool[which(stock_pool %in% pf_symbols)]
+  for(j in 1:num_stocks) {
+    u_ <-  u_ + stock_contribution(
+      contribution_tbl = pca_output$var$contrib, 
+      eigenvalue_tbl = pca_output$eig, 
+      stock_id = stock_ids[j], 
+      num_components = num_components
+    ) * pf_weights[j]
+  }
+  unname(u_)
+}
+```
+
+```{r}
+pf_contribution(
+  contribution_tbl = pca_output$var$contrib, 
+  eigenvalue_tbl = pca_output$eig, 
+  stock_id = 1, 
+  num_components = 347,
+  pf_symbols = selected_symbols,
+  pf_weights = risk_normalized_weights
+)
+```
+
+
+## Systematic vs non-systematic risk
+
+We want to know the ratio between systematic and non-systematic risk in the selected portfolio. Here we define systematic risk as that captured by $PC_1$. So for the selected portfolio we want to know the ratio between it's contributions to $PC_1$ and $\{PC_i\}_{i>1}$.
+
+TODO:  
+How do we go about this?
 
