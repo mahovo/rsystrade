@@ -1,5 +1,5 @@
 ---
-title: "Portfolio selection"
+title: "Portfolio selection - exploratory"
 author: Martin Hoshi Vognsen
 header-includes:
    - \usepackage[default]{sourcesanspro}
@@ -23,6 +23,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(reticulate) 
 #py_install("tslearn")
 ```
+
 
 ## Getting data
 
@@ -1355,7 +1356,7 @@ Grouping by clusters as an alternative to grouping by sector or industry.
 
 ### Idea 2
 
-1) Each year, Apply PCA to the correlation matrix of a data set.  based on the previous two years of daily data.  
+1) Each year, Apply PCA to the correlation matrix of a data set based on the previous two years of daily data.  
 2) Exclude $PC_1$, as all stocks will have some degree of correlation with market risk ($PC_1$).  
 3) Identify one stock for each used $PC_i$. Yang (see also Joliffe) offers this procedure:  
   1. Associate one variable with the highest coefficient in absolute value with each of the last $m_1$ principal components that have eigenvalue less than a certain level $l$ which we call the deletion criteria, then delete those $m_1$ variables. For example, one can use Kaiser’s rule. Recall that in the case of a correlation matrix, a principal component with eigenvalues smaller than 1 contains less information than one of the original variables.  
@@ -1418,6 +1419,9 @@ weights
 selected_symbols_ids <- which(names(top_mcap_prices_df_short) %in% selected_symbols)
 ggplot(
   aes(x = Index, y = Value, colour = Series), 
+  ## OBS!
+  ## fortify() converts time series to data frame.
+  ## Use broom package instead!
   data = fortify(top_mcap_prices_df_short[, selected_symbols_ids], melt = TRUE)) + 
     geom_line(linewidth = 0.2) + 
     labs(title = "Prices of selected stocks, yr 1+2", x ="Time", y = "Price") +
@@ -1466,10 +1470,9 @@ ggplot(aes(x = date, y = price), data = selected_portfolio) +
 ## Explained variation
 
 We want to know the percentage of variance explained by the selected portfolio relative to the entire pool of candidate stocks.  
+The variance of components is additive, as components are orthogonal by construction. If we assumed (unrealistically) that for each PC all stocks with a weight effectively larger than 0 were perfectly correlated, the selected stocks for each PC would then express same percentage of variation as it's associated PC. This scenario would be trivial, so let's ignore it.
 
-The variance of components is additive, as components are orthogonal by construction. If we assumed (unrealistically) that for each PC all stocks with a weight effectively larger than 0 were perfectly correlated, the selected stock each PC would then be express same percentage of variation as it's associated PC. This scenario would be trivial, so let's ignore it.
-
-Let's now consider the opposite extreme. Here we assume that all stocks affecting each PC were perfectly _un_correlated. This is of course again totally unrealistically. Recall, that the point of using PCA is exactly that the variables with dominating weights for each PC are more ore less correlated, so that we can select one or a few variables for each PC to represent that dimension.  
+Let's now consider the opposite extreme. Here we assume that all stocks affecting each PC were perfectly _un_correlated. This is of course again totally unrealistically. Recall, that the point of using PCA is exactly that the variables with dominating weights for each PC are more or less correlated, so that we can select one or a few variables for each PC to represent that dimension.  
 
 TODO:  
 How should we go about this? Adjust for covariances between stocks?  
@@ -1555,3 +1558,38 @@ We want to know the ratio between systematic and non-systematic risk in the sele
 TODO:  
 How do we go about this?
 
+Could we use the following result from CAPM pf theory as an approximation?
+
+$$\sigma_M = \sum_{j=1} w_{j,M} \sigma_{j, M}$$
+
+where $\sigma_M$ is the market risk (volatility), and $\sigma_{j_M}$ is the covariance between the return of the $j$'th of $N$ risky assets in the market portfolio and the return of the entire market portfolio. The result implies that $w_{j,M} \sigma_{j_M}$ is the contribution of the $j$'th asset to the risk of the market portfolio.
+
+See Rupert p. 505, section 17.5.1.
+
+Alternatively, see section 17.6.1 *Estimation Using Regression* (p. 507).
+
+Alternatively, see *Clifford S. Asness, Tobias J. Moskowitz, And Lasse Heje Pedersen: Value and Momentum Everywhere* on Eig\% (p. 46 in PDF).
+
+Or simplest of all: Use the correlation between the 1st and the $j$'th PC.
+
+
+
+## References
+
+- Robert Carver: Smart Portfolios  
+  - Complete framework  
+  - Pragmatic  
+  - Shows how things are done  
+  - Many tables of worked out examples  
+  - No code  
+  - Minimal math  
+  
+- Rupert/Matteson: Statistics and Data Analysis for Financial Engineering 
+  - Ch. 16, 17, 18, 20  
+  - Good introduction to the mathematics of pf selection  
+  - R code examples  
+  
+- Clifford S. Asness, Tobias J. Moskowitz, And Lasse Heje Pedersen: Value and Momentum Everywhere
+  
+  
+  

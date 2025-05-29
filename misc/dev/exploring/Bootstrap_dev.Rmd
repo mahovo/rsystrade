@@ -1,0 +1,369 @@
+---
+title: "Bootstrap dev"
+author: "mhv"
+date: "2025-05-12"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Bootstrapping
+
+## Basic moving block bootstrap
+
+*This bootstrap works with dependent data, however, the bootstrapped observations will not be stationary anymore by construction. But, it was shown that varying randomly the block length can avoid this problem.[30] This method is known as the stationary bootstrap. Other related modifications of the moving block bootstrap are the Markovian bootstrap and a stationary bootstrap method that matches subsequent blocks based on standard deviation matching.*
+https://en.wikipedia.org/wiki/Bootstrapping_(statistics)#Block_bootstrap 
+```{r}
+#' x timeseries or vector to sample from
+#' block_length block length
+#' func function to apply to sample
+#' num_blocks number of blocks per bootstrap
+#' num_boots number of bootstrap series
+rsbootstrap <- function(x, block_length = 1, func = mean, num_blocks, num_boots) {
+  n <- length(x)
+  func_out <- NULL
+  for(bs in 1:num_boots) {
+    ids <- sample(1:(n - block_length + 1), num_blocks, replace = TRUE)
+    if(block_length > 1) {
+      ids_tmp <- NULL
+      for(i in seq_along(ids)) {
+        ids_tmp <- c(ids_tmp, (ids[i]):(ids[i] + block_length - 1))
+      }
+      ids <- ids_tmp
+    }
+    func_out <- c(func_out, func(x[ids]))
+  }
+  mean(func_out)
+}
+```
+
+```{r}
+rsbootstrap(x = rnorm(500), block_length = 5, statistic = sd, num_blocks = 20, num_boots = 10000)
+```
+
+## Selecting block length
+
+```{r}
+set.seed(1729)
+#x_data <- ts(100 * c(1, cumprod(1 + rnorm(500, 0, 0.01))), start = c(1970,1,1), frequency = 12)
+x_data <- ts(rnorm(500, 0, 0.05), start = c(1970,1,1), frequency = 12)
+```
+
+Let's try to detrend the data so that we can fit an ARIMA....
+```{r}
+x_data_decomp <- decompose(x_data)
+plot(x_data_decomp)
+```
+
+Detrended
+```{r}
+
+plot(x_data, ylim = c(min(c(x_data, x_data - x_data_decomp$trend), na.rm = TRUE), max(c(x_data, x_data - x_data_decomp$trend), na.rm = TRUE)))
+lines(x_data - x_data_decomp$trend, col = "red")
+```
+
+
+How do autocorrelations look?
+
+```{r}
+acf(x_data, lag.max = 500)
+```
+
+```{r}
+pacf(x_data, lag.max = 20)
+```
+
+
+
+*For a white noise series, we expect 95% of the spikes in the ACF to lie within ±2/√T where T is the length of the time series. It is common to plot these bounds on a graph of the ACF (the blue dashed lines above). If one or more large spikes are outside these bounds, or if substantially more than 5% of spikes are outside these bounds, then the series is probably not white noise.*
+https://otexts.com/fpp2/wn.html#wn 
+```{r}
+threshold <- 2/(sqrt(500))
+```
+
+Here we select the first lag that drops below the threshold to determine the length of a block.  
+This method is problematic, because a white noise series will damp very slowly, if at all. So we might end up with the entire time series being one block.
+```{r}
+find_optimal_block_length <- function(x, threshold) {
+  ac <- acf(x_data, lag.max = 100, plot = FALSE)
+  min(which(ac$acf < threshold))
+}
+```
+
+
+```{r}
+block_length <- find_optimal_block_length(x_data, 2/(sqrt(500)))
+num_blocks <- round(length(x_data)/(10 * block_length))
+rsbootstrap(
+  x = x_data, 
+  block_length = block_length, 
+  statistic = sd, 
+  num_blocks = num_blocks, 
+  num_boots = 10000
+)
+```
+
+
+## `tsbootstrap`
+
+Alternatively we could depend on the `tseries` package
+```{r}
+library(tseries)
+```
+
+This, however, does not free us from picking a block length, or rather in this case an average block length.
+```{r}
+tsbootstrap_output <- tsbootstrap(
+  x_data, 
+  nb = 1000, 
+  statistic = mean, 
+  m = 1, 
+  b =25,
+  type = "stationary"
+)
+mean(tsbootstrap_output$statistic)
+```
+
+Compare to mean of input `x_data`
+```{r}
+mean(x_data)
+```
+
+Which is way better than fixed block length.
+
+## Multivariate block bootstrap
+
+```{r}
+#' x data frame
+#' block_length block length
+#' func function to apply to sample
+#' apply_func_to c("df", "cols") apply function to entire data frame 
+#'   or column by column
+#' num_blocks number of blocks per bootstrap
+#' num_boots number of bootstrap series
+rsbootstrap <- function(
+    x, 
+    block_length = 1, 
+    func, 
+    apply_func_to,
+    num_blocks, 
+    num_boots) {
+  n <- nrow(x)
+  func_out <- NULL
+  
+  make_blocks <- function(ids) {
+    ids_tmp <- NULL
+    for(i in seq_along(ids)) {
+        ids_tmp <- c(ids_tmp, (ids[i]):(ids[i] + block_length - 1))
+    }
+    ids_tmp
+  }
+  
+  make_ids <- function() {
+    ids <- sample(1:(n - block_length + 1), num_blocks, replace = TRUE)
+    if(block_length > 1) {
+      ids <- make_blocks(ids)
+    }
+    ids
+  }
+
+  make_bootstrap_series <- function(x) {
+    as.data.frame(lapply(x, function(column) {column[make_ids()]}))
+  }
+  
+  ## TODO: Impement with replicate() instead of loops
+  bootstrap_series <- list()
+  func_outs <- list()
+  
+  if(apply_func_to == "cols") {
+    for(i in 1:num_boots) {
+      bootstrap_series[[i]] <- make_bootstrap_series(x)
+      func_outs[[i]] <- as.data.frame(lapply(bootstrap_series[[i]], function(x) {func(x)}))
+    }
+  } else if(apply_func_to == "df") {
+    for(i in 1:num_boots) {
+      bootstrap_series[[i]] <- make_bootstrap_series(x)
+      func_outs[[i]] <- func(bootstrap_series[[i]])
+    }
+  } else (warning("apply_func_to takes values \"cols\" or \"df\"."))
+  
+  list(
+    bootstrap_series = bootstrap_series,
+    func_outs = func_outs,
+    func_out_means = lapply(func_outs, function(x) {mean(unlist(x), na.rm = TRUE)})
+  )
+}
+```
+
+
+test:
+```{r}
+set.seed(1729)
+x_df <- data.frame(a = rnorm(100), b = rnorm(100), c = rnorm(100))
+
+bs_out <- rsbootstrap(
+  x_df, 
+  block_length = 10, 
+  func = mean, 
+  apply_func_to = "cols",
+  num_blocks = 20, 
+  num_boots = 30
+)
+```
+
+```{r}
+set.seed(1729)
+x_df <- data.frame(a = rnorm(100), b = rnorm(100), c = rnorm(100))
+test_func <- function(x) {lapply(x, sd)}
+
+bs_out <- rsbootstrap(
+  x_df, 
+  block_length = 10, 
+  func = test_func, 
+  apply_func_to = "df",
+  num_blocks = 20, 
+  num_boots = 30
+)
+```
+
+## Stationary bootstrap
+
+```{r}
+# Required packages
+library(Rcpp)
+library(zoo)        # For rollapply
+library(parallel)   # For parallel execution
+
+# Rcpp implementation of block bootstrap with overlap support
+cppFunction(code = 'List blockBootstrap(NumericMatrix x, int block_len, int num_blocks, int num_boots, std::string type, double p, bool overlap) {
+  int n = x.nrow();
+  int d = x.ncol();
+  List bootstraps(num_boots);
+
+  for (int b = 0; b < num_boots; b++) {
+    NumericMatrix boot(num_blocks * block_len, d);
+    int idx = 0;
+
+    while (idx < num_blocks * block_len) {
+      int start;
+      if (overlap) {
+        start = floor(R::runif(0, n - block_len + 1));
+      } else {
+        int max_start = (n / block_len) * block_len;
+        start = block_len * floor(R::runif(0, max_start / block_len));
+      }
+
+      int len = block_len;
+      if (type == "stationary") {
+        len = R::rgeom(p) + 1;
+        if (len > block_len) len = block_len;
+      }
+
+      for (int i = 0; i < len && idx < num_blocks * block_len; i++) {
+        for (int j = 0; j < d; j++) {
+          boot(idx, j) = x(start + i, j);
+        }
+        idx++;
+      }
+    }
+
+    bootstraps[b] = boot;
+  }
+
+  return bootstraps;
+}')
+
+# Cross-validation function for p (stationary bootstrap)
+crossvalidate <- function(x, grid = seq(0.01, 0.3, by = 0.01), block_len = 10) {
+  n <- nrow(x)
+  score <- sapply(grid, function(p) {
+    boots <- blockBootstrap(x, block_len, floor(n / block_len), 5, "stationary", p, TRUE)
+    means <- sapply(boots, function(b) mean(b))
+    var(means)
+  })
+  best_p <- p_grid[which.min(score)]
+  return(best_p)
+}
+
+# Main bootstrap function
+bootstrap <- function(
+    x,
+    block_length,
+    block_type = c("moving", "stationary"),
+    func,
+    apply_func_to = c("df", "cols"),
+    num_blocks,
+    num_boots,
+    p_method = c("1/n", "cross validation"),
+    overlap = TRUE,
+    parallel = TRUE,
+    num_cores = detectCores()
+  ) {
+
+  block_type <- match.arg(block_type)
+  apply_func_to <- match.arg(apply_func_to)
+  p_method <- match.arg(p_method)
+
+  # Convert x to matrix if it's a vector or data frame
+  if (is.vector(x)) {
+    x <- matrix(x, ncol = 1)
+  } else if (is.data.frame(x)) {
+    x <- as.matrix(x)
+  }
+
+  n <- nrow(x)
+  d <- ncol(x)
+
+  # Determine p for stationary bootstrap
+  if (block_type == "stationary") {
+    p <- switch(p_method,
+                "1/n" = 1 / block_length,
+                "cross validation" = cv_p(x, block_len = block_length)
+    )
+  } else {
+    p <- 1
+  }
+
+  # Generate bootstrap series
+  bootstrap_series <- blockBootstrap(x, block_length, num_blocks, num_boots, block_type, p, overlap)
+
+  # Function to apply to each bootstrap sample
+  apply_func <- function(boot) {
+    if (apply_func_to == "cols") {
+      apply(boot, 2, func)
+    } else {
+      func(as.data.frame(boot))
+    }
+  }
+
+  # Apply function (parallel or not)
+  if (parallel) {
+    cl <- makeCluster(num_cores)
+    clusterExport(cl, varlist = c("func", "apply_func_to", "func", "apply_func"), envir = environment())
+    func_outs <- parLapply(cl, bootstrap_series, apply_func)
+    stopCluster(cl)
+  } else {
+    func_outs <- lapply(bootstrap_series, apply_func)
+  }
+
+  # Compute mean of function outputs
+  if (apply_func_to == "cols") {
+    func_out_means <- Reduce("+", func_outs) / num_boots
+  } else {
+    func_out_means <- Reduce("+", lapply(func_outs, function(x) as.numeric(x))) / num_boots
+    names(func_out_means) <- names(func_outs[[1]])
+  }
+
+  return(list(
+    bootstrap_series = bootstrap_series,
+    func_outs = func_outs,
+    func_out_means = func_out_means
+  ))
+}
+
+```
+
+
+

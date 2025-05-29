@@ -1,0 +1,75 @@
+---
+title: "Portfolio selection - development"
+author: Martin Hoshi Vognsen
+header-includes:
+   - \usepackage[default]{sourcesanspro}
+   - \usepackage[T1]{fontenc}
+   - \usepackage[fontsize=8pt]{scrextend}
+mainfont: SourceSansPro
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    keep_md: yes
+  # pdf_document:
+  #   toc: true
+  #   toc_depth: 3
+#fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
+date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
+---
+
+
+# Portfolio selection
+
+
+```{r}
+f_sharpe_ratio <- function(mu_p, mu_free, sigma) {
+  (mu_p - mu_free) / sigma
+}
+```
+
+
+## Simple mean-variance optimization w/o constraints
+
+See "Lecture Notes for Finance 1 (and More), May 12, 2015", by Lando/Nielsen/Poulsen, pp. 154ff.  
+The formula for the tangency portfolio weights does not appear in the notes but can easily be derived by setting $\mu_{\text{pf}}^{\text{e}}$ to the expression for $\mu_{\text{tan}}^{\text{e}}$ from the lecture notes p. 162.
+
+Weights of the tangency portfolio:
+$$\mathbf{w}_{\text{pf}}^{\text{e}} = \dfrac{1}{(\mathbf{\mu}^{\text{e}})^{\text{T}} \mathbf{\Sigma^{-1}} \mathbf{1}} \mathbf{\Sigma^{-1}} \mathbf{\mu}^{\text{e}}$$
+Expected rate of return of the tangency portfolio:
+$$\mathbf{\mu}_{\text{tan}}^{\text{e}} = \dfrac{(\mathbf{\mu}^{\text{e}})^{\text{T}} \mathbf{\Sigma^{-1}} \mathbf{\mu}^{\text{e}}}{\mathbf{1}^{\text{T}}  \mathbf{\Sigma^{-1}} \mathbf{\mu}^{\text{e}}}$$
+
+Variance of rate of return of the tangency portfolio:
+$$\sigma_{\text{tan}}^2 = \frac{(\mathbf{\mu}^{\text{e}})^{\text{T}} \mathbf{\Sigma^{-1}} \mathbf{\mu}^{\text{e}}}{(\mathbf{1}^{\text{T}}  \mathbf{\Sigma^{-1}} \mathbf{\mu}^{\text{e}})^2} = \dfrac{\mathbf{\mu}_{\text{tan}}^{\text{e}}}{\mathbf{1}^{\text{T}}  \mathbf{\Sigma^{-1}} \mathbf{\mu}^{\text{e}}}$$
+
+### Tangency pf w/o constraints
+```{r}
+tangency_pf_simple <- function(
+    mu_excess, ## mean excess rate of return  
+    Sigma_inv ## Inverse covariance matrix, i.e. solve(Sigma)
+  ) {
+  
+  ones <- rep(1, length(mu_excess))
+  
+  weights <- (Sigma_inv %*% mu_excess) / ((t(mu_excess) %*% Sigma_inv) %*% ones)
+  
+  denom <- (t(ones) %*% Sigma_inv) %*% mu_excess
+  mu_excess_tan <- ((t(mu_excess) %*% Sigma_inv) %*% mu_excess) / denom
+  
+  sigma_excess_tan <- mu_tan / denom
+  
+  list(
+    weights = weights,
+    mu_excess_tan = mu_excess_tan, ## Mean excess return rate of tangency pf
+    sigma_excess_tan = sigma_tan_excess ## Sigma of return rate of tangency pf
+  )
+}
+```
+
+### Tangency pf with constraints
+```{r}
+
+```
+
+
+

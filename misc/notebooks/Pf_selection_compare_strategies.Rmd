@@ -1,0 +1,43 @@
+---
+title: "Pf_selection_compare_strategies"
+author: Martin Hoshi Vognsen
+header-includes:
+   - \usepackage[default]{sourcesanspro}
+   - \usepackage[T1]{fontenc}
+   - \usepackage[fontsize=8pt]{scrextend}
+mainfont: SourceSansPro
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    keep_md: yes
+  # pdf_document:
+  #   toc: true
+  #   toc_depth: 3
+#fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
+date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Portfolio selection
+
+## Strategy 1
+
+1) Use example data (Kaggle)
+2) Choose number of instruments (QUICK-TAKE)
+	1) Bootstrap momentum rule for average number of round trips per year
+	2) Calculate annual costs taking into account
+		1) Number of round trips per year
+		2) no-trade-zone
+		3) minimum trade size
+	3) Calculate maximum number of instruments you can afford
+3) Select portfolio and initial weights based on PCA.
+	- See Portfolio_selection_exploratory.Rmd#Strategy_ideas, idea 2
+4) Adjust weights using momentum rule only.
+5) Adjust position size when
+	1) Target weight is outside no-trade-zone.
+	2) Implied trade size is at least minimum trade size.
+
