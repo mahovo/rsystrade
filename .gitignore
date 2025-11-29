@@ -4,3 +4,6 @@
 .httr-oauth
 .DS_Store
 inst/doc
+misc/notebooks/abis_asset_prices_with_tickers.csv
+misc/notebooks/ticker_mapping_summary.csv
+misc/notebooks/isin_ticker_cache.rds
