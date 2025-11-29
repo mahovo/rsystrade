@@ -1,0 +1,244 @@
+---
+title: "Getting data"
+author: Martin Hoshi Vognsen
+header-includes:
+   - \usepackage[default]{sourcesanspro}
+   - \usepackage[T1]{fontenc}
+   - \usepackage[fontsize=8pt]{scrextend}
+mainfont: SourceSansPro
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    keep_md: yes
+  # pdf_document:
+  #   toc: true
+  #   toc_depth: 3
+#fontsize: 10pt # for pdf. Limited to 10pt, 11pt and 12pt. Else use scrextend.
+date: "`r format(Sys.time(), '%H:%M %d %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+# Load required packages
+if (!require("quantmod")) install.packages("quantmod")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("dygraphs")) install.packages("dygraphs") # for interactive plot
+library(quantmod)
+library(ggplot2)
+library(dygraphs)
+```
+
+
+
+## 2 and 10 yr yields
+
+```{r}
+# Define the Treasury yield symbols from FRED:
+# - DGS2 = 2-Year Treasury Constant Maturity Rate
+# - DGS10 = 10-Year Treasury Constant Maturity Rate
+
+# Get fresh data from FRED (Federal Reserve Economic Data)
+getSymbols(c("DGS2", "DGS10"), src = "FRED")
+
+# Combine the data into one data frame
+yield_data <- merge(DGS2, DGS10)
+colnames(yield_data) <- c("Two_Year", "Ten_Year")
+
+# Keep only complete cases (remove rows with NA values)
+yield_data <- na.omit(yield_data)
+
+# Get the most recent date in the data
+last_date <- tail(index(yield_data), 1)
+
+# Static ggplot2 version
+ggplot_df <- data.frame(Date = index(yield_data), coredata(yield_data))
+
+ggplot(ggplot_df, aes(x = Date)) +
+  geom_line(aes(y = Two_Year, color = "2-Year Yield"), linewidth = 0.3) +
+  geom_line(aes(y = Ten_Year, color = "10-Year Yield"), linewidth = 0.3) +
+  scale_color_manual(values = c("2-Year Yield" = "blue", "10-Year Yield" = "red")) +
+  labs(title = paste("US Treasury Yields (Last Updated:", last_date, ")"),
+       x = "Date", 
+       y = "Yield (%)",
+       color = "Yield Curve") +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+```{r}
+# Interactive dygraphs version
+dygraph(yield_data, main = paste("US Treasury Yields (Last Updated:", last_date, ")")) %>%
+  dySeries("Two_Year", label = "2-Year Yield", color = "blue") %>%
+  dySeries("Ten_Year", label = "10-Year Yield", color = "red") %>%
+  dyAxis("y", label = "Yield (%)") %>%
+  dyRangeSelector() %>%
+  dyLegend(show = "always")
+```
+
+
+
+## Prisdata på assets fra aktiesparekonto positivliste
+
+This starting point code doesn't get any data, but it might give some ideas...
+```{r}
+# Load required packages
+if (!require("httr")) install.packages("httr")
+if (!require("readxl")) install.packages("readxl")
+if (!require("quantmod")) install.packages("quantmod")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("purrr")) install.packages("purrr")
+if (!require("jsonlite")) install.packages("jsonlite")
+library(httr)
+library(readxl)
+library(quantmod)
+library(dplyr)
+library(purrr)
+library(jsonlite)
+
+# 1. Download the ABIS list from SKAT
+abis_url <- "https://skat.dk/media/ae2a1pew/abis-listen-2020-2025-juli-25.xlsx"
+temp_file <- tempfile(fileext = ".xlsx")
+GET(abis_url, write_disk(temp_file, overwrite = TRUE))
+
+# 2. Read the specific sheet and column
+cat("Reading ISIN codes from '2025' sheet...\n")
+abis_data <- read_excel(temp_file, sheet = "2025") 
+isins <- unique(abis_data$`ISIN-kode`)
+isins <- isins[!is.na(isins)] # Remove NA values
+
+cat("Found", length(isins), "unique ISINs in the ABIS list\n")
+
+# 3. Function to convert ISIN to ticker using various methods
+get_ticker_from_isin <- function(isin) {
+  tryCatch({
+    # Method 1: Yahoo Finance ISIN search
+    yahoo_url <- paste0("https://query2.finance.yahoo.com/v1/finance/search?q=", isin)
+    yahoo_res <- fromJSON(content(GET(yahoo_url), "text"))
+    
+    if (length(yahoo_res$quotes) > 0) {
+      return(yahoo_res$quotes$symbol[1])
+    }
+    
+    # Method 2: OpenFIGI API (free tier available)
+    # figi_url <- "https://api.openfigi.com/v3/mapping"
+    # figi_body <- toJSON(list(list(idType = "ID_ISIN", idValue = isin)))
+    # figi_res <- POST(figi_url, 
+    #                 body = figi_body,
+    #                 content_type("application/json"),
+    #                 add_headers(`X-OPENFIGI-APIKEY` = "")) # Add your API key if available
+    # 
+    # if (status_code(figi_res) == 200) {
+    #   figi_data <- fromJSON(content(figi_res, "text"))
+    #   if (length(figi_data[[1]]$ticker) > 0) {
+    #     return(figi_data[[1]]$ticker)
+    #   }
+    # }
+    
+    # Method 3: Manual exchange-specific mapping
+    # Add known ISIN-ticker mappings here
+    # manual_mapping <- list(
+    #   "DK0010268606" = "NOVO-B.CO",  # Example: Novo Nordisk
+    #   "DK0010272634" = "MAERSK-B.CO" # Example: Maersk
+    # )
+    
+    # if (isin %in% names(manual_mapping)) {
+    #   return(manual_mapping[[isin]])
+    # }
+    
+    return(NA) # Return NA if no ticker found
+    
+  }, error = function(e) {
+    warning("Error converting ISIN ", isin, ": ", e$message)
+    return(NA)
+  })
+}
+
+# 4. Create ISIN to ticker mapping (with caching to avoid repeated API calls)
+if (file.exists("isin_ticker_cache.rds")) {
+  isin_ticker_map <- readRDS("isin_ticker_cache.rds")
+} else {
+  isin_ticker_map <- list()
+}
+
+new_isins <- setdiff(isins, names(isin_ticker_map))
+if (length(new_isins) > 0) {
+  cat("Looking up tickers for", length(new_isins), "new ISINs...\n")
+  new_mappings <- map(setNames(new_isins, new_isins), get_ticker_from_isin)
+  isin_ticker_map <- c(isin_ticker_map, new_mappings)
+  saveRDS(isin_ticker_map, "isin_ticker_cache.rds")
+}
+
+# 5. Get price data for all found tickers
+get_price_data <- function(ticker) {
+  if (is.na(ticker)) return(NULL)
+  
+  tryCatch({
+    data <- getSymbols(ticker, auto.assign = FALSE, from = "2020-01-01")
+    if (nrow(data) > 0) {
+      colnames(data) <- c("Open", "High", "Low", "Close", "Volume", "Adjusted")
+      return(data)
+    }
+  }, error = function(e) {
+    warning("Error getting data for ", ticker, ": ", e$message)
+    return(NULL)
+  })
+}
+
+# 6. Process all ISINs
+results <- map(isins, ~{
+  isin <- .x
+  ticker <- isin_ticker_map[[isin]]
+  
+  if (is.na(ticker)) {
+    cat("No ticker found for ISIN:", isin, "\n")
+    return(NULL)
+  }
+  
+  cat("Processing", isin, "->", ticker, "\n")
+  price_data <- get_price_data(ticker)
+  
+  if (!is.null(price_data)) {
+    data.frame(
+      Date = index(price_data),
+      ISIN = isin,
+      Ticker = ticker,
+      coredata(price_data),
+      row.names = NULL
+    )
+  }
+})
+
+# 7. Combine and save results
+final_data <- bind_rows(compact(results))
+
+if (!is.null(final_data) && nrow(final_data) > 0) {
+  output_file <- "abis_asset_prices_with_tickers.csv"
+  write.csv(final_data, output_file, row.names = FALSE)
+  cat("\nSuccessfully saved price data for", length(unique(final_data$ISIN)), 
+      "assets to", output_file, "\n")
+  
+  # Show success rate
+  success_rate <- length(unique(final_data$ISIN))/length(isins)
+  cat(sprintf("Success rate: %.1f%%\n", success_rate * 100))
+} else {
+  cat("\nWarning: No price data was retrieved for any ISINs\n")
+}
+
+# 8. Create a summary of found/missing tickers
+ticker_summary <- data.frame(
+  ISIN = isins,
+  Ticker = unlist(isin_ticker_map[isins]),
+  DataAvailable = isins %in% unique(final_data$ISIN)
+)
+
+write.csv(ticker_summary, "ticker_mapping_summary.csv", row.names = FALSE)
+```
+
+
+

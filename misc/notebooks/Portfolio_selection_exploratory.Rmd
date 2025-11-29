@@ -74,6 +74,15 @@ d <- getSymbols("AAPL", auto.assign = F, from = "2020-01-01", to = "2020-06-01",
 d %>% head  
 ```
 
+Plot log-returns
+```{r}
+quantmod::getSymbols( "^GSPC", from="2004-01-01" )
+gspcRets = diff( log( quantmod::Cl( GSPC ) ) )
+xxx = as.numeric(gspcRets)
+```
+
+
+
 #### yahoofinancer
 
 ```{r chunk8, eval=FALSE, message=FALSE}

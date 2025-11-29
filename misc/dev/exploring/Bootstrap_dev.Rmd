@@ -228,133 +228,310 @@ bs_out <- rsbootstrap(
 )
 ```
 
-## Stationary bootstrap
+## Own implementation
+
+### Functions
+
+NOTE: See also blockBootstrap.cpp
 
 ```{r}
+Rcpp::sourceCpp("/Users/mhvpbp13/git/rsystrade/cpp/blockBootstrap.cpp") 
+```
+
+
+```{r}
+
 # Required packages
-library(Rcpp)
-library(zoo)        # For rollapply
-library(parallel)   # For parallel execution
+library(Rcpp)         # For high-performance bootstrap sampling
+library(zoo)          # For time series handling and lag operations
+library(parallel)     # For multi-core parallel execution
+library(depmixS4)     # For fitting Hidden Markov Models (HMM)
+library(dplyr)        # For tidy data manipulation (e.g., lagging)
+library(MSwM)         # For Markov-Switching AR models (MS-AR)
 
-# Rcpp implementation of block bootstrap with overlap support
-cppFunction(code = 'List blockBootstrap(NumericMatrix x, int block_len, int num_blocks, int num_boots, std::string type, double p, bool overlap) {
-  int n = x.nrow();
-  int d = x.ncol();
-  List bootstraps(num_boots);
 
-  for (int b = 0; b < num_boots; b++) {
-    NumericMatrix boot(num_blocks * block_len, d);
-    int idx = 0;
+# HMM-based block identification and sampling bootstrap
+hmm_bootstrap <- function(returns, nstates = 2, num_blocks = 100, num_boots = 100) {
+  df <- data.frame(return = returns)
 
-    while (idx < num_blocks * block_len) {
-      int start;
-      if (overlap) {
-        start = floor(R::runif(0, n - block_len + 1));
-      } else {
-        int max_start = (n / block_len) * block_len;
-        start = block_len * floor(R::runif(0, max_start / block_len));
-      }
+  # Fit HMM to identify regimes
+  model <- depmix(return ~ 1, data = df, nstates = nstates, family = gaussian())
+  fit <- fit(model, verbose = FALSE)
+  states <- posterior(fit, type = "viterbi")$state
 
-      int len = block_len;
-      if (type == "stationary") {
-        len = R::rgeom(p) + 1;
-        if (len > block_len) len = block_len;
-      }
+  # Identify continuous blocks of the same regime
+  r <- rle(states)
+  ends <- cumsum(r$lengths)
+  starts <- c(1, head(ends, -1) + 1)  # Starts one after previous end
+  blocks <- Map(function(s, e, st) list(start = s, end = e, state = st), starts, ends, r$values)
 
-      for (int i = 0; i < len && idx < num_blocks * block_len; i++) {
-        for (int j = 0; j < d; j++) {
-          boot(idx, j) = x(start + i, j);
-        }
-        idx++;
-      }
-    }
+  # Separate blocks into trend and noise (assuming trend is state 1)
+  trend_blocks <- Filter(function(b) b$state == 1, blocks)
+  noise_blocks <- Filter(function(b) b$state != 1, blocks)
 
-    bootstraps[b] = boot;
+  # Function to extract a block from returns
+  get_block <- function(b) returns[b$start:b$end]
+
+  # Sample trend and noise blocks to build bootstrapped series
+  sampled_series <- replicate(num_boots, {
+    sampled_trend <- lapply(sample(trend_blocks, num_blocks, replace = TRUE), get_block)
+    sampled_noise <- lapply(sample(noise_blocks, num_blocks, replace = TRUE), get_block)
+    unlist(c(sampled_trend, sampled_noise))
+  }, simplify = FALSE)
+
+  return(sampled_series)
+}
+
+
+# Markov-switching AR-based block bootstrap (nonstationary block identification)
+
+#' MSAR-Based Bootstrap for Time Series
+#'
+#' Performs a bootstrap using blocks identified by a Markov-switching autoregressive (MSAR) model.
+#' The time series is segmented into regimes (states) based on an MSAR model, and blocks are sampled
+#' from the same inferred regime to preserve regime-dependent dynamics.
+#'
+#' @param x A numeric vector representing a univariate time series.
+#' @param ar_order Integer specifying the order of the autoregressive model for each state.
+#' @param nstates Number of regimes (states) in the MSAR model.
+#' @param num_blocks Number of blocks to sample for each bootstrap replicate.
+#' @param num_boots Number of bootstrap replicates to generate.
+#'
+#' @return A list of bootstrap replicate time series, each as a numeric vector of the same length as \code{num_blocks * block_length}.
+#'
+#' @details This function fits an MSAR model using the \code{MSwM} package and samples blocks
+#' from the time series corresponding to segments assigned to the same state. This allows capturing
+#' non-stationary dynamics that follow regime-switching patterns.
+#'
+#' Note: Block lengths are determined by the contiguous segments within the same state, not by a fixed value.
+#'
+#' @examples
+#' \dontrun{
+#' set.seed(123)
+#' x <- arima.sim(n = 200, list(ar = 0.8))
+#' msar_samples <- msar_bootstrap(x, ar_order = 1, nstates = 2, num_blocks = 4, num_boots = 10)
+#' plot(msar_samples[[1]], type = "l")
+#' }
+#'
+#' @importFrom MSwM msmFit
+#' @importFrom stats lm ar rnorm
+#' @export
+msar_bootstrap <- function(returns, ar_order = 1, nstates = 2, num_blocks = 100, num_boots = 100) {
+  df <- data.frame(y = returns)
+  for (i in 1:ar_order) df[[paste0("lag", i)]] <- dplyr::lag(returns, i)
+  df <- na.omit(df)  # Remove initial NA rows
+
+  base_model <- lm(y ~ ., data = df)  # Fit base AR(p) model
+  ms_model <- msmFit(base_model, k = nstates, sw = rep(TRUE, length(coef(base_model)) + 1))  # Switch regime per coefficient
+
+  states <- ms_model@Fit@smoProb
+  state_seq <- apply(states, 1, which.max)  # Most probable state per time step
+
+  r <- rle(state_seq)  # Run-length encode states
+  ends <- cumsum(r$lengths)
+  starts <- c(1, head(ends, -1) + 1)
+  blocks <- Map(function(s, e, st) list(start = s, end = e, state = st), starts, ends, r$values)
+
+  # Separate trend vs. noise regimes (e.g., regime 1 as trend)
+  trend_blocks <- Filter(function(b) b$state == 1, blocks)
+  noise_blocks <- Filter(function(b) b$state != 1, blocks)
+
+  get_block <- function(b) returns[b$start:b$end]
+
+  sampled_series <- replicate(num_boots, {
+    sampled_trend <- lapply(sample(trend_blocks, num_blocks, replace = TRUE), get_block)
+    sampled_noise <- lapply(sample(noise_blocks, num_blocks, replace = TRUE), get_block)
+    unlist(c(sampled_trend, sampled_noise))
+  }, simplify = FALSE)
+
+  return(sampled_series)
+}
+
+#' Perform Wild Bootstrap for regression residual-like data
+#'
+#' @param x Numeric vector or matrix (time series or residuals).
+#' @param num_boots Number of bootstrap replicates.
+#' @return List of bootstrap samples
+wild_bootstrap <- function(x, num_boots) {
+  if (is.vector(x)) {
+    x <- matrix(x, ncol = 1)
   }
-
-  return bootstraps;
-}')
-
-# Cross-validation function for p (stationary bootstrap)
-crossvalidate <- function(x, grid = seq(0.01, 0.3, by = 0.01), block_len = 10) {
   n <- nrow(x)
-  score <- sapply(grid, function(p) {
-    boots <- blockBootstrap(x, block_len, floor(n / block_len), 5, "stationary", p, TRUE)
-    means <- sapply(boots, function(b) mean(b))
-    var(means)
+  d <- ncol(x)
+  
+  bootstrap_samples <- vector("list", num_boots)
+  
+  for (b in seq_len(num_boots)) {
+    # Generate Rademacher weights: +1 or -1 with probability 0.5
+    v <- sample(c(-1, 1), size = n, replace = TRUE)
+    # Multiply each row (observation) by corresponding weight
+    boot_sample <- x * v
+    bootstrap_samples[[b]] <- boot_sample
+  }
+  bootstrap_samples
+}
+
+# Time-series-aware k-fold cross-validation to estimate optimal p (for stationary bootstrap)
+k_fold_cv_ts <- function(x, y, k = 5, p_grid = seq(0.01, 0.5, by = 0.01), model_func, score_func) {
+  n <- nrow(x)
+  fold_size <- floor(n / k)  # Ensures consistent fold size across all folds (important for TS continuity)
+  ends <- seq(fold_size, by = fold_size, length.out = k)  # Ending indices for each fold
+  starts <- c(1, head(ends, -1) + 1)  # Starting indices ensure contiguous folds
+
+  results <- sapply(p_grid, function(p_val) {
+    scores <- mapply(function(start, end) {
+      val_idx <- start:end
+      train_idx <- setdiff(1:n, val_idx)
+
+      x_train <- x[train_idx, , drop = FALSE]
+      y_train <- y[train_idx]
+      x_val   <- x[val_idx, , drop = FALSE]
+      y_val   <- y[val_idx]
+
+      model <- model_func(x_train, y_train)
+      preds <- predict(model, newdata = as.data.frame(x_val))
+      score_func(preds, y_val)
+    }, starts, ends)
+    mean(unlist(scores))  # Mean score for current p
   })
-  best_p <- p_grid[which.min(score)]
+
+  best_p <- p_grid[which.min(results)]  # p minimizing error
   return(best_p)
 }
 
-# Main bootstrap function
+# Mean Square Error score function
+mse <- function(pred, actual) {
+  mean((pred - actual)^2)
+}
+
+# Mean Absolute Error score function
+mae <- function(pred, actual) {
+  mean(abs(pred - true))
+}
+
+
+  
+# General bootstrap function: wraps all block types and plug-in/cv-based p selection
+
+#' Bootstrap Time Series with Flexible Block Structures
+#'
+#' Perform time-series-aware block bootstrap using moving, stationary,
+#' or Markov-switching AR (MSAR) block schemes. Includes automatic
+#' estimation of average block length via cross-validation or plugin method.
+#'
+#' @param x A numeric vector, matrix, or data frame of time series data.
+#' @param n_length Length of bootstraped series. If num_blocks > 0, n_length is
+#'   overwritten and calculated as num_blocks * block_length
+#' @param block_length Length of individual blocks (ignored for MSAR).
+#' @param block_type Type of block sampling: "moving", "stationary", "hmm", 
+#'   "msar", or "wild".
+#' @param func A function to apply to each bootstrap sample (e.g., mean).
+#' @param apply_func_to Apply function to "cols" (columns individually) or "df" (whole data.frame).
+#' @param num_blocks Number of blocks per bootstrap sample.
+#' @param num_boots Number of bootstrap replicates.
+#' @param p_method Method to estimate average block probability p: "1/n",
+#'   "plugin", or "cross validation".
+#' @param p Optional value for p. If NULL, uses p_method to estimate.
+#' @param overlap Whether to allow overlapping blocks (for moving/stationary).
+#' @param ar_order Order of AR model used in MSAR block segmentation.
+#' @param nstates Number of states in the MSAR model.
+#' @param model_func Model function used when p_method = "cross validation".
+#' @param score_func Scoring function used when p_method = "cross validation". 
+#'   Default: "mse"
+#'
+#' @return A list with:
+#' \\describe{
+#'   \\item{bootstrap_series}{List of sampled time series.}
+#'   \\item{func_outs}{List of outputs from applying func to each sample.}
+#'   \\item{func_out_means}{Mean output across bootstrap samples.}
+#' }
+#'
+#' @examples
+#' set.seed(42)
+#' x <- arima.sim(n = 100, list(ar = 0.8))
+#' result <- bootstrap(
+#'   x = x,
+#'   block_length = 10,
+#'   block_type = "stationary",
+#'   num_blocks = 5,
+#'   num_boots = 100,
+#'   func = mean,
+#'   apply_func_to = "cols",
+#'   p_method = "plugin"
+#' )
+#' print(result$func_out_means)
+#'
+#' @importFrom stats acf predict
+#' @importFrom utils head
+#' @export
 bootstrap <- function(
-    x,
-    block_length,
-    block_type = c("moving", "stationary"),
-    func,
-    apply_func_to = c("df", "cols"),
-    num_blocks,
-    num_boots,
-    p_method = c("1/n", "cross validation"),
-    overlap = TRUE,
-    parallel = TRUE,
-    num_cores = detectCores()
-  ) {
+    x, 
+    n_length = 100,
+    block_length = 10, 
+    block_type = "stationary",
+    func = mean, 
+    apply_func_to = "cols",
+    num_blocks = 10, 
+    num_boots = 100, 
+    p_method = "1/n",
+    p = NULL, 
+    overlap = TRUE, 
+    ar_order = 1, 
+    nstates = 2,
+    model_func = NULL, 
+    score_func = NULL) {
 
-  block_type <- match.arg(block_type)
-  apply_func_to <- match.arg(apply_func_to)
-  p_method <- match.arg(p_method)
+  block_type <- match.arg(block_type, choices = c("moving", "stationary", "hmm", "msar", "wild"))
+  apply_func_to <- match.arg(apply_func_to, choices = c("cols", "df"))
+  p_method <- match.arg(p_method, choices = c("1/n", "cross validation", "plugin"))
 
-  # Convert x to matrix if it's a vector or data frame
-  if (is.vector(x)) {
-    x <- matrix(x, ncol = 1)
-  } else if (is.data.frame(x)) {
-    x <- as.matrix(x)
-  }
+  if (is.vector(x)) x <- as.matrix(x)
+  if (is.data.frame(x)) x <- as.matrix(x)
 
   n <- nrow(x)
   d <- ncol(x)
 
-  # Determine p for stationary bootstrap
-  if (block_type == "stationary") {
-    p <- switch(p_method,
-                "1/n" = 1 / block_length,
-                "cross validation" = cv_p(x, block_len = block_length)
-    )
-  } else {
-    p <- 1
-  }
-
-  # Generate bootstrap series
-  bootstrap_series <- blockBootstrap(x, block_length, num_blocks, num_boots, block_type, p, overlap)
-
-  # Function to apply to each bootstrap sample
-  apply_func <- function(boot) {
-    if (apply_func_to == "cols") {
-      apply(boot, 2, func)
-    } else {
-      func(as.data.frame(boot))
+  if (block_type == "stationary" && is.null(p)) {
+    if (p_method == "1/n") {
+      p <- 1 / block_length  # Simple heuristic: average block length = block_length
+    } else if (p_method == "plugin") {
+      ac1 <- acf(x, lag.max = 1, plot = FALSE)$acf[2,,1]  # First-lag autocorrelation
+      p <- 1 - abs(mean(ac1, na.rm = TRUE))  # High autocorrelation -> smaller p
+    } else if (p_method == "cross validation") {
+      if (is.null(model_func) || is.null(score_func)) {
+        stop("For cross validation, provide model_func and score_func.")
+      }
+      y <- x[, 1]  # Assume first column is target for model
+      p <- k_fold_cv_ts(x, y, model_func = model_func, score_func = score_func)
     }
   }
 
-  # Apply function (parallel or not)
-  if (parallel) {
-    cl <- makeCluster(num_cores)
-    clusterExport(cl, varlist = c("func", "apply_func_to", "func", "apply_func"), envir = environment())
-    func_outs <- parLapply(cl, bootstrap_series, apply_func)
-    stopCluster(cl)
-  } else {
-    func_outs <- lapply(bootstrap_series, apply_func)
-  }
+  bootstrap_series <-
+    if (block_type %in% c("moving", "stationary")) {
+      blockBootstrap(x, n_length, block_length, num_blocks, num_boots, block_type, p, overlap)
+    } else if (block_type == "hmm") {
+      lapply(hmm_bootstrap(x[, 1], nstates = nstates,
+                            num_blocks = num_blocks, num_boots = num_boots),
+             function(series) matrix(series, ncol = 1))
+    } else if (block_type == "msar") {
+      lapply(msar_bootstrap(x[, 1], ar_order = ar_order, nstates = nstates,
+                            num_blocks = num_blocks, num_boots = num_boots),
+             function(series) matrix(series, ncol = 1))
+    } else if (block_type == "wild") {
+      wild_bootstrap(x, num_boots)
+    } else {
+      stop("Unsupported block_type.")
+    }
 
-  # Compute mean of function outputs
-  if (apply_func_to == "cols") {
-    func_out_means <- Reduce("+", func_outs) / num_boots
-  } else {
-    func_out_means <- Reduce("+", lapply(func_outs, function(x) as.numeric(x))) / num_boots
-    names(func_out_means) <- names(func_outs[[1]])
-  }
+  func_outs <- lapply(bootstrap_series, function(sampled) {
+    if (apply_func_to == "df") {
+      func(as.data.frame(sampled))
+    } else {
+      apply(sampled, 2, func)
+    }
+  })
+
+  func_out_means <- Reduce("+", func_outs) / length(func_outs)  # Vectorized aggregation
 
   return(list(
     bootstrap_series = bootstrap_series,
@@ -362,8 +539,564 @@ bootstrap <- function(
     func_out_means = func_out_means
   ))
 }
+```
+
+
+### Tests
+
+#### Inspect
+
+Compare `rst()` and `rsstd()`
+```{r}
+## xi: location (mean)
+## omega: scale (sd)
+## alpha: slant (skewness)
+## nu: df
+x_rst <- rst(1000, xi = 0, omega = 1, alpha = 5, nu = 3)
+
+## mean: location (mean)
+## sd: scale (sd)
+## xi: slant (skewness)
+## nu: df
+x_sstd <- fGarch::rsstd(1000, mean = 0, sd = 1, xi = 5, nu = 3)
+
+test_df <-  data.frame(x_rst = x_rst, x_sstd = x_sstd) %>% 
+  gather(key = "dist", value = "value")
+
+# Violin plots
+ggplot(test_df, aes(x = dist, y = value, fill = dist)) +
+  geom_violin() + geom_jitter(width = 0.1, alpha = 0.3) +
+  theme_minimal()
+```
+
+
+
+```{r}
+# Load required packages
+library(sn)       # For skewed t-distribution
+library(ggplot2)  # For visualization
+
+# Simulate skewed t-distributed AR(1) returns
+set.seed(123)
+n <- 300
+phi <- 0.6
+nu <- 3
+alpha <- 5
+innov <- rst(n, xi = 0, omega = 1, alpha = alpha, nu = nu)
+
+returns <- numeric(n)
+returns[1] <- innov[1]
+for (t in 2:n) {
+  returns[t] <- phi * returns[t - 1] + innov[t]
+}
+
+# Bootstrap variants using your unified bootstrap() function
+b1 <- bootstrap(returns, block_type = "moving", num_boots = 1)[[1]][[1]]
+b2 <- bootstrap(returns, block_type = "stationary", p_method = "cross validation", num_boots = 1)[[1]][[1]]
+b3 <- bootstrap(returns, block_type = "wild", num_boots = 1)[[1]][[1]]
+b4 <- bootstrap(returns, block_type = "hmm", nstates = 2, num_boots = 1)[[1]][[1]]
+b5 <- bootstrap(returns, block_type = "msar", ar_order = 1, nstates = 2, num_boots = 1)[[1]][[1]]
+
+# Helper: convert to data.frame with id and time
+to_df <- function(series, label) {
+  data.frame(value = series, 
+             time = seq_along(series), 
+             type = label)
+}
+
+# Combine
+df_plot <- bind_rows(
+  to_df(returns, "original"),
+  to_df(b1, "wild"),
+  to_df(b2, "stationary"),
+  to_df(b3, "moving"),
+  to_df(b4, "hmm"),
+  to_df(b5, "msar")
+)
+
+# Plot
+ggplot(df_plot, aes(x = time, y = value)) +
+  geom_line() +
+  facet_wrap(~type, scales = "free_y", ncol = 2) +
+  theme_minimal() +
+  labs(title = "Bootstrap Samples from Different Methods")
+```
+
+#### Setup: Simulate returns
+```{r}
+#library(sn)       # For skewed t-distribution
+library(e1071)    # For skewness, kurtosis
+library(ggplot2)
+library(dplyr)
+library("fGarch") # For skewed t-distribution
+```
+
+
+```{r}
+# Simulate skewed t-distributed annual log-returns
+n_years = 1
+
+n <- 252 * n_years
+params <- list(m = 0.052, s = 0.098, nu = 3.032, xi = 0.023)
+
+set.seed(1729)
+returns <- rsstd(n, params$m, params$s, params$nu, params$xi)
+```
+
+
+
+#### Run bootstraps
+```{r}
+boot_methods <- c("moving", "stationary", "wild", "hmm", "msar")
+n_boots <- 10000
+
+boots <- lapply(boot_methods, function(m) {
+  bootstrap(matrix(returns, ncol = 1),
+            block_type = m,
+            num_boots = n_boots,
+            block_length = 20,
+            overlap = TRUE,
+            nstates = 2,
+            ar_order = 1,
+            p_method = "1/n")
+})
+names(boots) <- boot_methods
+```
+
+#### Compare bootstrapped moments
+```{r}
+# Compute summary stats
+summary_stats <- function(b) {
+  sapply(b, function(x) {
+    x <- as.numeric(x[[1]])
+    c(mean = mean(x), skew = skewness(x), kurt = kurtosis(x))
+  }) %>% t() %>% as.data.frame()
+}
+
+moments_df <- bind_rows(
+  lapply(seq_along(boots), function(i) {
+    df <- summary_stats(boots[[i]])
+    df$method <- boot_methods[i]
+    df
+  })
+)
+```
+
+
+```{r}
+# Violin plots
+ggplot(moments_df, aes(x = method, y = mean, fill = method)) +
+  geom_violin() + geom_jitter(width = 0.1, alpha = 0.3) +
+  theme_minimal() + ggtitle("Bootstrapped Mean Distributions")
+```
+
+```{r}
+ggplot(moments_df, aes(x = method, y = skew, fill = method)) +
+  geom_violin() + geom_jitter(width = 0.1, alpha = 0.3) +
+  theme_minimal() + ggtitle("Bootstrapped Skewness Distributions")
+```
+
+```{r}
+ggplot(moments_df, aes(x = method, y = kurt, fill = method)) +
+  geom_violin() + geom_jitter(width = 0.1, alpha = 0.3) +
+  theme_minimal() + ggtitle("Bootstrapped Kurtosis Distributions")
+```
+
+
+#### Fan plot (bootstrap trajectories)
+```{r}
+method <- "stationary"
+mat <- do.call(cbind, boots[[method]]$bootstrap_series) 
+
+# Compute quantiles across bootstrap replicates
+quant_df <- apply(mat, 1, function(row) {
+  quantile(row, probs = c(0.05, 0.25, 0.5, 0.75, 0.95))
+}) %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate(time = 1:nrow(.))
+
+names(quant_df)[1:5] <- c("q05", "q25", "q50", "q75", "q95")
+
+# Plot fan chart
+ggplot(quant_df, aes(x = time)) +
+  geom_ribbon(aes(ymin = q05, ymax = q95), fill = "skyblue", alpha = 0.2) +
+  geom_ribbon(aes(ymin = q25, ymax = q75), fill = "skyblue", alpha = 0.4) +
+  geom_line(aes(y = q50), color = "black") +
+  labs(title = "Fan Plot of Bootstrap Replicates",
+       x = "Time", y = "Value") +
+  theme_minimal()
+```
+
+#### Comparison to Theoretical Moments
+For a standardized skewed t-distribution with 3 degrees of freedom and skewness parameter α ≈ 0.9:
+
+- Mean ≈ 0 (after standardization)
+- Skewness depends on α, but is > 0
+- Kurtosis for t(3) is ≈ 9 (excess kurtosis ≈ 6)
+
+```{r}
+# Helper to get named moment vector
+get_moments <- function(x) {
+  c(
+    mean = mean(x),
+    variance = var(x),
+    skewness = e1071::skewness(x),
+    kurtosis = e1071::kurtosis(x)
+  )
+}
+
+# Compute average moments across bootstrapped series
+moment_list <- lapply(boot_methods, function(method) {
+  boot_series <- boots[[method]]$bootstrap_series
+  moment_matrix <- sapply(boot_series, get_moments)  # 4 x n_boots matrix
+  rowMeans(moment_matrix)  # average across bootstraps
+})
+
+# Add theoretical skewed-t moments (mean = 0, variance = 3, skew = 0, kurt = Inf)
+moment_matrix <- do.call(cbind, moment_list)
+
+# Add theoretical values as a new column, not a row
+moment_df <- as.data.frame(moment_matrix)
+rownames(moment_df) <- c("mean", "variance", "skewness", "kurtosis")
+colnames(moment_df) <- boot_methods
+kurtosis_rsstd <- function(nu, xi) {
+  if (nu <= 4) return(NA)  # Kurtosis undefined for ν ≤ 4
+  num <- (xi^5 + xi^(-5)) * (xi + xi^(-1))
+  den <- (xi^3 + xi^(-3))^2
+  3 + (6 / (nu - 4)) * num / den
+}
+
+moment_df <- cbind(Theoretical = c(params$m, params$s^2, params$xi, kurtosis_sstd(params$nu, params$xi)), moment_df)
+
+# Round for presentation
+round(moment_df, 3)
+```
+
+
+Note: The Wild Bootstrap doesn't capture skewness by design.
+
+
+
+```{r}
+# Theoretical values (approximate, for comparison only)
+true_mean <- 0
+true_skew <- skewness(rsstd(100000, params$m, params$s, params$nu, params$xi))
+true_kurt <- kurtosis(rsstd(100000, params$m, params$s, params$nu, params$xi))
+
+plot_moment <- function(moment) {
+  g <- ggplot(moments_df, aes_string(x = "method", y = moment, fill = "method")) +
+    geom_violin() +
+    geom_jitter(width = 0.1, alpha = 0.3) +
+    geom_hline(yintercept = get(paste0("true_", moment)), linetype = "dashed", color = "red") +
+    theme_minimal() +
+    ggtitle(paste("Bootstrapped", toupper(moment), "vs Theoretical"))
+  print(g)
+}
+```
+
+```{r}
+plot_moment("mean")
+```
+
+```{r}
+plot_moment("skew")
+```
+
+```{r}
+plot_moment("kurt")
+```
+
+
+#### Heatmap of Pairwise Correlations Across Bootstraps
+```{r}
+library(corrplot)
+
+plot_correlation_heatmap <- function(method, B = 20) {
+  method <- "stationary"
+  mat <- do.call(cbind, boots[[method]]$bootstrap_series[1:B]) 
+  cor_mat <- cor(mat)
+  corrplot::corrplot(cor_mat, method = "color", type = "lower",
+                     title = paste("Correlation across", B, method, "bootstraps"),
+                     tl.cex = 0.8)
+}
+
+# Example for stationary bootstrap
+plot_correlation_heatmap("stationary")
+```
+
+
+
+  
+  
+### Estimate skew t-distribution parameters
+
+Simulate skewed t-distributed annual log-returns
+```{r}
+n_years = 10
+
+n <- 252 * n_years
+params <- list(m = 0.052, s = 0.098, nu = 3.032, xi = 0.023)
+
+set.seed(1729)
+returns <- rsstd(n, params$m, params$s, params$nu, params$xi)
+```
+
+Functions
+```{r}
+## Fit data to a skewed t, standardized t or normal distribution
+## distribution = "sstd", "std" or "normal"
+## If "normal", method="Nelder-Mead" is recommended, else method="BFGS"
+fit_distribution <- function(x, method = "BFGS", distribution = "sstd") {
+  
+  if(distribution == "sstd") {
+    loglik_sstd = function(beta) sum(- dsstd(x, mean = beta[1], sd = beta[2], nu = beta[3], xi = beta[4], log = TRUE))
+    start = c(mean(x), sd(x), 3, 1)
+  } else if(distribution == "std") {
+    loglik_sstd = function(beta) sum(- dsstd(x, mean = beta[1], sd = beta[2], nu = beta[3], log = TRUE))
+    start = c(mean(x), sd(x), 3)
+  } else {
+    loglik_sstd = function(beta) sum(- dnorm(x, mean = beta[1], sd = beta[2], log = TRUE))
+    start = c(mean(x), sd(x))
+  }
+  
+  optim_out = optim(start, loglik_sstd, method = method)
+  
+  n = length(x)
+  
+  if(distribution == "sstd") {
+    fit <- qsstd((1:n - 0.5)/n, mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3], xi = optim_out$par[4])
+    quantile_data <- qsstd(seq(0.005, 0.995, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3], xi = optim_out$par[4])
+    dist_data <- psstd(seq(-0.3, 0.3, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3], xi = optim_out$par[4])
+    dens_data <- dsstd(seq(-0.3, 0.3, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3], xi = optim_out$par[4])
+    theoretical_quantiles <- qsstd(ppoints(n),optim_out$par[1], optim_out$par[2], optim_out$par[3], optim_out$par[4])
+  } else if (distribution == "std") {
+    fit <- qstd((1:n - 0.5)/n, mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3])
+    quantile_data <- qstd(seq(0.005, 0.995, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3])
+    dist_data <- pstd(seq(-0.3, 0.3, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3])
+    dens_data <- dstd(seq(-0.3, 0.3, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3])
+    theoretical_quantiles <- qstd(ppoints(n), mean = optim_out$par[1], sd = optim_out$par[2], nu = optim_out$par[3])
+  } else {
+    fit <- qnorm((1:n - 0.5)/n, mean = optim_out$par[1], sd = optim_out$par[2])
+    quantile_data <- qnorm(seq(0.005, 0.995, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2])
+    dist_data <- pnorm(seq(-0.3, 0.3, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2])
+    dens_data <- dnorm(seq(-0.3, 0.3, length.out = 600), mean = optim_out$par[1], sd = optim_out$par[2])
+    theoretical_quantiles <- qstd(ppoints(n), mean = optim_out$par[1], sd = optim_out$par[2])
+  }
+  
+  r_squared <- cor(sort(fit), sort(x))
+  r_squared_round <- round(r_squared, 3)
+  
+  aic = 2 * optim_out$value + 2 * 4
+  bic = 2 * optim_out$value + log(n) * 4
+    
+  sample_mean <- mean(x)
+  
+  if(distribution == "sstd") {
+    qq_subtitle <- paste0(
+      "m=", round(optim_out$par[1], 4), 
+      ", s=", round(optim_out$par[2], 4),
+      ", nu=", round(optim_out$par[3], 4),
+      ", xi=", round(optim_out$par[4], 4),
+      ", R^2=", r_squared_round
+    )
+  } else if(distribution == "std") {
+    qq_subtitle <- paste0(
+      "m=", round(optim_out$par[1], 4), 
+      ", s=", round(optim_out$par[2], 4),
+      ", nu=", round(optim_out$par[3], 4),
+      ", R^2=", r_squared_round
+    )
+  } else {
+    qq_subtitle <- paste0(
+      "m=", round(optim_out$par[1], 4), 
+      ", s=", round(optim_out$par[2], 4),
+      ", R^2=", r_squared_round
+    )
+  }
+
+  output <- list(
+    # Plot with estimated skewed t-distribution
+    # qq plot for t-distribution
+    qqplot = function() {
+      qqplot(
+        x = theoretical_quantiles, 
+        y = x, 
+        main = paste0("QQ-plot, ", distribution),
+        xlab = paste0(distribution, " quantiles"), 
+        ylab = "log returns", 
+        xlim = c(min(fit) - abs(min(fit))/10, max(fit) + abs(max(fit))/10),  
+        ylim = c(min(x) - abs(min(x))/10, max(x) + abs(max(x))/10)
+      )
+      mtext(
+        qq_subtitle, 
+        side=3,  
+        cex = 0.7, 
+        adj=0
+      )
+      qqline(
+        x, 
+        distribution = function(p) {
+          if(distribution == "sstd") {
+            qsstd(
+              p, optim_out$par[1], optim_out$par[2], optim_out$par[3], optim_out$par[4]
+            )
+          } else if (distribution == "std") {
+            qstd(
+              p, optim_out$par[1], optim_out$par[2], optim_out$par[3]
+            )
+          } else {
+            qnorm(p, optim_out$par[1], optim_out$par[2])
+          }
+        }, 
+        datax = FALSE, 
+        col="black"
+      )
+      abline(0, 1, col = "red")
+      legend(
+        "bottomright", 
+        legend = c("data trendline", "45 degree line"), 
+        col = c("black", "red"), 
+        lty = c(1, 1)
+      )
+    },
+    fit_plot = function() {
+      plot(
+        sort(x), 
+        col="blue", 
+        ylab = "log returns", 
+        main = "Data vs fit",
+        ylim = c(min(c(x, fit)), max(c(x, fit)))
+      )
+      points(
+        sort(fit), 
+        col="red"
+        )
+      legend(
+        "bottomright", 
+        legend = c("data", "fit"), 
+        col = c("blue", "red"), 
+        pch = c(1, 1)
+      )
+    },
+    quantile_plot = function() {
+      plot(
+        x = seq(0.005, 0.995, length.out = 600), 
+        sort(quantile_data), 
+        pch = 16, 
+        cex = 0.3, 
+        main = paste0("Estimated ", distribution, " distribution quantiles"),
+        xlab = "probability", ylab = "log-returns")
+      abline(a = 0, b = 0, col = "gray", lty = 2)
+    },
+    dist_plot = function() {
+      plot(
+        x = seq(-0.3, 0.3, length.out = 600), 
+        sort(dist_data), 
+        pch = 16, 
+        cex = 0.3, 
+        main = paste0("Estimated ", distribution, " distribution CDF"),
+        xlab = "log-returns", ylab = "probability")
+      abline(v = c(min(x), max(x)), col = c("red", "green"))
+      abline(
+        h = if(distribution == "sstd") {
+          c(
+            psstd(min(x), optim_out$par[1], optim_out$par[2], optim_out$par[3], optim_out$par[4]), 
+            psstd(max(x), optim_out$par[1], optim_out$par[2], optim_out$par[3], optim_out$par[4])
+          )
+        } else if (distribution == "std") {
+          c(
+            pstd(min(x), optim_out$par[1], optim_out$par[2], optim_out$par[3]), 
+            pstd(max(x), optim_out$par[1], optim_out$par[2], optim_out$par[3])
+          )
+        } else {
+          c(
+            pnorm(min(x), optim_out$par[1], optim_out$par[2]), 
+            pnorm(max(x), optim_out$par[1], optim_out$par[2])
+          )
+        }, 
+        col = c("red", "green")
+      )
+    },
+    dens_plot = function() {
+      plot(
+        x = seq(-0.3, 0.3, length.out = 600), 
+        y = dens_data, 
+        cex = 0.3, 
+        pch = 16, 
+        xlab = "log-return", 
+        ylab = "likelihood", 
+        main = paste0("Estimated ", distribution, " distribution PDF"),
+        sub = paste0("m = ", round(optim_out$par[1], 3), ", sample mean = ", round(sample_mean, 3)))
+      abline(v = optim_out$par[1], col = "red")
+      abline(v = sample_mean, lty = 2, col = "blue")
+      legend(
+        "topleft", 
+        legend = c("density", "m", "sample mean"), 
+        col = c("black", "red", "blue"), 
+        lty = c(1, 1, 2)
+      )
+    },
+    data = x,
+    fit = fit,
+    dist_params = optim_out$par,
+    dist_data = dist_data,
+    dens_data = dens_data,
+    quantile_data = quantile_data,
+    theoretical_quantiles = theoretical_quantiles,
+    r_squared = r_squared,
+    aic = aic,
+    bic = bic
+  )
+  
+  output
+}
+
+fit_distribution_params <- function(x) {
+  suppressWarnings(fit_distribution(x)$dist_params)
+}
+```
+
+```{r}
+#' @param x A numeric vector, matrix, or data frame of time series data.
+#' @param block_length Length of individual blocks (ignored for MSAR).
+#' @param block_type Type of block sampling: "moving", "stationary", "hmm", 
+#'   "msar", or "wild".
+#' @param func A function to apply to each bootstrap sample (e.g., mean).
+#' @param apply_func_to Apply function to "cols" (columns individually) or "df" (whole data.frame).
+#' @param num_blocks Number of blocks per bootstrap sample.
+#' @param num_boots Number of bootstrap replicates.
+#' @param p_method Method to estimate average block probability p: "1/n",
+#'   "plugin", or "cross validation".
+#' @param p Optional value for p. If NULL, uses p_method to estimate.
+#' @param overlap Whether to allow overlapping blocks (for moving/stationary).
+#' @param ar_order Order of AR model used in MSAR block segmentation.
+#' @param nstates Number of states in the MSAR model.
+#' @param model_func Model function used when p_method = "cross validation".
+#' @param score_func Scoring function used when p_method = "cross validation".
+vanilla_boot <- bootstrap(
+  returns, 
+  n_length = 252,
+  block_length = 1, 
+  block_type = "stationary",
+  func = fit_distribution_params, 
+  apply_func_to = "cols",
+  num_blocks = 252, 
+  num_boots = 100, 
+  p_method = "1/n",
+  p = NULL, 
+  overlap = TRUE, 
+  ar_order = 1, 
+  nstates = 2,
+  model_func = NULL, 
+  score_func = NULL
+)
+
+
 
 ```
+
+
 
 
 
