@@ -1,9 +1,6 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-[![GitHub
-Stats](https://github-stats-extended.vercel.app/api/pin?username=mahovo&repo=mahovo%2Frsystrade&show_owner=true&theme=default&hide=html,mathematica)](https://github.com/mahovo/rsystrade)
-
 # rsystrade
 
 <!-- badges: start -->
